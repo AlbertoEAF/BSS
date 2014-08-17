@@ -1,0 +1,15 @@
+set macros
+
+#set logscale y
+
+
+
+set title "Local Acoustic Intensity"
+
+set xlabel "alpha"
+set ylabel "delta (s)"
+
+set term png size 800,800
+
+
+

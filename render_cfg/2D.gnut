@@ -1,0 +1,17 @@
+set macros
+
+
+
+
+set title "Modulo de psi"
+
+set key off
+
+#set xrange[-10:10]
+#set yrange[-10:10]
+
+set term png size 800,800
+
+plot_cmd = "plot"
+plot_options = "using 1:2:3 with image"
+

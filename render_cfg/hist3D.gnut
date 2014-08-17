@@ -1,0 +1,14 @@
+set macros
+
+
+set title "Histogram in (d,a) space"
+
+set xlabel "d (s)"
+set ylabel "a"
+set zlabel "|I|"
+
+
+set pm3d
+
+set term png size 1200,1200
+

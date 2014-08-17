@@ -1,0 +1,6 @@
+*.wav
+*~
+gnuplot_tmpdatafile_*
+*.o
+*.so
+*.exe

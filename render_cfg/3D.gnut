@@ -1,0 +1,25 @@
+set macros
+
+
+
+
+set title "Histogram in (d,a) space"
+
+set key off
+#set xrange[-10:10]
+#set yrange[-10:10]
+#set zrange[0:0.3]
+set xlabel "d (s)"
+set ylabel "a"
+set zlabel "|I(d,a)|"
+set pm3d 
+
+set term png size 1200,1200
+
+unset surface
+
+
+plot_options = "with dots"
+plot_cmd = "splot"
+
+

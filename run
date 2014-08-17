@@ -1,0 +1,33 @@
+#! /bin/bash
+
+
+
+if [ -z "$1" ]; then
+    echo "Usage: run.sh [FFT_N]"
+    exit
+fi
+
+
+N=`head -n 1 simulation.log`
+FFT_N=$1
+wav_folder="sounds/"
+
+
+
+for n in $(seq 0 $((N-1)))
+do
+    echo -n "Calculating for setup with source $n only..."
+    rm -f hist_dats/* hist_render2D/* hist_render3D/*
+    d $FFT_N ${wav_folder}${n}x0.wav ${wav_folder}${n}x1.wav
+    mv 2D.mp4 2D_n${n}.mp4
+    mv 3D.mp4 3D_n${n}.mp4
+    echo "DONE"
+done
+
+echo -n "Calculating for complete mixture..."
+rm -f hist_dats/* hist_render2D/* hist_render3D/*
+d $FFT_N ${wav_folder}x0.wav ${wav_folder}x1.wav 1>/dev/null
+echo "DONE"
+
+
+

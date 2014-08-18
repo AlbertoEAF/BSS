@@ -537,9 +537,9 @@ void ransac_test(idx time_block, idx pN, idx sample_rate_Hz,
       // Do not override alpha and delta, for those are for DUET right now
       _alpha /*=alpha(time_block, f)*/ = a - 1/a;
       // Wrong
-      //_delta = delta(time_block, f) = std::fmod(std::arg(F1) - std::arg(F2), M_PI);///omega;
-      //      _delta /*= delta(time_block, f)*/ = std::arg(std::polar<real>(1,std::arg(F1) - std::arg(F2)));///omega;
 
+      //_delta = delta(time_block, f) = std::fmod(std::arg(F1) - std::arg(F2), M_PI);///omega;
+      //_delta /*= delta(time_block, f)*/ = std::arg(std::polar<real>(1,std::arg(F1) - std::arg(F2)));///omega;
       _delta = std::fmod(std::arg(F1)-std::arg(F2) + M_PI, 2*M_PI) - M_PI;
 
       //      _delta = std::fmod(std::arg(F1)-std::arg(F2),M_PI);
@@ -553,18 +553,7 @@ void ransac_test(idx time_block, idx pN, idx sample_rate_Hz,
   pransac.replot(delta_axis(), f_axis(), pN/2, "Frame RANSAC");
   //wait();
 
-  static Gnuplot pM1, pM2, pM12;
-  static Buffer<real> M1(pN/2), M2(pN/2), M12(pN/2);
-  evenHC2magnitude(pN, X1(),M1());/*
-  evenHC2magnitude(pN, X2(),M2());
-  for (size_t i=0; i < pN/2; ++i)
-    M12[i] = M1[i]*M2[i];*/
-  pM1.cmd("set logscale y");/*
-  pM2.cmd("set logscale y");
-  pM12.cmd("set logscale y");*/
-  pM1.replot(f_axis(),M1(),pN/2,"M1");/*
-  pM2.replot(f_axis(),M2(),pN/2,"M2");
-  pM12.replot(f_axis(),M12(),pN/2,"M12");*/
+ 
 }
 
 
@@ -1221,6 +1210,11 @@ int main(int argc, char **argv)
   Wplot.plot_y(W(),W.size(),"W");
   wait();
   */
+
+  static Gnuplot pM1;
+  static Buffer<real> M1(FFT_pN/2);
+  static Histogram<real> M1hist(1,0,FFT_pN/2,HistogramBounds::Bounded);
+
   for (idx time_block = 0; time_block < time_blocks; ++time_block)
     {
       idx block_offset = time_block*FFT_slide;
@@ -1262,6 +1256,13 @@ int main(int argc, char **argv)
 
       fftw_execute(xX1_plan);
       fftw_execute(xX2_plan);
+
+
+      evenHC2magnitude(FFT_pN, X1(),M1());
+      pM1.plot(/*f_axis(),*/M1(),FFT_pN/2,"M1");
+      for (idx f=0; f < FFT_pN/2; ++f)
+	M1hist(f) += M1[f];
+
       /*
       Gnuplot Mplot;
       evenHC2magnitude(FFT_pN, X1(), x1());
@@ -1373,7 +1374,6 @@ int main(int argc, char **argv)
 	      wait();
 	}
 
-
       ///////////////////////////////////////////////////////////
 
       if (RENDER >= 0)
@@ -1451,6 +1451,9 @@ int main(int argc, char **argv)
   // Since the "" must be passed with quotes inside the gnuplot command a triple \ is needed and  a single \ is needed for the outer command.
   RENDER_HIST("cumulative_hist.dat", "Cumulative hist", 1);
   
+
+  static Gnuplot pM1hist;
+  pM1hist.plot((*M1hist.raw())(),FFT_pN/2,"M1 histogram");
 
 
   //// Each of the clusters should now belong to a source: create masks and separate the sources.

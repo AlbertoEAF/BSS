@@ -12,6 +12,8 @@
 //#include "Buffer.h" // Just to avoid changing the input: copy the data and perform normaliztion on the copy
 #include "Matrix.h" // Version for matrix of outputs write
 
+#include "Buffers.h"
+
 /** Reads a .wav file from disk. STUB: better use manually */
 /*int read_mono_wav (const char *filename)
   {
@@ -118,6 +120,33 @@ namespace wav
 	    return false;
 	}
 
+
+      return true;
+    }
+
+
+  template <class T>
+    bool write (const std::string &name, const Buffers<T> &data, const int sample_rate_Hz, const bool global_normalization = true)
+    {
+      const uint N_waves = data.buffers();
+      const uint samples = data.buffer_size();
+
+      Buffers<T> data_copy(data);
+
+      if (global_normalization)
+	data_copy /= data_copy.max_abs();
+
+      for (uint n=0; n < N_waves; ++n)
+	{
+	  bool write = 0;
+	  if (global_normalization)
+	    write = wav::write_mono(name+std::to_string(n)+".wav", data_copy(n)(), samples, sample_rate_Hz, 1.0);
+	  else
+	    write = wav::write_mono(name+std::to_string(n)+".wav", data_copy(n)(), samples, sample_rate_Hz); // Let it normalize
+
+	  if (! write)
+	    return false;
+	}
 
       return true;
     }

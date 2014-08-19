@@ -593,22 +593,23 @@ void copycol(Matrix<real> &b, Matrix<real> &a, size_t to_col, size_t from_col)
 
 // After giving one buffer in one call (new_buffer), at the end of the next (blocking) call, it can be released.
 // Cannot be reassigned to a different output because it stores the previous buffer and it would have conflicts, thus all the data must be passed 
-size_t write_data(Matrix<real> &o, Matrix<real> *new_buffer, const size_t FFT_N, const size_t FFT_slide)
+size_t write_data(Buffers<real> &o, Buffers<real> *new_buffers, const size_t FFT_N, const size_t FFT_slide)
 {
   static int overlapping_buffers = 1; // how many buffers are in current use (state variable)
-  static Matrix<real> *a=new_buffer, *b=NULL;
+  static Buffers<real> *a=new_buffers, *b=NULL;
   static size_t i = 0, p = 0;
-  
+  unsigned int buffers = o.buffers();
+
   if (FFT_slide < FFT_N) // Up to 50% overlap
     {
       if (overlapping_buffers == 2)
 	{
-	  b = new_buffer;
+	  b = new_buffers;
 	  while (i < FFT_N)
 	    {
 	      //o[p] = a[i] + b[i-FFT_slide];
-	      for (uint row = 0; row < o.rows(); ++row)
-		o(row, p) = (*a)(row,i) + (*b)(row,i-FFT_slide);
+	      for (uint buf = 0; buf < buffers; ++buf)
+		(*o(buf))[p] = (*(*a)(buf))[i] + (*(*b)(buf))[i-FFT_slide];
 	      ++p;
 	      ++i;
 	    }
@@ -622,8 +623,8 @@ size_t write_data(Matrix<real> &o, Matrix<real> *new_buffer, const size_t FFT_N,
       while (i < FFT_slide)
 	{
 	  // o[p] = a[i]
-	  for (uint row = 0; row < o.rows(); ++row)
-	    o(row, p) = (*a)(row, i);
+	  for (uint buf = 0; buf < buffers; ++buf)
+	    (*o(buf))[p] = (*(*a)(buf))[i];
 	  ++p;
 	  ++i;
 	}
@@ -633,12 +634,12 @@ size_t write_data(Matrix<real> &o, Matrix<real> *new_buffer, const size_t FFT_N,
   else // No overlap
     {
       i = 0;
-      a = new_buffer;
+      a = new_buffers;
       while (i < FFT_slide) // == FFT_N
 	{
 	  // o[p] = a[i]
-	  for (uint row = 0; row < o.rows(); ++row)
-	    o(row,p) = (*a)(row, i);	      
+	  for (uint buf = 0; buf < buffers; ++buf)
+	    (*o(buf))[p] = (*(*a)(buf))[i];	      
 	  ++p;
 	  ++i;
 	}
@@ -687,7 +688,7 @@ void build_masks(Buffer<int> &masks, real *alpha, real *delta, real *X1, real *X
   //  cout << RED << masks_diffs << NOCOLOR << endl;
  }
 
-void apply_masks(Matrix<real> &buffers, real *alpha, real *X1, real *X2, Buffer<int> &masks, Buffer<Point2D<real> > &clusters, uint active_sources, idx FFT_N, idx FFT_half_N, real FFT_df, fftw_plan &FFTi_plan, Buffer<real> &Xo)
+void apply_masks(Buffers<real> &buffers, real *alpha, real *X1, real *X2, Buffer<int> &masks, Buffer<Point2D<real> > &clusters, uint active_sources, idx FFT_N, idx FFT_half_N, real FFT_df, fftw_plan &FFTi_plan, Buffer<real> &Xo)
 {
   /*
   for (uint source = 0; source < active_sources; ++source)
@@ -743,7 +744,7 @@ void apply_masks(Matrix<real> &buffers, real *alpha, real *X1, real *X2, Buffer<
 #endif // OLD_PEAK_ASSIGN
 	    }
 	}
-      fftw_execute_r2r(FFTi_plan, Xo(), buffers(source));
+      fftw_execute_r2r(FFTi_plan, Xo(), buffers.raw(source));
     }
 
   buffers /= (real)FFT_N;
@@ -827,7 +828,7 @@ bool in (int val, Buffer<int> &list)
 
 /** Provides the separation stats of the mixtures.   
  */
-void separation_stats(Matrix<real> &s, Matrix<real> &o, int N, idx samples)
+void separation_stats(Buffers<real> &s, Buffers<real> &o, int N, idx samples)
 {
   real dtotal;
   static Buffer<real> dtotals(N); // Store the results to find the minimum
@@ -847,7 +848,7 @@ void separation_stats(Matrix<real> &s, Matrix<real> &o, int N, idx samples)
 	    dtotals[i_original] = FLT_MAX;
 	    else*/
 	    // The original signal wasn't matched yet.
-	    dtotals[i_original] = Dtotal(s(i), o(i_original), samples);	  
+	  dtotals[i_original] = Dtotal(s.raw(i), o.raw(i_original), samples);	  
 	}
 
       //cout << "dtotals:" << dtotals;
@@ -866,8 +867,8 @@ void separation_stats(Matrix<real> &s, Matrix<real> &o, int N, idx samples)
       dtotal = dtotals[match_index];
 
       // Other stats
-      real E_r = Energy_ratio(s(i), o(match_index), samples);
-      real snr = SNR(s(i), o(match_index), samples);
+      real E_r = Energy_ratio(s.raw(i), o.raw(match_index), samples);
+      real snr = SNR(s.raw(i), o.raw(match_index), samples);
     
       printf(BLUE "s%d : Dtotal=%g (%g/sample) SNR=%gdB E_r=%g\n" NOCOLOR, i, dtotal, dtotal/(real)samples, snr, E_r);     
     }
@@ -1016,14 +1017,14 @@ int main(int argc, char **argv)
   x2_file.read(x2_wav(), samples);
 
   // Only x1's are needed since that's the chosen channel for source separation
-  Matrix<real> original_waves_x1(N, samples);
+  Buffers<real> original_waves_x1(N, samples);
   for (int i = 0; i < N; ++i)
     {
       SndfileHandle wav_file("sounds/"+std::to_string(i)+"x0.wav");
       if (! wav::ok (wav_file))
 	return EXIT_FAILURE;
 
-      wav_file.read(original_waves_x1(i), samples);
+      wav_file.read(original_waves_x1.raw(i), samples);
     }
   	
   printf("\nProcessing input file with %lu frames @ %u Hz.\n\n", 
@@ -1070,9 +1071,10 @@ int main(int argc, char **argv)
   // Organized as (time, frequency)
   Matrix<real,MatrixAlloc::Rows> 
     alpha(time_blocks, FFT_pN/2), 
-    delta(time_blocks, FFT_pN/2),
-    wav_out(N_max, time_blocks*FFT_slide);
-  //BufferSet<real> wav_out(N_max, time_blocks*FFT_slide, fftw_malloc, fftw_free), bufs1(N_max,FFT_pN,fftw_malloc,fftw_free), bufs2(bufs1), bufs3(bufs1);
+    delta(time_blocks, FFT_pN/2);
+  Buffers<real> 
+    wav_out(N_max, time_blocks*FFT_slide, fftw_malloc, fftw_free), 
+    bufs1(N_max,FFT_pN,fftw_malloc,fftw_free), bufs2(bufs1), bufs3(bufs1);
 
   const real FFT_df = sample_rate_Hz / (real) FFT_N;
   FFT_flags = FFTW_ESTIMATE; // Use wisdom + FFTW_EXHAUSTIVE later!
@@ -1426,10 +1428,12 @@ int main(int argc, char **argv)
 
   // 2 sets of buffers [optional: +1] are needed to allow up to 50% overlapping. If writing and computing is done simultaneously instead of writing and waiting for the old  buffer that is freed at the next write_data call end an additional buffer is needed to store current computations.
 
+  /*
   Matrix<real> // This should be a buffer pool instead of a matrix so swapping rows (buffers) is possible (source permutations) without copies.
     bufs1(N_max, FFT_pN), *bufs_ptr  = &bufs1,
     bufs2(N_max, FFT_pN), *bufs2_ptr = &bufs2;
-
+  */
+  Buffers<real> *bufs_ptr=&bufs1, *bufs_ptr2 = &bufs2, *bufs_ptr3 = &bufs3;
 
 
   system("rm -f x*_rebuilt.wav");
@@ -1442,7 +1446,7 @@ int main(int argc, char **argv)
       apply_masks(*bufs_ptr, alpha(t_block), X1_history(t_block), X2_history(t_block), masks, clusters, clusters.size(), FFT_pN, FFT_pN/2, FFT_df, Xxo_plan, Xo);
       // Explicitly use the initial region FFT_N and exclude the padding FFT_pN.
       write_data(wav_out, bufs_ptr, FFT_N, FFT_slide);
-      swap(bufs_ptr, bufs2_ptr);
+      swap(bufs_ptr, bufs_ptr2);
     }		
 
   for (uint source = 0; source < clusters.size(); ++source)
@@ -1450,7 +1454,7 @@ int main(int argc, char **argv)
       std::string wav_filepath("x"+itos(source)+"_rebuilt.wav");
       printf("%s...", wav_filepath.c_str());
       fflush(stdout);
-      print_status( wav::write_mono(wav_filepath, wav_out(source), samples, sample_rate_Hz) );
+      print_status( wav::write_mono(wav_filepath, wav_out.raw(source), samples, sample_rate_Hz) );
     }
 	
   separation_stats(wav_out, original_waves_x1, N, samples);

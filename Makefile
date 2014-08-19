@@ -3,7 +3,7 @@ CC=clang++
 
 DEBUG= -g # -DNDEBUG
 EXTRACCFLAGS =  -Wno-unused-variable $(DEBUG) -ffunction-sections -Wl,-gc-sections #-Wno-unused-but-set-variable
-OPTIMIZATION_FLAGS= -O2 #-DNDEBUG
+OPTIMIZATION_FLAGS= -O2 # -DNDEBUG
 OMP= -fopenmp
 CCFLAGS= -Wall $(EXTRACCFLAGS) -std=c++11 $(OPTIMIZATION_FLAGS) $(OMP)
 
@@ -14,7 +14,7 @@ PRECISION= -DDOUBLE_PRECISION
 FFTLIBS= -lfftw3
 WAVLIBS= -lsndfile
 MATHLIBS= -lm
-ARMADILLO_LIB= -larmadillo #-fwhole-program # whole-program allows merging operations in armadillo
+#ARMADILLO_LIB= -larmadillo #-fwhole-program # whole-program allows merging operations in armadillo
 
 #Small Random Libs
 LIBS_SRL = -Llibs -lSRL

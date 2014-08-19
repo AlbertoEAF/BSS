@@ -478,19 +478,21 @@ void calc_alpha_delta(idx time_block, idx pN, idx sample_rate_Hz,
   if (DUET.use_smoothing)
     {
       static Buffer<real> 
-	conv_kernel_alpha(hist_alpha.gen_gaussian_kernel(DUET.smoothing_Delta_alpha)),
-	conv_kernel_delta(hist_delta.gen_gaussian_kernel(DUET.smoothing_Delta_delta)),
+	conv_kernel_alpha(hist_alpha.gen_gaussian_kernel(DUET.sigma_alpha)),
+	conv_kernel_delta(hist_delta.gen_gaussian_kernel(DUET.sigma_delta)),
 	conv_hist_alpha  (hist_alpha.bins()), 
 	conv_hist_delta  (hist_delta.bins());
 
       static Matrix<real> 
-	conv_kernel(hist.gen_gaussian_kernel(DUET.smoothing_Delta_alpha, DUET.smoothing_Delta_delta)),
+	conv_kernel(hist.gen_gaussian_kernel(DUET.sigma_alpha, DUET.sigma_delta)),
 	conv_hist  (hist.xbins(),hist.ybins());
 
       // New blurring method: convolution
       hist_alpha.kernel_convolution(conv_kernel_alpha, conv_hist_alpha);
       hist_delta.kernel_convolution(conv_kernel_delta, conv_hist_delta);
-      hist.kernel_convolution(conv_kernel, conv_hist);
+      // WARNING: VERY SLOW OPERATION
+      if (DUET.use_smoothing_2D)
+	hist.kernel_convolution(conv_kernel, conv_hist); ///SLOW!!
     }
 }
 
@@ -1124,15 +1126,11 @@ int main(int argc, char **argv)
   _DUET.p = o.f("hist.p");
   _DUET.q = o.f("hist.q");
 
-  _DUET.smoothing_Delta_alpha = o.f("hist.smoothing_Delta_alpha");
-  _DUET.smoothing_Delta_delta = o.f("hist.smoothing_Delta_delta");
+  _DUET.sigma_alpha = o.f("hist.sigma_alpha");
+  _DUET.sigma_delta = o.f("hist.sigma_delta");
 
-  _DUET.use_smoothing = ((_DUET.smoothing_Delta_alpha>hist.dx()) && (_DUET.smoothing_Delta_delta>hist.dy()) && o.i("hist.use_smoothing") ? true : false);
-  
-  printf("%g %g :: %g %g\n", _DUET.smoothing_Delta_alpha, hist.dx(), _DUET.smoothing_Delta_delta, hist.dy());
-
-  if (o.i("hist.assert_use_smoothing"))
-    Guarantee(_DUET.use_smoothing, "Smoothing disabled! (Make sure histogram resolution is bigger than the smoothing)");
+  _DUET.use_smoothing = o.i("hist.use_smoothing");
+  _DUET.use_smoothing_2D = o.i("hist.use_smoothing_2D");
 
   if (_DUET.use_smoothing)
     puts(GREEN "Smoothing enabled!" NOCOLOR);
@@ -1258,8 +1256,10 @@ int main(int argc, char **argv)
       fftw_execute(xX2_plan);
 
 
+
       evenHC2magnitude(FFT_pN, X1(),M1());
-      pM1.plot(/*f_axis(),*/M1(),FFT_pN/2,"M1");
+      if (o.i("show_each_hist"))      
+	pM1.plot(/*f_axis(),*/M1(),FFT_pN/2,"M1");
       for (idx f=0; f < FFT_pN/2; ++f)
 	M1hist(f) += M1[f];
 
@@ -1283,7 +1283,7 @@ int main(int argc, char **argv)
       hist_alpha.clear();
       hist_delta.clear();
       calc_alpha_delta(time_block, FFT_pN, sample_rate_Hz, X1, X2, alpha, delta, hist, hist_alpha, hist_delta, DUET);
-      ransac_test(time_block, FFT_pN, sample_rate_Hz, X1, X2, alpha, delta, hist, hist_alpha, hist_delta, DUET);
+      //ransac_test(time_block, FFT_pN, sample_rate_Hz, X1, X2, alpha, delta, hist, hist_alpha, hist_delta, DUET);
       
       /*
       static Histogram2D<real> prod_hist(hist), diff_hist(hist);
@@ -1349,12 +1349,11 @@ int main(int argc, char **argv)
 
       //static Buffer<real> hist_alpha(hist.xbins()), hist_delta(hist.ybins());
       static Gnuplot palpha, pdelta;
-      palpha.reset(); pdelta.reset();
-      palpha.setstyle("lines");
-      pdelta.setstyle("lines");
+
 
       if (o.i("show_each_hist"))
 	{
+	  palpha.reset(); pdelta.reset();
 	  /*
 	    hist.marginal_x(hist_alpha);
 	    hist.marginal_y(hist_delta);
@@ -1451,9 +1450,10 @@ int main(int argc, char **argv)
   // Since the "" must be passed with quotes inside the gnuplot command a triple \ is needed and  a single \ is needed for the outer command.
   RENDER_HIST("cumulative_hist.dat", "Cumulative hist", 1);
   
-
   static Gnuplot pM1hist;
-  pM1hist.plot((*M1hist.raw())(),FFT_pN/2,"M1 histogram");
+  pM1hist.plot((*M1hist.raw())(),FFT_pN/2,"M1 histogram");      
+
+
 
 
   //// Each of the clusters should now belong to a source: create masks and separate the sources.

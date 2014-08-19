@@ -71,8 +71,9 @@ struct DUETcfg
 
 
   bool use_smoothing;  
-  real smoothing_Delta_alpha;
-  real smoothing_Delta_delta;
+  bool use_smoothing_2D;
+  real sigma_alpha;
+  real sigma_delta;
 
   // Peaks
   real max_peak_scale_disparity;

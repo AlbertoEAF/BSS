@@ -1132,14 +1132,7 @@ int main(int argc, char **argv)
   _DUET.use_smoothing = o.i("hist.use_smoothing");
   _DUET.use_smoothing_2D = o.i("hist.use_smoothing_2D");
 
-  if (_DUET.use_smoothing)
-    puts(GREEN "Smoothing enabled!" NOCOLOR);
-  else
-    puts(RED "Smoothing Disabled" NOCOLOR);
-
-
   const int RENDER = o.i("render");
-
 
   _DUET.aggregate_clusters = o.i("DUET.aggregate_clusters");
   _DUET.min_peak_fall   = o.d("DUET.min_peak_fall");

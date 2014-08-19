@@ -36,7 +36,7 @@
 
 #include "color_codes.h"
 
-
+#include "BufferSet.h"
 
 using std::cout;
 using std::endl;

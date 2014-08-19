@@ -591,17 +591,17 @@ void copycol(Matrix<real> &b, Matrix<real> &a, size_t to_col, size_t from_col)
 }
 */
 
-// After giving one buffer, at the end of the next (blocking) call, it can be released
+// After giving one buffer in one call (new_buffer), at the end of the next (blocking) call, it can be released.
 // Cannot be reassigned to a different output because it stores the previous buffer and it would have conflicts, thus all the data must be passed 
 size_t write_data(Matrix<real> &o, Matrix<real> *new_buffer, const size_t FFT_N, const size_t FFT_slide)
 {
-  static int buffers = 1; // how many buffers are in current use (state variable)
+  static int overlapping_buffers = 1; // how many buffers are in current use (state variable)
   static Matrix<real> *a=new_buffer, *b=NULL;
   static size_t i = 0, p = 0;
   
   if (FFT_slide < FFT_N) // Up to 50% overlap
     {
-      if (buffers == 2)
+      if (overlapping_buffers == 2)
 	{
 	  b = new_buffer;
 	  while (i < FFT_N)
@@ -615,10 +615,10 @@ size_t write_data(Matrix<real> &o, Matrix<real> *new_buffer, const size_t FFT_N,
 	  RELEASE(a);
 	  i = FFT_N-FFT_slide;
 	  a = b;
-	  buffers = 1;
+	  overlapping_buffers = 1;
 	}
 
-      // Buffers == 1
+      // overlapping_buffers == 1
       while (i < FFT_slide)
 	{
 	  // o[p] = a[i]
@@ -627,7 +627,7 @@ size_t write_data(Matrix<real> &o, Matrix<real> *new_buffer, const size_t FFT_N,
 	  ++p;
 	  ++i;
 	}
-      buffers = 2;
+      overlapping_buffers = 2;
       // Now wait for new call with new_buffer 
     }
   else // No overlap
@@ -1062,7 +1062,7 @@ int main(int argc, char **argv)
 
   // Initialize the buffers all with the same characteristics and aligned for FFTW use.
   Buffer<real> x1(FFT_pN, 0, fftw_malloc, fftw_free), x2(x1), X1(x1), X2(x1), xo(x1), Xo(x1);
-
+  
 
   // We're going to save at least one of the microphone transforms for all time blocks for the static heuristic reconstruction
   Matrix<real> X1_history(time_blocks, FFT_pN), X2_history(time_blocks, FFT_pN);
@@ -1070,8 +1070,9 @@ int main(int argc, char **argv)
   // Organized as (time, frequency)
   Matrix<real,MatrixAlloc::Rows> 
     alpha(time_blocks, FFT_pN/2), 
-    delta(time_blocks, FFT_pN/2), 
+    delta(time_blocks, FFT_pN/2),
     wav_out(N_max, time_blocks*FFT_slide);
+  //BufferSet<real> wav_out(N_max, time_blocks*FFT_slide, fftw_malloc, fftw_free), bufs1(N_max,FFT_pN,fftw_malloc,fftw_free), bufs2(bufs1), bufs3(bufs1);
 
   const real FFT_df = sample_rate_Hz / (real) FFT_N;
   FFT_flags = FFTW_ESTIMATE; // Use wisdom + FFTW_EXHAUSTIVE later!
@@ -1347,14 +1348,9 @@ int main(int argc, char **argv)
       if (o.i("show_each_hist"))
 	{
 	  palpha.reset(); pdelta.reset();
-	  /*
-	    hist.marginal_x(hist_alpha);
-	    hist.marginal_y(hist_delta);
-	  */
 
-	  palpha.plot_xy(alpha_range(), (*hist_alpha.raw())(),hist_alpha.bins(),"alpha");
-	  pdelta.plot_xy(delta_range(), (*hist_delta.raw())(),hist_delta.bins(),"delta");
-	  
+	  palpha.plot(alpha_range(), (*hist_alpha.raw())(),hist_alpha.bins(), "alpha");
+	  pdelta.plot(delta_range(), (*hist_delta.raw())(),hist_delta.bins(), "delta");	  
 
 	  if (o.i("show_each_hist")>1)
 	    {
@@ -1378,31 +1374,6 @@ int main(int argc, char **argv)
     }
 
 	
-  /* // Find the centroid (alpha,delta) of the dataset 
-
-     real *ptr_a_t, *ptr_d_t; 
-     real avg_error_alpha=0, avg_error_delta=0;
-     for (idx t = 0; t < time_blocks; ++t)
-     {
-     static size_t elements = alpha.d();
-
-     ptr_a_t = alpha(t);
-     ptr_d_t = delta(t);
-
-     calpha[0] = avg(ptr_a_t, elements);
-     cdelta[0] = avg(ptr_d_t, elements);
-
-     avg_error_alpha += std::abs(calpha[0]-true_alpha[0]);	
-     avg_error_delta += std::abs(cdelta[0]-true_delta[0]);
-
-     usleep(o.stoi("sleep_us", Ignore)); // use nanosleep instead - posix and resilient against interrupts
-     if (WAIT)
-     wait();
-     }
-     avg_error_alpha /= (real)time_blocks;
-     avg_error_delta /= (real)time_blocks;
-     printf("<e_ca> = %f     <e_cd> = %f\n", avg_error_alpha, avg_error_delta);
-  */
   ///// Static Heuristic Rebuilding! ///////////////////////////////////////////////////////////////////
   puts(GREEN "Doing static-heuristic rebuilding..." NOCOLOR);
   cumulative_hist -= hist;
@@ -1453,10 +1424,13 @@ int main(int argc, char **argv)
 
   Buffer<int> masks(FFT_pN/2); 
 
-  // 2 sets of buffers are needed to allow up to 50% overlapping.
-  Matrix<real> 
+  // 2 sets of buffers [optional: +1] are needed to allow up to 50% overlapping. If writing and computing is done simultaneously instead of writing and waiting for the old  buffer that is freed at the next write_data call end an additional buffer is needed to store current computations.
+
+  Matrix<real> // This should be a buffer pool instead of a matrix so swapping rows (buffers) is possible (source permutations) without copies.
     bufs1(N_max, FFT_pN), *bufs_ptr  = &bufs1,
     bufs2(N_max, FFT_pN), *bufs2_ptr = &bufs2;
+
+
 
   system("rm -f x*_rebuilt.wav");
 
@@ -1468,13 +1442,7 @@ int main(int argc, char **argv)
       apply_masks(*bufs_ptr, alpha(t_block), X1_history(t_block), X2_history(t_block), masks, clusters, clusters.size(), FFT_pN, FFT_pN/2, FFT_df, Xxo_plan, Xo);
       // Explicitly use the initial region FFT_N and exclude the padding FFT_pN.
       write_data(wav_out, bufs_ptr, FFT_N, FFT_slide);
-
       swap(bufs_ptr, bufs2_ptr);
-      /*
-      for(uint source = 0; source < clusters.size(); ++source)
-	for (idx i = 0; i < FFT_N && i+t_block*FFT_N < samples; ++i)
-	  wav_out(source, i+t_block*FFT_N) = (*bufs_ptr)(source,i);      
-      */
     }		
 
   for (uint source = 0; source < clusters.size(); ++source)

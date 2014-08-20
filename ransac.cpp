@@ -1072,9 +1072,16 @@ int main(int argc, char **argv)
   Matrix<real,MatrixAlloc::Rows> 
     alpha(time_blocks, FFT_pN/2), 
     delta(time_blocks, FFT_pN/2);
+
+  // 2 sets of buffers [optional: +1] are needed to allow up to 50% overlapping. If writing and computing is done simultaneously instead of writing and waiting for the old  buffer that is freed at the next write_data call end an additional buffer is needed to store current computations.
   Buffers<real> 
     wav_out(N_max, time_blocks*FFT_slide, fftw_malloc, fftw_free), 
     bufs1(N_max,FFT_pN,fftw_malloc,fftw_free), bufs2(bufs1), bufs3(bufs1);
+  Buffers<real> *old_buffers=NULL, *new_buffers=NULL;
+  // Convenient interface to handle bufs pointers.
+  DoubleLinkedList<Buffers<real>*> bufs;
+  bufs.append(&bufs1); bufs.append(&bufs2); bufs.append(&bufs3);
+  
 
   const real FFT_df = sample_rate_Hz / (real) FFT_N;
   FFT_flags = FFTW_ESTIMATE; // Use wisdom + FFTW_EXHAUSTIVE later!
@@ -1101,7 +1108,6 @@ int main(int argc, char **argv)
     }
 
 
-
   Histogram<real> 
     hist_alpha(o.d("hist.dalpha"), o.d("alpha.min"), o.d("alpha.max"), hist_bound_type),
     hist_delta(o.d("hist.ddelta"), o.d("delta.min"), o.d("delta.max"), hist_bound_type);
@@ -1112,17 +1118,6 @@ int main(int argc, char **argv)
 
   hist.print_format();
 
-  /*
-  cumulative_hist.clear();
-  cumulative_hist(-0.12,5e-6) += 10;
-  cumulative_hist.smooth_add(1, -0.12, 5e-6, 1.1e-2, 6e-7);
-  Gnuplot cumulative_hist_plot;
-  cumulative_hist_plot.cmd("set xlabel 'alpha'; set ylabel 'delta (s)'");
-  cumulative_hist.plot(cumulative_hist_plot, "Cumulative Histogram");
-  wait();
-  return 1;
-  */
-
   RankList<real, Point2D<real> > preclusters(MAX_PRECLUSTERS,0.0,Point2D<real>());
   RankList<real, Point2D<real> > cumulative_clusters(N_max,0.0,Point2D<real>());
 
@@ -1130,11 +1125,9 @@ int main(int argc, char **argv)
 
   _DUET.p = o.f("hist.p");
   _DUET.q = o.f("hist.q");
-
   _DUET.sigma_alpha = o.f("hist.sigma_alpha");
   _DUET.sigma_delta = o.f("hist.sigma_delta");
-
-  _DUET.use_smoothing = o.i("hist.use_smoothing");
+  _DUET.use_smoothing    = o.i("hist.use_smoothing")   ;
   _DUET.use_smoothing_2D = o.i("hist.use_smoothing_2D");
 
   const int RENDER = o.i("render");
@@ -1148,27 +1141,6 @@ int main(int argc, char **argv)
   _DUET.noise_threshold = o.d("DUET.noise_threshold");
 
   const DUETcfg DUET = _DUET; // Make every parameter constant to avoid mistakes
-
-
-  /////////////////////////////// Convolution 2D smoothing tests
-  /*
-  Matrix<real> conv_kernel(hist.gen_gaussian_kernel(DUET.smoothing_Delta_alpha,DUET.smoothing_Delta_delta));
-
-  Matrix<real> conv_hist(hist.xbins(),hist.ybins());
-
-  hist.clear();
-  hist(0,0) += 1;
-
-  Gnuplot phist;
-  
-  hist.kernel_convolution(conv_kernel, conv_hist);
-
-  hist.plot(phist,"Conv");
-  
-  wait();
-  */
-  ///////////////////////////////
-
 
   Buffer<real> W(FFT_N);
   if (o("window",Ignore) == "Hamming0")
@@ -1273,9 +1245,6 @@ int main(int argc, char **argv)
 	  X1_history(time_block,f) = X1[f];
 	  X2_history(time_block,f) = X2[f];
 	}
-
-      //evenHC2magnitude(FFT_N, X1(), M1());
-      //evenHC2magnitude(FFT_N, X2(), M2());
 
       hist.clear();
       hist_alpha.clear();
@@ -1383,16 +1352,8 @@ int main(int argc, char **argv)
   cumulative_hist -= hist;
   cumulative_hist.write_to_gnuplot_pm3d_data("cumulative_hist.dat");
   
-  /*
-  cumulative_hist.clear();
-  cumulative_hist.smooth_add(1, -0.05, 5e-6, 0.1, 1e-5);
-  Gnuplot cumulative_hist_plot;
-  cumulative_hist_plot.cmd("set xlabel 'alpha'; set ylabel 'delta (s)'");
-  cumulative_hist.plot(cumulative_hist_plot, "Cumulative Histogram");
-  */  
 
   heuristic_clustering2D(cumulative_hist, cumulative_clusters, DUET);
-
 
   cout << cumulative_clusters;
 
@@ -1428,26 +1389,19 @@ int main(int argc, char **argv)
 
   Buffer<int> masks(FFT_pN/2); 
 
-  // 2 sets of buffers [optional: +1] are needed to allow up to 50% overlapping. If writing and computing is done simultaneously instead of writing and waiting for the old  buffer that is freed at the next write_data call end an additional buffer is needed to store current computations.
-
-
-  // Convenient interface to handle bufs pointers.
-  DoubleLinkedList<Buffers<real>*> bufs;
-  bufs.append(&bufs1); bufs.append(&bufs2); bufs.append(&bufs3);
-
 
   system("rm -f x*_rebuilt.wav");
 
   // Build the masks and rebuild the signals
   for (idx t_block = 0; t_block < time_blocks; ++t_block)
     {
-      OLD_BUFFERS = bufs.read();
-      NEW_BUFFERS = bufs.next();
+      old_buffers = bufs.read();
+      new_buffers = bufs.next();
       build_masks(masks, alpha(t_block), delta(t_block), X1_history(t_block), X2_history(t_block), clusters, FFT_pN, FFT_pN/2, FFT_df, tmp_real_buffer_N_max);
       
-      apply_masks(*bufs_ptr, alpha(t_block), X1_history(t_block), X2_history(t_block), masks, clusters, clusters.size(), FFT_pN, FFT_pN/2, FFT_df, Xxo_plan, Xo);
+      apply_masks(*new_buffers, alpha(t_block), X1_history(t_block), X2_history(t_block), masks, clusters, clusters.size(), FFT_pN, FFT_pN/2, FFT_df, Xxo_plan, Xo);
       // Explicitly use the initial region FFT_N and exclude the padding FFT_pN.
-      write_data(wav_out, bufs_ptr, FFT_N, FFT_slide);
+      write_data(wav_out, new_buffers, FFT_N, FFT_slide);
       //      swap(bufs_ptr, bufs_ptr2);
     }		
 
@@ -1464,10 +1418,6 @@ int main(int argc, char **argv)
 
   ///// End of Static Heuristic Rebuilding! ///////////////////////////////////////////////////////////////////
 
-
-  //	write_mono_wav ("gh_fft.wav", wav_out, N_wav+h_size-1, sample_rate_Hz);
-  //wait();
-  //sleep(0.5);
   fftw_destroy_plan(xX1_plan); 
   fftw_destroy_plan(xX2_plan);
   fftw_destroy_plan(Xxo_plan);

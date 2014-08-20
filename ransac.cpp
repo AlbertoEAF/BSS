@@ -960,7 +960,7 @@ int main(int argc, char **argv)
   ppd.plot(delta_axis(),(*hdelta.raw())(),hdelta.bins(),"delta");
   */
   /////////////////////////////////////////////////////////////////////////////////////////////
-  
+
 
   int WAIT = o.i("wait");
 
@@ -1099,6 +1099,8 @@ int main(int argc, char **argv)
       puts(RED "Exiting: Too many bins" NOCOLOR);
       exit(1);
     }
+
+
 
   Histogram<real> 
     hist_alpha(o.d("hist.dalpha"), o.d("alpha.min"), o.d("alpha.max"), hist_bound_type),

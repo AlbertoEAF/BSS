@@ -26,7 +26,12 @@ class DoubleLinkedList
   
   DoubleNode<T> root;
 
+  // Gets the current value.
   T get();
+  // Returns the value of the previous or next position.
+  T read_next();
+  T read_prev();
+  // Get the next or previous value and move current to that pointer.
   T next();
   T prev();
 
@@ -83,6 +88,19 @@ T DoubleLinkedList<T>::prev()
   current = current->prev;
   return current->value;
 }
+
+template <class T>
+T DoubleLinkedList<T>::read_next()
+{
+  return current->next->value;
+}
+
+template <class T>
+T DoubleLinkedList<T>::read_prev()
+{
+  return current->prev->value;
+}
+
 
 template <class T>
 void DoubleLinkedList<T>::print()

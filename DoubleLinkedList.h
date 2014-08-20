@@ -26,14 +26,13 @@ class DoubleLinkedList
   
   DoubleNode<T> root;
 
-  // Gets the current value.
-  T get();
-  // Returns the value of the previous or next position.
-  T read_next();
-  T read_prev();
-  // Get the next or previous value and move current to that pointer.
+  // Move and get the value.
   T next();
   T prev();
+  // Returns the value of the previous or next position without moving.
+  T read();
+  T read_next();
+  T read_prev();
 
 private:
   bool initialized;
@@ -70,7 +69,7 @@ DoubleLinkedList<T>::~DoubleLinkedList()
 }
 
 template <class T>
-T DoubleLinkedList<T>::get()
+T DoubleLinkedList<T>::read()
 {
   return current->value;
 }

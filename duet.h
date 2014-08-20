@@ -37,6 +37,9 @@
 #include "color_codes.h"
 
 #include "Buffers.h"
+ 
+#include "DoubleLinkedList.h"
+
 
 using std::cout;
 using std::endl;

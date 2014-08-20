@@ -942,7 +942,7 @@ int main(int argc, char **argv)
     conv_halpha(halpha.bins()), 
     conv_hdelta(hdelta.bins());
 
-
+    
 
   Gnuplot ppa,ppd;
 
@@ -960,8 +960,8 @@ int main(int argc, char **argv)
   ppd.plot(delta_axis(),(*hdelta.raw())(),hdelta.bins(),"delta");
   */
   /////////////////////////////////////////////////////////////////////////////////////////////
-
   
+
   int WAIT = o.i("wait");
 
   fftw_plan xX1_plan, xX2_plan, Xxo_plan;

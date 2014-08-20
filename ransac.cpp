@@ -1430,12 +1430,10 @@ int main(int argc, char **argv)
 
   // 2 sets of buffers [optional: +1] are needed to allow up to 50% overlapping. If writing and computing is done simultaneously instead of writing and waiting for the old  buffer that is freed at the next write_data call end an additional buffer is needed to store current computations.
 
-  /*
-  Matrix<real> // This should be a buffer pool instead of a matrix so swapping rows (buffers) is possible (source permutations) without copies.
-    bufs1(N_max, FFT_pN), *bufs_ptr  = &bufs1,
-    bufs2(N_max, FFT_pN), *bufs2_ptr = &bufs2;
-  */
-  Buffers<real> *bufs_ptr=&bufs1, *bufs_ptr2 = &bufs2, *bufs_ptr3 = &bufs3;
+
+  // Convenient interface to handle bufs pointers.
+  DoubleLinkedList<Buffers<real>*> bufs;
+  bufs.append(&bufs1); bufs.append(&bufs2); bufs.append(&bufs3);
 
 
   system("rm -f x*_rebuilt.wav");
@@ -1443,12 +1441,14 @@ int main(int argc, char **argv)
   // Build the masks and rebuild the signals
   for (idx t_block = 0; t_block < time_blocks; ++t_block)
     {
+      OLD_BUFFERS = bufs.read();
+      NEW_BUFFERS = bufs.next();
       build_masks(masks, alpha(t_block), delta(t_block), X1_history(t_block), X2_history(t_block), clusters, FFT_pN, FFT_pN/2, FFT_df, tmp_real_buffer_N_max);
       
       apply_masks(*bufs_ptr, alpha(t_block), X1_history(t_block), X2_history(t_block), masks, clusters, clusters.size(), FFT_pN, FFT_pN/2, FFT_df, Xxo_plan, Xo);
       // Explicitly use the initial region FFT_N and exclude the padding FFT_pN.
       write_data(wav_out, bufs_ptr, FFT_N, FFT_slide);
-      swap(bufs_ptr, bufs_ptr2);
+      //      swap(bufs_ptr, bufs_ptr2);
     }		
 
   for (uint source = 0; source < clusters.size(); ++source)

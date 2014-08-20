@@ -29,7 +29,7 @@ class DoubleLinkedList
   // Move and get the value.
   T next();
   T prev();
-  // Returns the value of the previous or next position without moving.
+  // Returns the value without moving.
   T read();
   T read_next();
   T read_prev();

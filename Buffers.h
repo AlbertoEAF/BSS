@@ -24,6 +24,8 @@ public:
   const Buffers & operator*= (const T factor);
   const Buffers & operator/= (const T factor);
 
+  void clear() { for(unsigned int i=0;i<_pool_size;++i) _bufs[i]->clear(); }
+
   T * raw (unsigned int i) { return (*_bufs[i])(); }
 
   T max_abs();

@@ -328,27 +328,27 @@ real DUEThist_score(real x1re, real x1im, real x2re, real x2im, real omega, real
 /** Taken from bessel.c, also distributed in this folder. Calculates the modified Bessel function I0. */
 double bessi0( double x )
 {
-   double ax,ans;
-   double y;
+  double ax,ans;
+  double y;
 
-   if ((ax=fabs(x)) < 3.75) {
-      y=x/3.75,y=y*y;
-      ans=1.0+y*(3.5156229+y*(3.0899424+y*(1.2067492
-         +y*(0.2659732+y*(0.360768e-1+y*0.45813e-2)))));
-   } else {
-      y=3.75/ax;
-      ans=(exp(ax)/sqrt(ax))*(0.39894228+y*(0.1328592e-1
-         +y*(0.225319e-2+y*(-0.157565e-2+y*(0.916281e-2
-         +y*(-0.2057706e-1+y*(0.2635537e-1+y*(-0.1647633e-1
-         +y*0.392377e-2))))))));
-   }
-   return ans;
+  if ((ax=fabs(x)) < 3.75) {
+    y=x/3.75,y=y*y;
+    ans=1.0+y*(3.5156229+y*(3.0899424+y*(1.2067492
+					 +y*(0.2659732+y*(0.360768e-1+y*0.45813e-2)))));
+  } else {
+    y=3.75/ax;
+    ans=(exp(ax)/sqrt(ax))*(0.39894228+y*(0.1328592e-1
+					  +y*(0.225319e-2+y*(-0.157565e-2+y*(0.916281e-2
+									     +y*(-0.2057706e-1+y*(0.2635537e-1+y*(-0.1647633e-1
+														  +y*0.392377e-2))))))));
+  }
+  return ans;
 }
 
 /**
    @param[in] K - Number of active sources: theta.size() >= K
    @param[in] x - Must have fewer than RAND_MAX elements.
- */
+*/
 void RANSAC (Buffer<real> &theta, Buffer<real> &x, int K, int RANSAC_samples_per_source)
 {
   const int N = x.size();
@@ -376,39 +376,39 @@ void RANSAC (Buffer<real> &theta, Buffer<real> &x, int K, int RANSAC_samples_per
 void DUET_hist_add_score(Histogram2D<real> &hist, Histogram<real> &hist_alpha, Histogram<real> &hist_delta, real alpha, real delta, real X1_re, real X1_im, real X2_re, real X2_im, real omega, const DUETcfg &DUET)
 {
 
-	  if (std::isnan(alpha))
-	    {
-	      // This test can be taken out in the final system supposedly because it won't be padded with 0's, instead there will always be noise in the signal, and whatever the noise is it will produce frequencies. The thesis on the circular duet talks about this, that the window should have at least the size of the biggest consecutive chain of 0's possible to appear in the data ( so this doesn't happen ).
-	      /*
-	      static size_t alpha_isnan_count = 0;
-	      ++alpha_isnan_count;
-	      printf("alpha=nan occurred %lu times.\n", alpha_isnan_count);
-	      */
-	      //printf("nan value in alpha for t_block=%lu, f=%lu\n", time_block, f);
-	      return;
-	    }
+  if (std::isnan(alpha))
+    {
+      // This test can be taken out in the final system supposedly because it won't be padded with 0's, instead there will always be noise in the signal, and whatever the noise is it will produce frequencies. The thesis on the circular duet talks about this, that the window should have at least the size of the biggest consecutive chain of 0's possible to appear in the data ( so this doesn't happen ).
+      /*
+	static size_t alpha_isnan_count = 0;
+	++alpha_isnan_count;
+	printf("alpha=nan occurred %lu times.\n", alpha_isnan_count);
+      */
+      //printf("nan value in alpha for t_block=%lu, f=%lu\n", time_block, f);
+      return;
+    }
 
-	  real score = DUEThist_score(X1_re,X1_im, X2_re, X2_im, omega, DUET.p, DUET.q);
+  real score = DUEThist_score(X1_re,X1_im, X2_re, X2_im, omega, DUET.p, DUET.q);
 	
-	  /*
-	  if (DUET.use_smoothing)
-	    {
-	      hist.smooth_add(score, alpha, delta, DUET.smoothing_Delta_alpha, DUET.smoothing_Delta_delta);
+  /*
+    if (DUET.use_smoothing)
+    {
+    hist.smooth_add(score, alpha, delta, DUET.smoothing_Delta_alpha, DUET.smoothing_Delta_delta);
 
-	      hist_alpha.smooth_add(score, alpha, DUET.smoothing_Delta_alpha);
-	      hist_delta.smooth_add(score, delta, DUET.smoothing_Delta_delta);
-	    }
-	  else
-	    {
-	      hist(alpha, delta) += score;     
+    hist_alpha.smooth_add(score, alpha, DUET.smoothing_Delta_alpha);
+    hist_delta.smooth_add(score, delta, DUET.smoothing_Delta_delta);
+    }
+    else
+    {
+    hist(alpha, delta) += score;     
 
-	      hist_alpha(alpha) += score;
-	      hist_delta(delta) += score;
-	    }
-	  */
-	  hist(alpha, delta) += score;     
-	  hist_alpha(alpha)  += score;
-	  hist_delta(delta)  += score;
+    hist_alpha(alpha) += score;
+    hist_delta(delta) += score;
+    }
+  */
+  hist(alpha, delta) += score;     
+  hist_alpha(alpha)  += score;
+  hist_delta(delta)  += score;
 }
 
 /// Calculates (alpha,delta) for a time block and adds to the histogram.
@@ -584,10 +584,10 @@ real Rectangular(idx n, idx N)
 /// Copy one column from one matrix to another
 void copycol(Matrix<real> &b, Matrix<real> &a, size_t to_col, size_t from_col)
 {
-  Assert(b.cols() == a.cols() && b.size() == a.size(), "Different sizes!");
+Assert(b.cols() == a.cols() && b.size() == a.size(), "Different sizes!");
   
-  for (size_t row = 0; row < a.rows(); ++row)
-    b(row,to_col) = a(row,from_col);
+for (size_t row = 0; row < a.rows(); ++row)
+b(row,to_col) = a(row,from_col);
 }
 */
 
@@ -656,26 +656,25 @@ real alpha2a (real alpha)
 
 /// Fills a buffer of size FFT_N/2 // To each bin will be assigned the number of the source. values < 0 indicate that the bin won't be assigned a source (noise or intentional algorithm rejection/discard). 
 /// Thus, a single buffer is required to hold all the masks
-void build_masks(Buffer<int> &masks, real *alpha, real *delta, real *X1, real *X2, Buffer<Point2D<real> > &clusters, idx FFT_N, idx FFT_half_N, real FFT_df, Buffer<real> &calc_buffer)
+/// tmp must have size = max(N_clusters)
+void build_masks(Buffer<int> &masks, real *alpha, real *delta, real *X1, real *X2, Buffer<Point2D<real> > &clusters, int N_clusters, idx FFT_N, idx FFT_half_N, real FFT_df, Buffer<real> &tmp)
 {
-      Buffer<int> old_masks(masks);
-      idx masks_diffs = 0;
-  int K = clusters.size();
+  Buffer<int> old_masks(masks);
+  idx masks_diffs = 0;
+
   for (idx f = 0; f < FFT_half_N; ++f)
     {
       real omega = _2Pi * f * FFT_df;
       idx f_im = FFT_N - f;
-
-      // Too simplistic: masks[f] = closest_cluster(Point2D<real>(alpha[f],delta[f]), clusters);
       
-      for (int k=0; k < K; ++k)
+      for (int k=0; k < N_clusters; ++k)
 	{
 	  real a_k = alpha2a(clusters[k].x);
 	  real delta_k = clusters[k].y;
 
-	  calc_buffer[k] = std::norm(a_k*std::polar<real>(1,-delta_k*omega) * std::complex<real>(X1[f],X1[f_im]) - std::complex<real>(X2[f],X2[f_im])) / (1.0 + a_k*a_k);
+	  tmp[k] = std::norm(a_k*std::polar<real>(1,-delta_k*omega) * std::complex<real>(X1[f],X1[f_im]) - std::complex<real>(X2[f],X2[f_im])) / (1.0 + a_k*a_k);
 	}
-      masks[f] = array_ops::min_index(calc_buffer(), K);
+      masks[f] = array_ops::min_index(tmp(), N_clusters);
 
       old_masks[f] = closest_cluster(Point2D<real>(alpha[f],delta[f]), clusters);
 
@@ -684,32 +683,33 @@ void build_masks(Buffer<int> &masks, real *alpha, real *delta, real *X1, real *X
     }
 #ifdef OLD_MASK_BUILD
   masks = old_masks;
+  cout << "#Mask diffs = " << masks_diffs << endl;
 #endif // OLD_MASK_BUILD
   //  cout << RED << masks_diffs << NOCOLOR << endl;
- }
+}
 
 void apply_masks(Buffers<real> &buffers, real *alpha, real *X1, real *X2, Buffer<int> &masks, Buffer<Point2D<real> > &clusters, uint active_sources, idx FFT_N, idx FFT_half_N, real FFT_df, fftw_plan &FFTi_plan, Buffer<real> &Xo)
 {
   /*
-  for (uint source = 0; source < active_sources; ++source)
+    for (uint source = 0; source < active_sources; ++source)
     {
-      Xo.clear();
+    Xo.clear();
 
-      if (masks[0] == source)
-	Xo[0] = X[0];
-      for (uint f = 1, f_max = FFT_N/2; f < f_max; ++f)
-	{
-	  if (masks[f] == source)
-	    {
-	      uint f_im = FFT_N - f;
-	      Xo[f   ] = X[f   ];
-	      Xo[f_im] = X[f_im];
-	    }
-	}
-      fftw_execute_r2r(FFTi_plan, Xo(), buffers(source));
+    if (masks[0] == source)
+    Xo[0] = X[0];
+    for (uint f = 1, f_max = FFT_N/2; f < f_max; ++f)
+    {
+    if (masks[f] == source)
+    {
+    uint f_im = FFT_N - f;
+    Xo[f   ] = X[f   ];
+    Xo[f_im] = X[f_im];
+    }
+    }
+    fftw_execute_r2r(FFTi_plan, Xo(), buffers(source));
     }
 
-  buffers /= (real)FFT_N;
+    buffers /= (real)FFT_N;
   */
 
   // Rebuild one source per iteration to reuse the FFT plan (only 1 needed).
@@ -757,7 +757,7 @@ void apply_masks(Buffers<real> &buffers, real *alpha, real *X1, real *X2, Buffer
     @param[in] o - Original  signal
     @param[in] samples - Number of samples
 
- */
+*/
 real Dtotal(const real *e,  const real *o, idx samples)
 {
   real O2 = array_ops::energy(o, samples);
@@ -843,11 +843,11 @@ void separation_stats(Buffers<real> &s, Buffers<real> &o, int N, idx samples)
       // Notice that two signals can't be compared against the same original.
       for (int i_original = 0; i_original < N; ++i_original)
 	{/*
-	   // UNCOMMENT THIS PART IF THE GUARANTEE IS REMOVED! (***)
-	  if (in(i_original+1, matches)) // 0's can't be used thus +1 is applied
-	    dtotals[i_original] = FLT_MAX;
-	    else*/
-	    // The original signal wasn't matched yet.
+	 // UNCOMMENT THIS PART IF THE GUARANTEE IS REMOVED! (***)
+	 if (in(i_original+1, matches)) // 0's can't be used thus +1 is applied
+	 dtotals[i_original] = FLT_MAX;
+	 else*/
+	  // The original signal wasn't matched yet.
 	  dtotals[i_original] = Dtotal(s.raw(i), o.raw(i_original), samples);	  
 	}
 
@@ -874,11 +874,11 @@ void separation_stats(Buffers<real> &s, Buffers<real> &o, int N, idx samples)
     }
   /*
 
-  for (int i = 0; i < N; ++i)
+    for (int i = 0; i < N; ++i)
     {
-      real dtotal = Dtotal(s(i),o(i),samples);
+    real dtotal = Dtotal(s(i),o(i),samples);
 
-      printf(BLUE "s%d : Dtotal = %f\n" NOCOLOR, i, dtotal);     
+    printf(BLUE "s%d : Dtotal = %f\n" NOCOLOR, i, dtotal);     
     }
   */
 }
@@ -887,7 +887,7 @@ void build_window(Buffer<real> &W, real (*Wfunction)(idx n, idx N))
 {
   idx N = W.size();
   for (idx n=0; n < N; ++n)
-      W[n] = Wfunction(n,N);
+    W[n] = Wfunction(n,N);
 }
 
 
@@ -917,9 +917,9 @@ int main(int argc, char **argv)
   // Test output overlap
   Matrix<real> a(1,1000), b(1,10000);
   for (int i=0; i < 1000; ++i)
-    a(0,i) = Hann(i,1000);
+  a(0,i) = Hann(i,1000);
   for (int loop=0; loop<5;++loop)
-    write_data(b, &a, 1000, 990);
+  write_data(b, &a, 1000, 990);
   Gnuplot p;
   p.plot_y(b(),10000,"Hann");
   wait();
@@ -932,11 +932,11 @@ int main(int argc, char **argv)
   // Convolution Smoothing tests //////////////////////////////////////////////////////////////
   /////////////////////////////////////////////////////////////////////////////////////////////
   /*
-  Histogram<real> 
+    Histogram<real> 
     halpha(o.d("hist.dalpha"), o.d("alpha.min"), o.d("alpha.max"), HistogramBounds::Boundless),
     hdelta(o.d("hist.ddelta"), o.d("delta.min"), o.d("delta.max"), HistogramBounds::Boundless);
 
-  static Buffer<real> 
+    static Buffer<real> 
     conv_kernel_alpha(halpha.gen_gaussian_kernel(o.f("hist.smoothing_Delta_alpha"))),
     conv_kernel_delta(hdelta.gen_gaussian_kernel(o.f("hist.smoothing_Delta_delta"))),
     conv_halpha(halpha.bins()), 
@@ -944,20 +944,20 @@ int main(int argc, char **argv)
 
     
 
-  Gnuplot ppa,ppd;
+    Gnuplot ppa,ppd;
 
-  halpha(0) += 1;
-  hdelta(0.0001) += 1;
+    halpha(0) += 1;
+    hdelta(0.0001) += 1;
   
-  halpha.kernel_convolution(conv_kernel_alpha, conv_halpha);
-  hdelta.kernel_convolution(conv_kernel_delta, conv_hdelta);
+    halpha.kernel_convolution(conv_kernel_alpha, conv_halpha);
+    hdelta.kernel_convolution(conv_kernel_delta, conv_hdelta);
 
-  Buffer<real> delta_axis(hdelta.bins());
-  for (size_t i=0; i<delta_axis.size(); ++i)
+    Buffer<real> delta_axis(hdelta.bins());
+    for (size_t i=0; i<delta_axis.size(); ++i)
     delta_axis[i] = hdelta.min() + i*hdelta.dx();
 
-  ppa.plot((*halpha.raw())(),halpha.bins(),"alpha");
-  ppd.plot(delta_axis(),(*hdelta.raw())(),hdelta.bins(),"delta");
+    ppa.plot((*halpha.raw())(),halpha.bins(),"alpha");
+    ppd.plot(delta_axis(),(*hdelta.raw())(),hdelta.bins(),"delta");
   */
   /////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -1123,6 +1123,12 @@ int main(int argc, char **argv)
 
   RankList<real, real> delta_preclusters(MAX_MARGINAL_PEAKS, 0.0), alpha_preclusters(delta_preclusters);
 
+  //// Each of the clusters should now belong to a source: create masks and separate the sources.
+  Buffer<int> masks(FFT_pN/2); 
+
+  Gnuplot palpha,pdelta;
+
+
   _DUET.p = o.f("hist.p");
   _DUET.q = o.f("hist.q");
   _DUET.sigma_alpha = o.f("hist.sigma_alpha");
@@ -1141,6 +1147,70 @@ int main(int argc, char **argv)
   _DUET.noise_threshold = o.d("DUET.noise_threshold");
 
   const DUETcfg DUET = _DUET; // Make every parameter constant to avoid mistakes
+
+
+  /////////////////////////// TEST HISTOGRAMS /////////////////////////////////////////////7
+  /*
+    hist(.2,-.0001)+= 1;
+    hist(-.2,-.0001)+=1;
+    hist(0,-.0001)+=1;
+  
+    hist(.2,.0001) += 1;
+    hist(-.2,.0001)+=1;
+
+    hist(0,0)+=1;
+
+    hist(-0.23,0.00002)+=0.8;
+
+    hist(.3,0.00015)+=3;
+
+    hist(-.4,0.00013)+=2;
+
+    hist.fill_marginal_x(hist_alpha);
+    hist.fill_marginal_y(hist_delta);
+  
+      
+    static Buffer<real> 
+    conv_kernel_alpha(hist_alpha.gen_gaussian_kernel(DUET.sigma_alpha)),
+    conv_kernel_delta(hist_delta.gen_gaussian_kernel(DUET.sigma_delta)),
+    conv_hist_alpha  (hist_alpha.bins()), 
+    conv_hist_delta  (hist_delta.bins());
+
+    static Matrix<real> 
+    conv_kernel(hist.gen_gaussian_kernel(DUET.sigma_alpha, DUET.sigma_delta)),
+    conv_hist  (hist.xbins(),hist.ybins());
+
+    // New blurring method: convolution
+    hist_alpha.kernel_convolution(conv_kernel_alpha, conv_hist_alpha);
+    hist_delta.kernel_convolution(conv_kernel_delta, conv_hist_delta);
+    hist.kernel_convolution(conv_kernel, conv_hist); 
+
+    palpha.replot(alpha_range(), (*hist_alpha.raw())(),hist_alpha.bins(), "alpha");
+    pdelta.replot(delta_range(), (*hist_delta.raw())(),hist_delta.bins(), "delta");	  
+
+    hist.write_to_gnuplot_pm3d_data("hist.dat");
+    RENDER_HIST("hist.dat", "Hist", 1); 
+
+
+    while(1)
+    {
+    real Alpha,Delta;
+    cout << "(alpha,delta) = ";
+    cin >> Alpha >> Delta;
+
+    hist(Alpha,Delta) += 1;
+    hist_alpha(Alpha) += 1;
+    hist_delta(Delta) += 1;
+
+    palpha.replot(alpha_range(), (*hist_alpha.raw())(),hist_alpha.bins(), "alpha");
+    pdelta.replot(delta_range(), (*hist_delta.raw())(),hist_delta.bins(), "delta");	  
+
+    hist.write_to_gnuplot_pm3d_data("hist.dat");
+    RENDER_HIST("hist.dat", "Hist", 1); 
+    }
+  */
+  ///////////////////////////////////////////////////////////////////////////////////////////////
+
 
   Buffer<real> W(FFT_N);
   if (o("window",Ignore) == "Hamming0")
@@ -1174,9 +1244,9 @@ int main(int argc, char **argv)
       puts("Calculating histograms...");      
     }
   /*
-  Gnuplot Wplot;
-  Wplot.plot_y(W(),W.size(),"W");
-  wait();
+    Gnuplot Wplot;
+    Wplot.plot_y(W(),W.size(),"W");
+    wait();
   */
 
   static Gnuplot pM1;
@@ -1217,9 +1287,9 @@ int main(int argc, char **argv)
 	  x2[i] = 0;
 	}
       /*
-      Gnuplot x1_plot;
-      x1_plot.plot_y(x1(),x1.size(), "x1");
-      wait();
+	Gnuplot x1_plot;
+	x1_plot.plot_y(x1(),x1.size(), "x1");
+	wait();
       */
 
       fftw_execute(xX1_plan);
@@ -1234,10 +1304,10 @@ int main(int argc, char **argv)
 	M1hist(f) += M1[f];
 
       /*
-      Gnuplot Mplot;
-      evenHC2magnitude(FFT_pN, X1(), x1());
-      Mplot.plot_y(x1(),x1.size()/2,"M1");
-      usleep(300000);
+	Gnuplot Mplot;
+	evenHC2magnitude(FFT_pN, X1(), x1());
+	Mplot.plot_y(x1(),x1.size()/2,"M1");
+	usleep(300000);
       */
       // Keep the record of X1 for all time for later audio reconstruction
       for (idx f = 0; f < FFT_pN; ++f)
@@ -1253,19 +1323,19 @@ int main(int argc, char **argv)
       //ransac_test(time_block, FFT_pN, sample_rate_Hz, X1, X2, alpha, delta, hist, hist_alpha, hist_delta, DUET);
       
       /*
-      static Histogram2D<real> prod_hist(hist), diff_hist(hist);
+	static Histogram2D<real> prod_hist(hist), diff_hist(hist);
 
-      Gnuplot ph, po, pp, pd;
-      prod_hist = hist;
-      prod_hist *= old_hist;
+	Gnuplot ph, po, pp, pd;
+	prod_hist = hist;
+	prod_hist *= old_hist;
 
-      diff_hist = hist;
-      diff_hist -= old_hist;
+	diff_hist = hist;
+	diff_hist -= old_hist;
       */
       /*
-      old_hist.plot(po, "Old");
-      prod_hist.plot(pp, "Prod");
-      diff_hist.plot(pd, "Diff");
+	old_hist.plot(po, "Old");
+	prod_hist.plot(pp, "Prod");
+	diff_hist.plot(pd, "Diff");
       */
       //hist.plot(ph, "Hist");
       //wait();
@@ -1297,33 +1367,45 @@ int main(int argc, char **argv)
       cout << preclusters << alpha_preclusters << delta_preclusters << YELLOW "########\n" NOCOLOR;
 
       /*
-      Buffer<Point2D<real> > clusters(preclusters.eff_size(DUET.noise_threshold));
-      clusters.copy(preclusters.values(), clusters.size());
+	Buffer<Point2D<real> > clusters(preclusters.eff_size(DUET.noise_threshold));
+	clusters.copy(preclusters.values(), clusters.size());
 
-      // Write the clusters to the plot overlay
-      std::ofstream clusters_dat;
-      clusters_dat.open("s_duet.dat");
-      for (idx i=0; i < clusters.size(); ++i)
+	// Write the clusters to the plot overlay
+	std::ofstream clusters_dat;
+	clusters_dat.open("s_duet.dat");
+	for (idx i=0; i < clusters.size(); ++i)
 	clusters_dat << clusters[i].x << " " << clusters[i].y << " 0\n\n";
-      clusters_dat.close();
+	clusters_dat.close();
       */
       /*
-      prod_hist.write_to_gnuplot_pm3d_data("prod_hist.dat");
-      diff_hist.write_to_gnuplot_pm3d_data("diff_hist.dat");
-      RENDER_HIST("prod_hist.dat", "Prod", 0);
-      RENDER_HIST("diff_hist.dat", "Diff", 0);
+	prod_hist.write_to_gnuplot_pm3d_data("prod_hist.dat");
+	diff_hist.write_to_gnuplot_pm3d_data("diff_hist.dat");
+	RENDER_HIST("prod_hist.dat", "Prod", 0);
+	RENDER_HIST("diff_hist.dat", "Diff", 0);
       */
 
-      //static Buffer<real> hist_alpha(hist.xbins()), hist_delta(hist.ybins());
-      static Gnuplot palpha, pdelta;
 
+      ///////// Apply masks and rebuild current frame to audio and add it to the appropriate outputs
+      if (! o.i("DUET.static_rebuild"))
+	{
+	  int N_clusters = preclusters.eff_size(DUET.noise_threshold); // clusters = preclusters.values
+      		
+	  old_buffers = bufs.read();
+	  new_buffers = bufs.next();
+	
+	  build_masks(masks, alpha(time_block), delta(time_block), X1_history(time_block), X2_history(time_block), preclusters.values, N_clusters, FFT_pN, FFT_pN/2, FFT_df, tmp_real_buffer_N_max);
+	
+	  apply_masks(*new_buffers, alpha(time_block), X1_history(time_block), X2_history(time_block), masks, preclusters.values, N_clusters, FFT_pN, FFT_pN/2, FFT_df, Xxo_plan, Xo);
+	
+	  write_data(wav_out, new_buffers, FFT_N, FFT_slide); // Explicitly use the initial region FFT_N and exclude the padding FFT_pN.
+	}
+
+      //static Buffer<real> hist_alpha(hist.xbins()), hist_delta(hist.ybins());
 
       if (o.i("show_each_hist"))
 	{
-	  palpha.reset(); pdelta.reset();
-
-	  palpha.plot(alpha_range(), (*hist_alpha.raw())(),hist_alpha.bins(), "alpha");
-	  pdelta.plot(delta_range(), (*hist_delta.raw())(),hist_delta.bins(), "delta");	  
+	  palpha.replot(alpha_range(), (*hist_alpha.raw())(),hist_alpha.bins(), "alpha");
+	  pdelta.replot(delta_range(), (*hist_delta.raw())(),hist_delta.bins(), "delta");	  
 
 	  if (o.i("show_each_hist")>1)
 	    {
@@ -1358,10 +1440,12 @@ int main(int argc, char **argv)
   cout << cumulative_clusters;
 
   bool found_clusters = (cumulative_clusters.eff_size(DUET.noise_threshold) ? 1:0);
+  int N_clusters = cumulative_clusters.eff_size(DUET.noise_threshold);
 
+  /*
   Buffer<Point2D<real> > clusters(cumulative_clusters.eff_size(DUET.noise_threshold)+(!found_clusters)); // if no clusters are found 0 size would blow the program
   clusters.copy(cumulative_clusters.values,clusters.size());
-
+  */
   std::ofstream hist_cfg;
   hist_cfg.open("h.cfg");
   hist_cfg << hist.ybins();
@@ -1371,8 +1455,8 @@ int main(int argc, char **argv)
   // Write the clusters to the plot overlay
   std::ofstream clusters_dat;
   clusters_dat.open("s_duet.dat");
-  for (idx i=0; i < clusters.size(); ++i)
-    clusters_dat << clusters[i].x << " " << clusters[i].y << " 0\n\n";
+  for (idx i=0; i < N_clusters; ++i)
+    clusters_dat << cumulative_clusters.values[i].x << " " << cumulative_clusters.values[i].y << " 0\n\n";
   clusters_dat.close();
 
   // Plot the 3D histogram with gnuplot and the simulation and DUET overlays
@@ -1384,28 +1468,25 @@ int main(int argc, char **argv)
 
 
 
+  if (o.i("DUET.static_rebuild"))
+    {
 
-  //// Each of the clusters should now belong to a source: create masks and separate the sources.
+      // Build the masks and rebuild the signals
+      for (idx t_block = 0; t_block < time_blocks; ++t_block)
+	{
+	  old_buffers = bufs.read();
+	  new_buffers = bufs.next();
+	  build_masks(masks, alpha(t_block), delta(t_block), X1_history(t_block), X2_history(t_block), cumulative_clusters.values, N_clusters, FFT_pN, FFT_pN/2, FFT_df, tmp_real_buffer_N_max);
+      
+	  apply_masks(*new_buffers, alpha(t_block), X1_history(t_block), X2_history(t_block), masks, cumulative_clusters.values, N_clusters, FFT_pN, FFT_pN/2, FFT_df, Xxo_plan, Xo);
 
-  Buffer<int> masks(FFT_pN/2); 
-
+	  write_data(wav_out, new_buffers, FFT_N, FFT_slide);	  // Explicitly use the initial region FFT_N and exclude the padding FFT_pN.
+	  //      swap(bufs_ptr, bufs_ptr2);
+	}		      
+    }
 
   system("rm -f x*_rebuilt.wav");
-
-  // Build the masks and rebuild the signals
-  for (idx t_block = 0; t_block < time_blocks; ++t_block)
-    {
-      old_buffers = bufs.read();
-      new_buffers = bufs.next();
-      build_masks(masks, alpha(t_block), delta(t_block), X1_history(t_block), X2_history(t_block), clusters, FFT_pN, FFT_pN/2, FFT_df, tmp_real_buffer_N_max);
-      
-      apply_masks(*new_buffers, alpha(t_block), X1_history(t_block), X2_history(t_block), masks, clusters, clusters.size(), FFT_pN, FFT_pN/2, FFT_df, Xxo_plan, Xo);
-      // Explicitly use the initial region FFT_N and exclude the padding FFT_pN.
-      write_data(wav_out, new_buffers, FFT_N, FFT_slide);
-      //      swap(bufs_ptr, bufs_ptr2);
-    }		
-
-  for (uint source = 0; source < clusters.size(); ++source)
+  for (uint source = 0; source < N_clusters; ++source)
     {
       std::string wav_filepath("x"+itos(source)+"_rebuilt.wav");
       printf("%s...", wav_filepath.c_str());
@@ -1423,10 +1504,11 @@ int main(int argc, char **argv)
   fftw_destroy_plan(Xxo_plan);
 	
 
+
   if (RENDER > 0)
     Guarantee0( system("make render") , "Couldn't generate the movies.");
-  cout << "#Clusters = " << clusters.size()<<"\n";
-  cout << clusters << "\n";
+  cout << "#Clusters = " << N_clusters <<"\n";
+  cout << cumulative_clusters.values << "\n";
   system("cat s.dat");
   puts("\nSuccess!");
 

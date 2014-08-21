@@ -32,6 +32,17 @@ namespace array_ops {
     std::cout << std::endl;
   }
 
+  template <class T, class T_int> 
+  T max_abs(const T *array, T_int size)
+  {
+    T max_abs_value = std::abs(array[0]);
+    for (T_int i = 1; i < size; ++i)
+      {
+	if (std::abs(array[i]) > max_abs_value)
+	  max_abs_value = std::abs(array[i]);
+      }
+    return max_abs_value;
+  }	
 
   template <class T, class T_int>
   T max(const T *array, T_int size)
@@ -44,19 +55,6 @@ namespace array_ops {
       }
     return max_value;
   }	
-
-  template <class T, class T_int>
-  T max_abs(const T *array, T_int size)
-  {
-    T max_abs_value = std::abs(array[0]);
-    for (T_int i = 1; i < size; ++i)
-      {
-	if (std::abs(array[i]) > max_abs_value)
-	  max_abs_value = std::abs(array[i]);
-      }
-    return max_abs_value;
-  }	
-
 
   template <class T, class T_int>
   T min(const T *array, T_int size)
@@ -102,7 +100,6 @@ namespace array_ops {
       }
     return min_index;
   }	
-
 
 
 

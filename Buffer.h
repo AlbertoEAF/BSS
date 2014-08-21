@@ -167,10 +167,11 @@ std::istream &operator >> (std::istream &input, Buffer<T> &buffer)
 template <class T> 
 void Buffer<T>::copy(const Buffer<T> & copy, size_t copy_size)
 {
-  Assert(copy_size <= copy.m_size, "You are trying to copy more entries (%lu) than the ones the source Buffer(%lu) has.", copy_size, copy.m_size);
-  Assert(copy_size <= m_size     , "You are trying to copy more entries (%lu) than the Buffer(%lu) size allows.", copy_size, m_size);
   if (!copy_size)
     copy_size = copy.m_size;
+
+  Assert(copy_size <= copy.m_size, "You are trying to copy more entries (%lu) than the ones the source Buffer(%lu) has.", copy_size, copy.m_size);
+  Assert(copy_size <= m_size     , "You are trying to copy more entries (%lu) than the Buffer(%lu) size allows.", copy_size, m_size);
 
   memcpy((void*)m, (void*)copy.m, copy_size*sizeof(T));
   for (size_t i = copy_size; i < m_size; ++i)

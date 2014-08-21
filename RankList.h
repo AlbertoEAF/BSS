@@ -15,6 +15,10 @@ class RankList
 
 public:
 	RankList (size_t elems, Tscore default_score=0, Tvalue default_value=0); 
+	RankList (RankList<Tscore,Tvalue> &copy);
+
+
+	void copy(RankList<Tscore,Tvalue> &copy);
 
 	int add(Tscore score, Tvalue value);
 
@@ -26,6 +30,8 @@ public:
 
 	size_t size() { return _size; }
 	size_t eff_size(Tscore min_value); // number of valid scores
+
+	void print(size_t entries = 0);
 
 	Buffer<Tscore> scores;
 	Buffer<Tvalue> values;
@@ -39,8 +45,26 @@ template <class Tscore, class Tvalue>
 RankList<Tscore,Tvalue>::RankList(size_t elems, Tscore default_score, Tvalue default_value) 
  : scores(elems,default_score), values(elems,default_value), _size(elems), _init_score(default_score), _init_value(default_value)
 {
-	// Initiator list is needed!
 }
+
+template <class Tscore, class Tvalue>
+RankList<Tscore,Tvalue>::RankList(RankList<Tscore,Tvalue> &copy) 
+  :scores(copy.scores), values(copy.values), _size(copy._size), _init_score(copy._init_score), _init_value(copy._init_value)
+{
+}
+
+
+template <class Tscore, class Tvalue>
+  void RankList<Tscore,Tvalue>::copy(RankList<Tscore,Tvalue> &copy)
+{
+  _size = copy.size;
+  _init_score = copy._init_score;
+  _init_value = copy._init_value;
+
+  scores.copy(copy.scores);
+  values.copy(copy.values);
+}
+
 
 template <class Tscore, class Tvalue>
 int RankList<Tscore,Tvalue>::add(Tscore score, Tvalue value)
@@ -131,6 +155,17 @@ std::ostream &operator << (std::ostream &output, RankList<Tscore,Tvalue> &rlist)
   output << std::endl;
 
   return output; // allows chaining
+}
+
+
+template <class Tscore, class Tvalue>
+void RankList<Tscore,Tvalue>::print(size_t entries)
+{
+  size_t I = ( entries == 0 ? _size : std::min(entries,_size) );
+
+  for (size_t i = 0; i < I ; ++i)
+    std::cout << i << ")\t" << scores[i] << "\t\t" << values[i] << std::endl;  
+  std::cout << std::endl;
 }
 
 

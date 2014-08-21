@@ -4,7 +4,7 @@
 //#define OLD_MASK_BUILD
 //#define OLD_PEAK_ASSIGN
 
-const int MAX_PRECLUSTERS = 12;
+
 const int MAX_MARGINAL_PEAKS = 16;
 
 void RENDER_HIST(const std::string &filepath, const std::string &title, bool pause)
@@ -1112,15 +1112,16 @@ int main(int argc, char **argv)
     hist_alpha(o.d("hist.dalpha"), o.d("alpha.min"), o.d("alpha.max"), hist_bound_type),
     hist_delta(o.d("hist.ddelta"), o.d("delta.min"), o.d("delta.max"), hist_bound_type);
   Histogram2D<real> cumulative_hist(hist), old_hist(hist);
-  Buffer<real> alpha_range(hist_alpha.bins()), delta_range(hist_delta.bins()); // Buffers for the axis of alpha and delta
+  // Buffers for the axis of alpha and delta
+  Buffer<real> alpha_range(hist_alpha.bins()), delta_range(hist_delta.bins()); 
   alpha_range.fill_range(o.d("alpha.min"), o.d("alpha.max"));
   delta_range.fill_range(o.d("delta.min"), o.d("delta.max"));
 
   hist.print_format();
 
-  RankList<real, Point2D<real> > preclusters(MAX_PRECLUSTERS,0.0,Point2D<real>());
+  RankList<real, Point2D<real> > 
+    preclusters(o.d("max_preclusters"),0.0,Point2D<real>()), old_preclusters(preclusters);
   RankList<real, Point2D<real> > cumulative_clusters(N_max,0.0,Point2D<real>());
-
   RankList<real, real> delta_preclusters(MAX_MARGINAL_PEAKS, 0.0), alpha_preclusters(delta_preclusters);
 
   //// Each of the clusters should now belong to a source: create masks and separate the sources.
@@ -1394,9 +1395,11 @@ int main(int argc, char **argv)
 	  new_buffers = bufs.next();
 	
 	  build_masks(masks, alpha(time_block), delta(time_block), X1_history(time_block), X2_history(time_block), preclusters.values, N_clusters, FFT_pN, FFT_pN/2, FFT_df, tmp_real_buffer_N_max);
-	
 	  apply_masks(*new_buffers, alpha(time_block), X1_history(time_block), X2_history(time_block), masks, preclusters.values, N_clusters, FFT_pN, FFT_pN/2, FFT_df, Xxo_plan, Xo);
 	
+	
+	  
+
 	  write_data(wav_out, new_buffers, FFT_N, FFT_slide); // Explicitly use the initial region FFT_N and exclude the padding FFT_pN.
 	}
 
@@ -1508,7 +1511,7 @@ int main(int argc, char **argv)
   if (RENDER > 0)
     Guarantee0( system("make render") , "Couldn't generate the movies.");
   cout << "#Clusters = " << N_clusters <<"\n";
-  cout << cumulative_clusters.values << "\n";
+  cumulative_clusters.print(N_clusters);
   system("cat s.dat");
   puts("\nSuccess!");
 

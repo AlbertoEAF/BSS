@@ -200,7 +200,7 @@ double Histogram<T>::get_bin_center(size_t bin)
 template <class T>
 T & Histogram<T>::operator()(double x)
 {
-  size_t ibin;
+  size_t bin_index;
 	
   Assert ( ! std::isnan(x), "NaN coordinate given (%g) to Histogram(%lu)!", x, _bins);
 
@@ -208,29 +208,30 @@ T & Histogram<T>::operator()(double x)
   if (_bound_type == HistogramBounds::Boundless) 
     {
       if      (x < _min)
-	ibin = 0;
-      else if (x > _max)
-	ibin = _bins-1;
+	bin_index = 0;
+      else if (x >= _max)
+	bin_index = _bins-1;
       else
-	ibin = (x - _min)/_dx;
+	bin_index = (x - _min)/_dx;
     }
   else
     {
-      if (x < _min || x > _max)
+      if (x < _min || x >= _max)
 	{
 	  // Guarantee during runtime that the histogram is not Bounded!
 	  Guarantee (_bound_type == HistogramBounds::DiscardBeyondBound,
-			 "Out of bounds access (x=%g) on Bounded Histogram(%lu)!", x,_bins);
+		     "Out of bounds access (x=%g) on Bounded Histogram(%lu)!", x,_bins);
 	  // Return a "virtual bin" with value 0 so that changing it does not change the histogram itself and if it is read yields no counts at all (the value can be changed by the user though). This value will be reset at the next call in the same out of bounds situation on a DiscardBeyondBound Histogram.
 	  _dummy = 0;
 	  return _dummy;
+
 	}
       else
 	{
-	  ibin = (x - _min)/_dx;
+	  bin_index = (x - _min)/_dx;
 	}
     }
-  return bin(ibin);
+  return bin(bin_index);
 }
 
 

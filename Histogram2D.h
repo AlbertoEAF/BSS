@@ -3,7 +3,7 @@
 #ifndef HISTOGRAM_2D_H__
 #define HISTOGRAM_2D_H__
 
-
+#include "Histogram.h"
 
 #include "Matrix.h"
 
@@ -94,6 +94,9 @@ class Histogram2D
 
   void marginal_x(Buffer<T> &marginal);
   void marginal_y(Buffer<T> &marginal);
+
+  void fill_marginal_x(Histogram<T> &marginal);
+  void fill_marginal_y(Histogram<T> &marginal);
 
   void print_format() { printf(YELLOW "Histogram(%lu,%lu) : x=[%g,%g] y=[%g,%g] (dx,dy)=(%g,%g)\n" NOCOLOR,_xbins,_ybins,_xmin,_xmax,_ymin,_ymax,_dx,_dy); }
 
@@ -271,21 +274,21 @@ T & Histogram2D<T>::operator()(double x, double y)
     {
       if      (x < _xmin)
 	bin_x_index = 0;
-      else if (x > _xmax)
+      else if (x >= _xmax)
 	bin_x_index = _xbins-1;
       else
 	bin_x_index = (x - _xmin)/_dx;
 
       if      (y < _ymin)
 	bin_y_index = 0;
-      else if (y > _ymax)
+      else if (y >= _ymax)
 	bin_y_index = _ybins-1;
       else
 	bin_y_index = (y - _ymin)/_dy;
     }
   else
     {
-      if (x < _xmin || x > _xmax || y < _ymin || y > _ymax)
+      if (x < _xmin || x >= _xmax || y < _ymin || y >= _ymax)
 	{
 	  // Guarantee during runtime that the histogram is not Bounded!
 	  Guarantee (_bound_type == HistogramBounds::DiscardBeyondBound,
@@ -570,6 +573,22 @@ void Histogram2D<T>::marginal_x(Buffer<T> &marginal)
 }
 
 template <class T>
+void Histogram2D<T>::fill_marginal_x(Histogram<T> &marginal)
+{
+  Assert(marginal.bins() == _xbins, "Marginal_x size buffer doesn't match histogram marginal size.");
+
+  for (size_t i=0; i < _xbins; ++i)
+    {
+      T tmp = 0;
+    
+      for (size_t j=0; j < _ybins; ++j)
+	tmp += bin(i,j);
+
+      marginal.bin(i) = tmp;
+    }
+}
+
+template <class T>
 void Histogram2D<T>::marginal_y(Buffer<T> &marginal)
 {
   Assert(marginal.size() == _ybins, "Marginal_y size buffer doesn't match histogram marginal size.");
@@ -582,6 +601,22 @@ void Histogram2D<T>::marginal_y(Buffer<T> &marginal)
 	tmp += bin(i,j);
 
       marginal[j] = tmp;
+    }      
+}
+
+template <class T>
+void Histogram2D<T>::fill_marginal_y(Histogram<T> &marginal)
+{
+  Assert(marginal.bins() == _ybins, "Marginal_y size buffer doesn't match histogram marginal size.");
+
+  for (size_t j=0; j < _ybins; ++j)
+    {
+      T tmp = 0;
+
+      for (size_t i=0; i < _xbins; ++i)
+	tmp += bin(i,j);
+
+      marginal.bin(j) = tmp;
     }      
 }
 

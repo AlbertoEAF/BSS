@@ -712,6 +712,8 @@ void apply_masks(Buffers<real> &buffers, real *alpha, real *X1, real *X2, Buffer
     buffers /= (real)FFT_N;
   */
 
+  buffers.clear();
+
   // Rebuild one source per iteration to reuse the FFT plan (only 1 needed).
   for (uint source = 0; source < active_sources; ++source)
     {
@@ -1083,8 +1085,15 @@ int main(int argc, char **argv)
   bufs.append(&bufs1); bufs.append(&bufs2); bufs.append(&bufs3);
   
 
+
   const real FFT_df = sample_rate_Hz / (real) FFT_N;
+
+ 
+
   FFT_flags = FFTW_ESTIMATE; // Use wisdom + FFTW_EXHAUSTIVE later!
+
+  Buffer<real> f_axis(FFT_pN/2);
+  f_axis.fill_range(0,(real)sample_rate_Hz/2.0);
 
   cout << "Estimating FFT plan..." << endl;
   cout << "The fast way!\n";
@@ -1120,9 +1129,12 @@ int main(int argc, char **argv)
   hist.print_format();
 
   RankList<real, Point2D<real> > 
-    preclusters(o.d("max_preclusters"),0.0,Point2D<real>()), old_preclusters(preclusters);
-  RankList<real, Point2D<real> > cumulative_clusters(N_max,0.0,Point2D<real>());
-  RankList<real, real> delta_preclusters(MAX_MARGINAL_PEAKS, 0.0), alpha_preclusters(delta_preclusters);
+    clusters(o.d("max_clusters"),0.0,Point2D<real>()), 
+    old_clusters(clusters),  
+    cumulative_clusters(N_max,0.0,Point2D<real>());
+  RankList<real, real> 
+    delta_preclusters(o.d("max_clusters"), 0.0), // Bigger than neeeded, less peaks arise in the marginals (combinations of clusters alpha,delta -> 2D clusters).
+    alpha_preclusters(delta_preclusters);
 
   //// Each of the clusters should now belong to a source: create masks and separate the sources.
   Buffer<int> masks(FFT_pN/2); 
@@ -1137,7 +1149,7 @@ int main(int argc, char **argv)
   _DUET.use_smoothing    = o.i("hist.use_smoothing")   ;
   _DUET.use_smoothing_2D = o.i("hist.use_smoothing_2D");
 
-  const int RENDER = o.i("render");
+  const int render = o.i("render");
 
   _DUET.aggregate_clusters = o.i("DUET.aggregate_clusters");
   _DUET.min_peak_fall   = o.d("DUET.min_peak_fall");
@@ -1148,6 +1160,8 @@ int main(int argc, char **argv)
   _DUET.noise_threshold = o.d("DUET.noise_threshold");
 
   const DUETcfg DUET = _DUET; // Make every parameter constant to avoid mistakes
+
+  int N_clusters = 0, old_N_clusters = 0;
 
 
   /////////////////////////// TEST HISTOGRAMS /////////////////////////////////////////////7
@@ -1235,7 +1249,7 @@ int main(int argc, char **argv)
       build_window(W,Rectangular);
     }
 
-  if (RENDER >= 0)
+  if (render >= 0)
     {
       puts("Calculating and writing histograms...");
       system("make cleanhists");
@@ -1298,9 +1312,11 @@ int main(int argc, char **argv)
 
 
 
+      
+
       evenHC2magnitude(FFT_pN, X1(),M1());
       if (o.i("show_each_hist"))      
-	pM1.plot(/*f_axis(),*/M1(),FFT_pN/2,"M1");
+	pM1.replot(f_axis(),M1(),FFT_pN/2,"M1");
       for (idx f=0; f < FFT_pN/2; ++f)
 	M1hist(f) += M1[f];
 
@@ -1316,6 +1332,7 @@ int main(int argc, char **argv)
 	  X1_history(time_block,f) = X1[f];
 	  X2_history(time_block,f) = X2[f];
 	}
+
 
       hist.clear();
       hist_alpha.clear();
@@ -1361,11 +1378,11 @@ int main(int argc, char **argv)
       	
       ///////// pre-Filter histogram clusters ///////////////////
 		
-      heuristic_clustering2D(hist, preclusters, DUET);
+      heuristic_clustering2D(hist, clusters, DUET);
       heuristic_clustering(hist_alpha, alpha_preclusters, DUET, DUET.min_peak_dalpha);
       heuristic_clustering(hist_delta, delta_preclusters, DUET, DUET.min_peak_ddelta);
 
-      cout << preclusters << alpha_preclusters << delta_preclusters << YELLOW "########\n" NOCOLOR;
+      cout << clusters << alpha_preclusters << delta_preclusters << YELLOW "########\n" NOCOLOR;
 
       /*
 	Buffer<Point2D<real> > clusters(preclusters.eff_size(DUET.noise_threshold));
@@ -1389,18 +1406,119 @@ int main(int argc, char **argv)
       ///////// Apply masks and rebuild current frame to audio and add it to the appropriate outputs
       if (! o.i("DUET.static_rebuild"))
 	{
-	  int N_clusters = preclusters.eff_size(DUET.noise_threshold); // clusters = preclusters.values
+	  N_clusters = clusters.eff_size(DUET.noise_threshold); 
       		
 	  old_buffers = bufs.read();
 	  new_buffers = bufs.next();
 	
-	  build_masks(masks, alpha(time_block), delta(time_block), X1_history(time_block), X2_history(time_block), preclusters.values, N_clusters, FFT_pN, FFT_pN/2, FFT_df, tmp_real_buffer_N_max);
-	  apply_masks(*new_buffers, alpha(time_block), X1_history(time_block), X2_history(time_block), masks, preclusters.values, N_clusters, FFT_pN, FFT_pN/2, FFT_df, Xxo_plan, Xo);
-	
-	
+	  build_masks(masks, alpha(time_block), delta(time_block), X1_history(time_block), X2_history(time_block), clusters.values, N_clusters, FFT_pN, FFT_pN/2, FFT_df, tmp_real_buffer_N_max);
+	  apply_masks(*new_buffers, alpha(time_block), X1_history(time_block), X2_history(time_block), masks, clusters.values, N_clusters, FFT_pN, FFT_pN/2, FFT_df, Xxo_plan, Xo);
 	  
+	  //// Solve the permutations to achieve continuity of the active streams. ///////////
+	  static Buffer<int>  C       (o.d("max_clusters"), 0), old_C(C); // so no index offset is needed as 0 can also be used.
+	  static Buffer<real> dist_k  (o.d("max_clusters"), FLT_MAX );
+	  static Buffer<real> acorr_k (o.d("max_clusters"), -FLT_MAX);
+	  static Buffer<real> dtotal_k(o.d("max_clusters"), FLT_MAX );
 
+	  C.clear();	  
+
+	  if (old_N_clusters) // No continuity to enforce if there are no past clusters.
+	    {
+
+	      cout << "Continuity--------------------\n";
+	      printf(GREEN "old_N = %d -> N = %d\n" NOCOLOR, old_N_clusters, N_clusters);
+	      clusters.print(N_clusters);
+
+	      // #clusters for which a continuation in the current time-frame was found.
+	      int continuations=0; 
+
+	      for (int k=0; k < old_N_clusters; ++k)
+		{
+		  dist_k.clear();
+		  acorr_k.clear();
+		  dtotal_k.clear();
+		  for (int j=0; j < N_clusters; ++j)
+		    {
+		      dist_k[j] = distance(old_clusters.values[k], clusters.values[j]);
+		      // This computation can be deferred so a single acorr is done to the closest cluster and only if it fails is the array calculated.
+		      
+		      acorr_k[j] = array_ops::inner_product(old_buffers->raw(k,FFT_slide),
+							    new_buffers->raw(j), FFT_N-FFT_slide)
+			/ std::sqrt(array_ops::energy(new_buffers->raw(j),FFT_N-FFT_slide));
+		      
+		      dtotal_k[j] = Dtotal(old_buffers->raw(k,FFT_slide),
+					   new_buffers->raw(j), FFT_N-FFT_slide);
+		    }
+
+		  acorr_k /= std::sqrt(array_ops::energy(old_buffers->raw(k,FFT_slide), FFT_N-FFT_slide));
+
+		  int closest_j = dist_k.min_index();
+		  int optimal_acorr_j = acorr_k.max_index();
+		  int optimal_dtotal_j = dtotal_k.min_index();	
+	
+
+		  printf(BLUE "\n(closest_j,max_a,min_Dtotal) = ( %d %ld %ld )\n" NOCOLOR, closest_j, acorr_k.max_index(), dtotal_k.min_index());
+		  cout << "Dist: ";
+		  dist_k.print(N_clusters);
+		  cout << "Acorr: ";
+		  acorr_k.print(N_clusters);
+		  cout << "dtotal: ";
+		  dtotal_k.print(N_clusters);
+
+		  // It is an acceptable continuation of Ck and Cj isn't assigned yet. Cj=Ck.
+		  if (acorr_k[optimal_acorr_j] > 0.5)// && C[optimal_acorr_j] == -1)
+		    {
+		      C[optimal_acorr_j] = k+1;
+		      ++continuations;
+		    }
+
+		  
+
+		}
+
+	      static Gnuplot px1;
+
+	      px1.replot(&x1_wav[time_block*FFT_slide],FFT_N, "x1");
+	      /*
+	      static Matrix<real> Acorr(o.d("max_clusters"),o.d("max_clusters"));
+	      Acorr.clear();
+	      for (int u = 0; u < N_clusters; ++u)
+		for (int v = u; v < N_clusters; ++v)
+		  Acorr(u,v) = array_ops::a0(new_buffers->raw(u),
+					     new_buffers->raw(v),
+					     FFT_N);
+	      puts(BLUE);
+	      cout << Acorr;
+	      puts(NOCOLOR);
+	      */
+	      printf("C = ");
+	      cout << C << endl;
+
+
+	      // Can also be implemented with no-match<0 instead of ==0. This avoids offset math.
+	      int from, to;
+	      for (int j=0; j<N_clusters; ++j)
+		{
+		  if (C[j] && C[j] != j+1)
+		    {
+		      from = j;
+		      to = C[j]-1;
+		      swap(C[from], C[to]);
+		      new_buffers->swap(from,to);
+		    }
+		}
+	      
+
+	      if (WAIT)
+		wait();
+	    }
+	  /////////////////////////////////////////////////////////////////////////////////////
+  
 	  write_data(wav_out, new_buffers, FFT_N, FFT_slide); // Explicitly use the initial region FFT_N and exclude the padding FFT_pN.
+
+	  old_N_clusters = N_clusters;
+	  old_C.copy(C);
+	  old_clusters.copy(clusters);
 	}
 
       //static Buffer<real> hist_alpha(hist.xbins()), hist_delta(hist.ybins());
@@ -1422,7 +1540,7 @@ int main(int argc, char **argv)
 
       ///////////////////////////////////////////////////////////
 
-      if (RENDER >= 0)
+      if (render >= 0)
 	{
 	  std::string filepath = "hist_dats/" + itosNdigits(time_block,10) + ".dat";
 	  hist.write_to_gnuplot_pm3d_binary_data(filepath.c_str());
@@ -1442,13 +1560,8 @@ int main(int argc, char **argv)
 
   cout << cumulative_clusters;
 
-  bool found_clusters = (cumulative_clusters.eff_size(DUET.noise_threshold) ? 1:0);
-  int N_clusters = cumulative_clusters.eff_size(DUET.noise_threshold);
+  N_clusters = cumulative_clusters.eff_size(DUET.noise_threshold);
 
-  /*
-  Buffer<Point2D<real> > clusters(cumulative_clusters.eff_size(DUET.noise_threshold)+(!found_clusters)); // if no clusters are found 0 size would blow the program
-  clusters.copy(cumulative_clusters.values,clusters.size());
-  */
   std::ofstream hist_cfg;
   hist_cfg.open("h.cfg");
   hist_cfg << hist.ybins();
@@ -1488,8 +1601,12 @@ int main(int argc, char **argv)
 	}		      
     }
 
+
   system("rm -f x*_rebuilt.wav");
-  for (uint source = 0; source < N_clusters; ++source)
+
+  int wav_N = ( o.i("DUET.static_rebuild") ? N_clusters : N_max );
+
+  for (uint source = 0; source < wav_N; ++source)
     {
       std::string wav_filepath("x"+itos(source)+"_rebuilt.wav");
       printf("%s...", wav_filepath.c_str());
@@ -1508,7 +1625,7 @@ int main(int argc, char **argv)
 	
 
 
-  if (RENDER > 0)
+  if (render > 0)
     Guarantee0( system("make render") , "Couldn't generate the movies.");
   cout << "#Clusters = " << N_clusters <<"\n";
   cumulative_clusters.print(N_clusters);

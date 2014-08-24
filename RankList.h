@@ -57,7 +57,7 @@ RankList<Tscore,Tvalue>::RankList(RankList<Tscore,Tvalue> &copy)
 template <class Tscore, class Tvalue>
   void RankList<Tscore,Tvalue>::copy(RankList<Tscore,Tvalue> &copy)
 {
-  _size = copy.size;
+  Assert(_size == copy._size, "Sizes must match.");
   _init_score = copy._init_score;
   _init_value = copy._init_value;
 

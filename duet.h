@@ -12,6 +12,8 @@
 #include "Buffer.h"
 #include "Matrix.h"
 
+
+
 #include "Histogram.h"
 #include "Histogram2D.h"
 
@@ -40,6 +42,9 @@
  
 #include "DoubleLinkedList.h"
 
+#include "BufferPool.h"
+
+#include "IdList.h"
 
 using std::cout;
 using std::cin;
@@ -86,4 +91,45 @@ struct DUETcfg
   real min_peak_fall;
   real min_peak_dalpha;
   real min_peak_ddelta;
+};
+
+void evenHC2magnitude(int samples, real *hc, real *magnitude);
+
+class StreamSet // Non-thread-safe.
+{
+ public:
+  StreamSet(unsigned int streams, size_t data_len, size_t spectrum_magnitude_size) : _streams(streams), _data(streams, data_len, fftw_malloc, fftw_free), _spectrum(streams, spectrum_magnitude_size), _last_buf(streams) {};
+
+  unsigned int streams() { return _streams; }
+
+  void clear (unsigned int id) { stream(id)->clear(); spectrum(id)->clear(); }
+
+
+  unsigned int acquire_id() { return _data.try_acquire_id(); };
+  void release_id(unsigned int id) { clear(id); _data.release_id(id); };
+
+  void release_ids() { _data.release_ids(); }
+
+  Buffer<real> *  spectrum(unsigned int id) { Assert(id, "Id must be larger than 0."); return _spectrum(id-1);      };
+  Buffer<real> *& last_buf(unsigned int id) { Assert(id, "Id must be larger than 0."); return _last_buf[id-1];      };
+  Buffer<real> *  stream  (unsigned int id) { return _data.get_buffer(id); };
+
+  void stream_id_add_buffer_at(unsigned int id, Buffer<real> &buf, Buffer<real> &magnitude, size_t pos);
+
+
+  const unsigned int _streams;
+
+  BufferPool<real>      _data;
+  Buffers<real>         _spectrum;
+  Buffer<Buffer<real>*> _last_buf;
+
+ private:
+
+};
+
+void StreamSet::stream_id_add_buffer_at(unsigned int id, Buffer<real> &buf, Buffer<real> &magnitude, size_t pos)
+{
+  stream(id)->add_at(buf, pos);
+  last_buf(id) = &buf;
+  (*spectrum(id)) += magnitude;
 };

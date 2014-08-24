@@ -23,6 +23,8 @@ public:
   inline Buffer<T> * get_buffer (unsigned int id);
   void release_id(unsigned int id);
   
+  void release_ids();
+
 private:
   const unsigned int _pool_size;
   Buffer<T> ** _bufs;
@@ -125,5 +127,13 @@ template <class T> void BufferPool<T>::release_id (unsigned int id)
   _used[id-1] = false;
   _mutex.unlock();
 }
+
+template <class T> void BufferPool<T>::release_ids ()
+{
+  _mutex.lock();
+  _used.clear();
+  _mutex.unlock();
+}
+
 
 #endif //BUFFERPOOL_H__

@@ -900,6 +900,7 @@ void build_window(Buffer<real> &W, real (*Wfunction)(idx n, idx N))
 */
 int main(int argc, char **argv)
 {
+
   /* Name convention throughout this file:
   	
      i - input
@@ -1084,6 +1085,9 @@ int main(int argc, char **argv)
   DoubleLinkedList<Buffers<real>*> bufs;
   bufs.append(&bufs1); bufs.append(&bufs2); bufs.append(&bufs3);
   
+  StreamSet Streams(o.i("streams"), time_blocks*FFT_slide, FFT_pN/2);
+  
+
 
 
   const real FFT_df = sample_rate_Hz / (real) FFT_pN;
@@ -1428,6 +1432,8 @@ int main(int argc, char **argv)
 	  static Buffer<real> dist_k  (o.d("max_clusters"), FLT_MAX );
 	  static Buffer<real> acorr_k (o.d("max_clusters"), -FLT_MAX);
 	  static Buffer<real> dtotal_k(o.d("max_clusters"), FLT_MAX );
+
+
 
 	  C.clear();	  
 

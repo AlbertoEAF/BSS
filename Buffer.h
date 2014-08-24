@@ -61,7 +61,7 @@ class Buffer
   void fill(T value) { for(size_t i=0;i<m_size;++i) m[i] = value; }
   void fill_range(T min, T max);
 
-  
+  void add_at(Buffer<T> &, size_t pos);
 
   Buffer       & operator  = (const Buffer<T> &);
   const Buffer & operator += (const Buffer<T> &);
@@ -215,6 +215,18 @@ void Buffer<T>::copy(const T *copy, size_t copy_size)
   memcpy((void*)m, (void*)copy, copy_size*sizeof(T));
   for (size_t i = copy_size; i < m_size; ++i)
     m[i] = 0;
+}
+
+template <class T> 
+void Buffer<T>::add_at(Buffer<T> &buf, size_t pos)
+{
+  size_t I = pos+buf.size();
+    
+  Assert(I <= m_size, "Buffer added at such position results in out of bounds operations.");
+
+
+  for (size_t i=pos; i<I; ++i)
+    m[i] += buf[i];
 }
 
  

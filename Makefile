@@ -22,7 +22,10 @@ LIBS_SRL = -Llibs -lSRL
 LIBS = $(FFTLIBS) $(WAVLIBS) $(MATHLIBS) $(LIBS_SRL) $(ARMADILLO_LIB)
 
 
-all: duet ransac drvb
+all: IdList duet ransac drvb
+
+IdList: IdList.cpp IdList.h
+	$(CC) $(CCFLAGS) -c IdList.cpp
 
 drvb: libs
 	$(CC) $(CCFLAGS) -o latedereverb latedereverb.cpp gnuplot_ipp/gnuplot_ipp.o timer.o $(PRECISION) $(LIBS) 	
@@ -33,8 +36,8 @@ csim: libs csim.cpp
 duet: libs 
 	$(CC) $(CCFLAGS) -o d duet.cpp gnuplot_ipp/gnuplot_ipp.o timer.o $(PRECISION) $(LIBS) 
 
-ransac: libs 
-	$(CC) $(CCFLAGS) -o r ransac.cpp gnuplot_ipp/gnuplot_ipp.o timer.o $(PRECISION) $(LIBS) 
+ransac: libs IdList
+	$(CC) $(CCFLAGS) -o r ransac.cpp gnuplot_ipp/gnuplot_ipp.o timer.o IdList.o $(PRECISION) $(LIBS) 
 
 
 duet.h.gch: duet.h Buffer.h Matrix.h Histogram2D.h array_ops.h types.h libs/config_parser.h wav.h gnuplot_ipp/gnuplot_ipp.h filters.h extra.h libs/timer.h RankList.h

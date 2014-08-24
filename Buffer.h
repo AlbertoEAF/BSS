@@ -27,7 +27,7 @@ be accepted.
 #include "custom_assert.h"
 
 
-#include "array_ops.h" // array_ops::max_abs
+#include "array_ops.h" 
 
 // Templates das funcoes friend
 template <class T> class Buffer;
@@ -61,7 +61,7 @@ class Buffer
   void fill(T value) { for(size_t i=0;i<m_size;++i) m[i] = value; }
   void fill_range(T min, T max);
 
-  void normalize (const T value = 1); 
+  
 
   Buffer       & operator  = (const Buffer<T> &);
   const Buffer & operator += (const Buffer<T> &);
@@ -71,8 +71,26 @@ class Buffer
   const Buffer & operator *= (const T factor);
   const Buffer & operator /= (const T factor);
 
+  const Buffer & operator *= (const Buffer<T> &);
 
-    
+  // Prints the first elements.
+  void print(size_t n);
+
+  void normalize (const T value = 1); 
+
+  // No-parameter array_ops integration.
+
+  size_t min_index () { return array_ops::min_index(m, m_size); }
+  size_t max_index () { return array_ops::max_index(m, m_size); }
+  T min () { return array_ops::min(m, m_size); }
+  T max () { return array_ops::max(m, m_size); }
+  T sum () { return array_ops::sum(m, m_size); }
+  T avg () { return array_ops::avg(m, m_size); }
+  T max_abs() { return array_ops::max_abs(m, m_size); }
+  T energy() { return array_ops::energy(m, m_size); }
+  T rms() { return array_ops::rms(m, m_size); }
+
+
  private:
   // If memory alignment is required
   void *(*_custom_malloc)(size_t) ;
@@ -165,6 +183,16 @@ std::istream &operator >> (std::istream &input, Buffer<T> &buffer)
 
 
 template <class T> 
+void Buffer<T>::print(size_t n)
+{
+  size_t I = std::min(m_size, n);
+
+  for (size_t i = 0; i < I ; ++i)
+    std::cout << m[i] << "  ";  
+  std::cout << std::endl;
+}
+
+template <class T> 
 void Buffer<T>::copy(const Buffer<T> & copy, size_t copy_size)
 {
   if (!copy_size)
@@ -233,6 +261,18 @@ const Buffer<T> & Buffer<T>::operator /= (const T factor)
   for (size_t i=0; i < m_size; ++i)
     m[i] *= inv_factor; // Multiplication is faster than division
   
+  return *this;
+}
+
+
+template <class T>
+const Buffer<T> & Buffer<T>::operator *= (const Buffer<T> &other)
+{
+  Assert(m_size == other.m_size, "Sizes must match.");
+
+  for (size_t i = 0; i < m_size ; i++)
+    m[i] *= other[i];
+
   return *this;
 }
 

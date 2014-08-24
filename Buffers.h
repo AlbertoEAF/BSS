@@ -27,6 +27,7 @@ public:
   void clear() { for(unsigned int i=0;i<_pool_size;++i) _bufs[i]->clear(); }
 
   T * raw (unsigned int i) { return (*_bufs[i])(); }
+  T * raw (unsigned int i, size_t index_offset) { return &raw(i)[index_offset]; }
 
   T max_abs();
 

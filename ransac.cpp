@@ -1086,9 +1086,9 @@ int main(int argc, char **argv)
   
 
 
-  const real FFT_df = sample_rate_Hz / (real) FFT_N;
+  const real FFT_df = sample_rate_Hz / (real) FFT_pN;
 
- 
+  
 
   FFT_flags = FFTW_ESTIMATE; // Use wisdom + FFTW_EXHAUSTIVE later!
 

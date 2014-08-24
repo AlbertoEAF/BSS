@@ -70,6 +70,8 @@ struct DUETcfg
   idx FFT_pN;
   int FFT_p; // The FFT oversampling factor.
 
+  int Fmax, Fmin;
+
   bool use_window; // we'll always use a window from now on
   //  int window_type;
 

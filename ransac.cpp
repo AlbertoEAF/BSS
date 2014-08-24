@@ -437,7 +437,7 @@ void calc_alpha_delta(idx time_block, idx pN, idx sample_rate_Hz,
 
   if (DUET.FFT_p > 1) // Use the phase-aliasing correction extension.
     {
-      for (idx f = 1; f < pN/2 - 1; ++f)
+      for (idx f = DUET.Fmin; f < pN/2 - 1; ++f)
 	{
 	  fI = pN-f; // imaginary part index
 
@@ -456,7 +456,7 @@ void calc_alpha_delta(idx time_block, idx pN, idx sample_rate_Hz,
     }
   else // Standard DUET without phase-aliasing correction.
     {
-      for (idx f = 1; f < pN/2; ++f)
+      for (idx f = DUET.Fmin; f < DUET.Fmax; ++f)
 	{
 	  idx fI = pN-f; // imaginary part index
 		
@@ -1088,7 +1088,15 @@ int main(int argc, char **argv)
 
   const real FFT_df = sample_rate_Hz / (real) FFT_pN;
 
-  
+  _DUET.Fmax = std::min<int>(o.f("DUET.high_cutoff_Hz", Warn)/FFT_df, 
+			     int(FFT_pN/2));
+  if (_DUET.Fmax <= 2)
+    _DUET.Fmax = FFT_pN/2;
+  _DUET.Fmin = std::min<int>(o.f("DUET.low_cutoff_Hz" , Warn)/FFT_df, 
+			     _DUET.Fmax-1);
+  if (_DUET.Fmin <= 1)
+    _DUET.Fmin = 1;
+
 
   FFT_flags = FFTW_ESTIMATE; // Use wisdom + FFTW_EXHAUSTIVE later!
 
@@ -1265,6 +1273,7 @@ int main(int argc, char **argv)
   */
 
   static Gnuplot pM1;
+  pM1.set_xlabel("f (Hz)");
   static Buffer<real> M1(FFT_pN/2);
   static Histogram<real> M1hist(1,0,FFT_pN/2,HistogramBounds::Bounded);
 

@@ -127,6 +127,17 @@ namespace array_ops {
 
     return v;
   }
+
+
+  template <class T, class T_int>
+  T a0(const T *f, const T *g, T_int size)
+  {
+    T inner = array_ops::inner_product(f,g,size);
+    T E1 = array_ops::energy(f,size);
+    T E2 = array_ops::energy(g,size);
+
+    return inner / (std::sqrt(E1)*std::sqrt(E2));
+  }
   
 
   template <class T, class T_int>

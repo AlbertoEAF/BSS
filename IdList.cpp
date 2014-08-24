@@ -10,6 +10,18 @@ unsigned int IdList::size ()
   return _size;
 }
 
+unsigned int IdList::last ()
+{
+  return _last;
+}
+
+int IdList::operator() (unsigned int n)
+{
+  Guarantee (n < _last, "Accessed out of the allowed range. Don't go over last().");
+
+  return _list[n];
+}
+
 
 bool IdList::add(int value)
 {

@@ -105,7 +105,7 @@ class StreamSet // Non-thread-safe.
   void clear (unsigned int id) { stream(id)->clear(); spectrum(id)->clear(); }
 
 
-  unsigned int acquire_id() { unsigned int id = _data.try_acquire_id(); Guarantee(id, "Impossible to allocate new stream."); return id; };
+  unsigned int acquire_id() { _latest_id = _data.try_acquire_id(); Guarantee(_latest_id, "Impossible to allocate new stream."); return _latest_id; };
   void release_id(unsigned int id) { clear(id); _data.release_id(id); };
 
   void release_ids() { _data.release_ids(); }
@@ -120,12 +120,14 @@ class StreamSet // Non-thread-safe.
 
   const unsigned int _streams;
 
+  unsigned int latest_id() { return _latest_id; }
+
   BufferPool<real>      _data;
   Buffers<real>         _spectrum;
   Buffer<Buffer<real>*> _last_buf;
 
  private:
-
+  unsigned int _latest_id;
 };
 
 void StreamSet::stream_id_add_buffer_at(unsigned int id, Buffer<real> &buf, Buffer<real> &magnitude, size_t pos)

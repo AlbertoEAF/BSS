@@ -1739,7 +1739,31 @@ int main(int argc, char **argv)
   fftw_destroy_plan(xX1_plan); 
   fftw_destroy_plan(xX2_plan);
   fftw_destroy_plan(Xxo_plan);
-	
+
+  printf(GREEN "%u streams in %d time blocks.\n" NOCOLOR, Streams.latest_id(),time_blocks);
+  
+
+
+  if (! o.i("DUET.static_rebuild"))
+    {
+      // Look for the normalization
+      real streams_max_abs = 0;
+      for (unsigned int stream_id=1; stream_id<=Streams.latest_id();++stream_id)
+	{
+	  real maxabs = Streams.stream(stream_id)->max_abs();
+
+	  if (maxabs > streams_max_abs)
+	    streams_max_abs = maxabs;
+	}
+
+      for (unsigned int stream_id = 1; stream_id <= Streams.latest_id(); ++stream_id)
+	{
+	  std::string wav_filepath("xstream"+itos(stream_id)+"_rebuilt.wav");
+	  printf("%s...", wav_filepath.c_str());
+	  fflush(stdout);
+	  print_status( wav::write_mono(wav_filepath, (*Streams.stream(stream_id))(), samples, sample_rate_Hz,streams_max_abs) );
+	}
+    }
   Streams.release_ids();
 
   if (render > 0)
@@ -1748,6 +1772,7 @@ int main(int argc, char **argv)
   cumulative_clusters.print(N_clusters);
   system("cat s.dat");
   puts("\nSuccess!");
+
 
   if (WAIT)
     wait();

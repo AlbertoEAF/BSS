@@ -1490,8 +1490,8 @@ int main(int argc, char **argv)
 	      if ( acorr_k[optimal_acorr_j] > o.f("a0min") && ( !o.i("single_assignment") || !assigned_clusters.has(optimal_acorr_j) ) )
 		{
 		  printf(GREEN "Stream %d lives through %d\n" NOCOLOR, id, optimal_acorr_j);
-
-		  wait();
+		  if (WAIT)
+		    wait();
 		  
 		  fftw_execute_r2r(xX1_plan, new_buffers->raw(optimal_acorr_j), tmp_X());
 		  evenHC2magnitude(FFT_pN, tmp_X(), tmp_M());
@@ -1507,7 +1507,8 @@ int main(int argc, char **argv)
 
 		  static Gnuplot pDM;
 		  pDM.plot((*Streams.spectrum(id))(),FFT_pN/2,"M at Death");
-		  wait();
+		  if (WAIT)
+		    wait();
 		}
 	    }
 	  // Birth

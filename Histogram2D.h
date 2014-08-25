@@ -486,7 +486,6 @@ void Histogram2D<T>::smooth_add(T value, double x, double y, double smooth_dx, d
       double xm_extra = _xmin - (x-smooth_dx);
       double yp_extra = y+smooth_dy - _ymax;
       double ym_extra = _ymin - (y-smooth_dy);
-      double weight;
 
       // Right side
       if (xp_extra > 0)

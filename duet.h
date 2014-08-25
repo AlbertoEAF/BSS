@@ -95,10 +95,12 @@ struct DUETcfg
 
 void evenHC2magnitude(int samples, real *hc, real *magnitude);
 
+enum class Status : std::int8_t { Unitialized, Active, Inactive, Dead };
+
 class StreamSet // Non-thread-safe.
 {
  public:
-  StreamSet(unsigned int streams, size_t data_len, size_t spectrum_magnitude_size) : _streams(streams), _data(streams, data_len, fftw_malloc, fftw_free), _spectrum(streams, spectrum_magnitude_size), _last_buf(streams) {};
+ StreamSet(unsigned int streams, size_t data_len, size_t spectrum_magnitude_size) : _streams(streams), _data(streams, data_len, fftw_malloc, fftw_free), _spectrum(streams, spectrum_magnitude_size), _last_buf(streams), _first_active_block(streams), _last_active_block(streams), _status(streams, Status::Unitialized), _latest_id(0) {};
 
   unsigned int streams() { return _streams; }
 
@@ -125,6 +127,9 @@ class StreamSet // Non-thread-safe.
   BufferPool<real>      _data;
   Buffers<real>         _spectrum;
   Buffer<Buffer<real>*> _last_buf;
+  Buffer <unsigned int> _first_active_block, _last_active_block;
+  Buffer<Status>        _status;
+
 
  private:
   unsigned int _latest_id;

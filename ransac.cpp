@@ -4,9 +4,6 @@
 //#define OLD_MASK_BUILD
 //#define OLD_PEAK_ASSIGN
 
-
-const int MAX_MARGINAL_PEAKS = 16;
-
 void RENDER_HIST(const std::string &filepath, const std::string &title, bool pause)
 {
   std::string cmd("gnuplot -e \"splot \\\"");
@@ -147,7 +144,7 @@ template <class T> T blocks (T terms, T block_size)
 }
 
 
-void heuristic_pre_filter_clusters (Histogram<real> &hist, RankList<real,real> &preclusters, real min_peak_fall)
+void heuristic_pre_filter_clusters (Histogram<real> &hist, RankList<real,real> &preclusters, real min_peak_fall, real min_score)
 {
   static const size_t skip_bins = 0; // skip the next bin if this one is below the noise threshold for faster performance (for sure a peak will not arise in the next bins)
 
@@ -157,9 +154,6 @@ void heuristic_pre_filter_clusters (Histogram<real> &hist, RankList<real,real> &
   // Exclude bins on the border (Borderless histogram and interior region = interest region)
   for (size_t bin=1; bin < max_bin; ++bin)
     {
-      static real min_peak_diff = 0; // (10) sets the minimum (-)derivative around the peak.
-      static real min_score     = 0; // (50) Minimum threshold, below which is noise.
-
       real score = hist.bin(bin);
 
       if (score > min_score)
@@ -174,7 +168,7 @@ void heuristic_pre_filter_clusters (Histogram<real> &hist, RankList<real,real> &
 }
 
 
-void heuristic_pre_filter_clusters2D (Histogram2D<real> &hist, RankList<real, Point2D<real> > &preclusters, real min_peak_fall)
+void heuristic_pre_filter_clusters2D (Histogram2D<real> &hist, RankList<real, Point2D<real> > &preclusters, real min_peak_fall, real min_score)
 {
   static const size_t skip_bins = 0; // skip the next bin if this one is below the noise threshold for faster performance (for sure a peak will not arise in the next bins)
 
@@ -187,9 +181,6 @@ void heuristic_pre_filter_clusters2D (Histogram2D<real> &hist, RankList<real, Po
     {
       for (size_t deltabin=1; deltabin < max_delta_bin; ++deltabin)
 	{				
-	  static real min_peak_diff = 0; // (10) sets the minimum (-)derivative around the peak.
-	  static real min_score     = 0; // (50) Minimum threshold, below which is noise.
-
 	  real score = hist.bin(alphabin,deltabin);
 
 	  if (score > min_score)
@@ -252,7 +243,7 @@ void heuristic_aggregate_preclusters (RankList<real,real> &preclusters, const DU
 
 void heuristic_clustering(Histogram<real> &hist, RankList<real,real> &preclusters, const DUETcfg &DUET, real min_peak_distance)
 {
-  heuristic_pre_filter_clusters(hist, preclusters, DUET.min_peak_fall);
+  heuristic_pre_filter_clusters(hist, preclusters, DUET.min_peak_fall, DUET.noise_threshold);
   //	cout << preclusters;
   heuristic_aggregate_preclusters(preclusters, DUET, min_peak_distance);
 }
@@ -290,7 +281,7 @@ void heuristic_aggregate_preclusters2D (RankList<real,Point2D<real> > &precluste
 
 void heuristic_clustering2D(Histogram2D<real> &hist, RankList<real, Point2D<real> > &preclusters, const DUETcfg &DUET)
 {
-  heuristic_pre_filter_clusters2D(hist, preclusters, DUET.min_peak_fall);
+  heuristic_pre_filter_clusters2D(hist, preclusters, DUET.min_peak_fall, DUET.noise_threshold);
   //	cout << preclusters;
   heuristic_aggregate_preclusters2D(preclusters, DUET);
 }
@@ -524,7 +515,6 @@ void ransac_test(idx time_block, idx pN, idx sample_rate_Hz,
   alpha(time_block, 0) = a - 1/a;
   delta(time_block, 0) = 0.0;
 
-  idx fI; // imaginary part index
   real _alpha, _delta; // aliases to avoid unneeded array re-access.
   real omega;
 
@@ -987,9 +977,9 @@ int main(int argc, char **argv)
   std::string x1_filepath = (argc == 4 ? argv[2] : o("x1_wav"));
   std::string x2_filepath = (argc == 4 ? argv[3] : o("x2_wav"));
 
-  // Estimated and simulation (true) centroids 
-  real calpha[N_max], true_alpha[N_max];
-  real cdelta[N_max], true_delta[N_max];
+  // simulation (true) centroids 
+  real true_alpha[N_max];
+  real true_delta[N_max];
 
   // Read simulation parameters
   std::ifstream sim; 
@@ -1069,7 +1059,7 @@ int main(int argc, char **argv)
   _DUET.FFT_pN = _DUET.FFT_p * _DUET.FFT_N;
   const idx FFT_pN = _DUET.FFT_pN;
 
-  const uint time_blocks = 1 + blocks(samples, FFT_slide);
+  const idx time_blocks = 1 + blocks(samples, FFT_slide);
 
   //// Storage allocation ///////
 
@@ -1154,8 +1144,8 @@ int main(int argc, char **argv)
     old_clusters(clusters),  
     cumulative_clusters(N_max,0.0,Point2D<real>());
   RankList<real, real> 
-    delta_preclusters(o.d("max_clusters"), 0.0), // Bigger than neeeded, less peaks arise in the marginals (combinations of clusters alpha,delta -> 2D clusters).
-    alpha_preclusters(delta_preclusters);
+    delta_clusters(o.d("max_clusters"), 0.0), // Bigger than neeeded, less peaks arise in the marginals (combinations of clusters alpha,delta -> 2D clusters).
+    alpha_clusters(delta_clusters);
 
   //// Each of the clusters should now belong to a source: create masks and separate the sources.
   Buffer<int> masks(FFT_pN/2); 
@@ -1294,6 +1284,7 @@ int main(int argc, char **argv)
 
   for (idx time_block = 0; time_block < time_blocks; ++time_block)
     {
+      printf(GREEN "\t\t time_block %lu/%lu\n" NOCOLOR, time_block, time_blocks);
       idx block_offset = time_block*FFT_slide;
 
       for (idx i = 0; i < FFT_N; ++i)
@@ -1400,10 +1391,10 @@ int main(int argc, char **argv)
       ///////// pre-Filter histogram clusters ///////////////////
 		
       heuristic_clustering2D(hist, clusters, DUET);
-      heuristic_clustering(hist_alpha, alpha_preclusters, DUET, DUET.min_peak_dalpha);
-      heuristic_clustering(hist_delta, delta_preclusters, DUET, DUET.min_peak_ddelta);
+      heuristic_clustering(hist_alpha, alpha_clusters, DUET, DUET.min_peak_dalpha);
+      heuristic_clustering(hist_delta, delta_clusters, DUET, DUET.min_peak_ddelta);
 
-      cout << clusters << alpha_preclusters << delta_preclusters << YELLOW "########\n" NOCOLOR;
+      cout << YELLOW << clusters << NOCOLOR;
 
       /*
 	Buffer<Point2D<real> > clusters(preclusters.eff_size(DUET.noise_threshold));
@@ -1454,31 +1445,53 @@ int main(int argc, char **argv)
 	    {
 	      int id = active_streams[k];
 
-	      dist_k.clear();
+	      dist_k.clear ();
 	      acorr_k.clear();
 	      dtotal_k.clear();
+
+	      real *ptr_prev_buf = Streams.last_buf_raw(id,FFT_slide);
+	      real Eprev = array_ops::energy(ptr_prev_buf,FFT_pN-FFT_slide);
 	
 	      for (int j = 0; j < N_clusters; ++j)
 		{
 		  dist_k[j] = distance(old_clusters.values[k], clusters.values[j]);
 		  // This computation can be deferred so a single acorr is done to the closest cluster and only if it fails is the array calculated.
 		  
-		  acorr_k[j] = array_ops::inner_product(Streams.last_buf_raw(id,FFT_slide),
-							new_buffers->raw(j), FFT_N-FFT_slide)
-		    / std::sqrt(array_ops::energy(new_buffers->raw(j),FFT_N-FFT_slide));
+
+		  real *ptr_next_buf = new_buffers->raw(j);
+		  real Enext = array_ops::energy(ptr_next_buf,FFT_pN-FFT_slide);
+
+		  acorr_k[j] = array_ops::inner_product(ptr_prev_buf,
+							ptr_next_buf,
+							FFT_N-FFT_slide)
+		    / std::sqrt(Enext);
 		  
-		  dtotal_k[j] = Dtotal(Streams.last_buf_raw(id,FFT_slide),
-				       new_buffers->raw(j), FFT_N-FFT_slide);
+		  dtotal_k[j] = Dtotal(ptr_prev_buf,
+				       ptr_next_buf,
+				       FFT_N-FFT_slide);
 		}
 	      
-	      acorr_k /= std::sqrt(array_ops::energy(Streams.last_buf_raw(id,FFT_slide), FFT_N-FFT_slide));
+	      acorr_k /= std::sqrt(Eprev);
+
+	      for (int l=0; l < N_clusters; ++l)
+		{
+		  if (std::isnan(acorr_k[l]))
+		    {
+		      puts(RED "SHIT!" NOCOLOR);
+		      
+		      cout << Eprev << "--\n\n\n\n\n" << array_ops::energy(new_buffers->raw(l),FFT_pN-FFT_slide) << ">";
+
+		     
+
+		      return 1;
+		    }
+		}
 
 	      int closest_j = dist_k.min_index();
 	      int optimal_acorr_j = acorr_k.max_index();
 	      int optimal_dtotal_j = dtotal_k.min_index();	
 	      
-	      
-	      printf(BLUE "\n(closest_j,max_a,min_Dtotal) = ( %d %ld %ld )\n" NOCOLOR, closest_j, acorr_k.max_index(), dtotal_k.min_index());
+	      printf(BLUE "\n(closest_j,max_a,min_Dtotal) = ( %d %d %d )\n" NOCOLOR, closest_j, optimal_acorr_j, optimal_dtotal_j);
 	      cout << "Dist: ";
 	      dist_k.print(N_clusters);
 	      cout << "Acorr: ";
@@ -1490,8 +1503,6 @@ int main(int argc, char **argv)
 	      if ( acorr_k[optimal_acorr_j] > o.f("a0min") && ( !o.i("single_assignment") || !assigned_clusters.has(optimal_acorr_j) ) )
 		{
 		  printf(GREEN "Stream %d lives through %d\n" NOCOLOR, id, optimal_acorr_j);
-		  if (WAIT)
-		    wait();
 		  
 		  fftw_execute_r2r(xX1_plan, new_buffers->raw(optimal_acorr_j), tmp_X());
 		  evenHC2magnitude(FFT_pN, tmp_X(), tmp_M());
@@ -1507,14 +1518,11 @@ int main(int argc, char **argv)
 
 		  static Gnuplot pDM;
 		  pDM.plot((*Streams.spectrum(id))(),FFT_pN/2,"M at Death");
-		  if (WAIT)
-		    wait();
 		}
 	    }
 	  // Birth
 	  for (int j=0; j < N_clusters; ++j)
 	    {
-	      printf("B(%d/%d)\n", j,N_clusters);
 	      if (! assigned_clusters.has(j))
 		{
 		  int new_id = Streams.acquire_id();
@@ -1740,7 +1748,7 @@ int main(int argc, char **argv)
   fftw_destroy_plan(xX2_plan);
   fftw_destroy_plan(Xxo_plan);
 
-  printf(GREEN "%u streams in %d time blocks.\n" NOCOLOR, Streams.latest_id(),time_blocks);
+  printf(GREEN "%u streams in %lu time blocks.\n" NOCOLOR, Streams.latest_id(),time_blocks);
   
 
 

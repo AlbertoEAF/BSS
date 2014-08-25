@@ -2,7 +2,7 @@ CC=clang++
 
 
 DEBUG= -g # -DNDEBUG
-EXTRACCFLAGS =  -Wno-unused-variable $(DEBUG) -ffunction-sections -Wl,-gc-sections #-Wno-unused-but-set-variable
+EXTRACCFLAGS =   $(DEBUG) -ffunction-sections -Wl,-gc-sections #-Wno-unused-variable #-Wno-unused-but-set-variable
 OPTIMIZATION_FLAGS= -O2 # -DNDEBUG
 OMP= -fopenmp
 CCFLAGS= -Wall $(EXTRACCFLAGS) -std=c++11 $(OPTIMIZATION_FLAGS) $(OMP)

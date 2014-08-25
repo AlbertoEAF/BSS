@@ -1294,10 +1294,7 @@ int main(int argc, char **argv)
 
   for (idx time_block = 0; time_block < time_blocks; ++time_block)
     {
-      printf(GREEN "                  t_block = %ld / %u               N = %ld / %ld\n" NOCOLOR, time_block, time_blocks,   time_block*FFT_slide, samples);
       idx block_offset = time_block*FFT_slide;
-
-      printf(RED "%p %p\n" NOCOLOR, &x1, &x1_wav);
 
       for (idx i = 0; i < FFT_N; ++i)
 	{
@@ -1336,9 +1333,6 @@ int main(int argc, char **argv)
 
       fftw_execute(xX1_plan);
       fftw_execute(xX2_plan);
-
-
-
       
 
       evenHC2magnitude(FFT_pN, X1(),M1());
@@ -1493,9 +1487,11 @@ int main(int argc, char **argv)
 	      dtotal_k.print(N_clusters);
 	      
 	      // Life
-	      if (acorr_k[optimal_acorr_j] > 0.9)
+	      if ( acorr_k[optimal_acorr_j] > o.f("a0min") && ( !o.i("single_assignment") || !assigned_clusters.has(optimal_acorr_j) ) )
 		{
 		  printf(GREEN "Stream %d lives through %d\n" NOCOLOR, id, optimal_acorr_j);
+
+		  wait();
 		  
 		  fftw_execute_r2r(xX1_plan, new_buffers->raw(optimal_acorr_j), tmp_X());
 		  evenHC2magnitude(FFT_pN, tmp_X(), tmp_M());
@@ -1508,6 +1504,10 @@ int main(int argc, char **argv)
 		{
 		  printf(GREEN "Stream %d died.\n" NOCOLOR, id);
 		  active_streams.del(id);
+
+		  static Gnuplot pDM;
+		  pDM.plot((*Streams.spectrum(id))(),FFT_pN/2,"M at Death");
+		  wait();
 		}
 	    }
 	  // Birth
@@ -1663,7 +1663,6 @@ int main(int argc, char **argv)
 	  //system(("cp "+filepath+" tmp_dats/hist.dat && gen_movie.sh tmp_dats tmp_pngs 3D.gnut && feh tmp_pngs/hist.png").c_str());
 	  //wait();	
 	}
-      printf("Time_block %ld/%u     N=%ld/%ld\n", time_block, time_blocks,    time_block*FFT_slide, samples);
     }
 
 	

@@ -1428,13 +1428,28 @@ int main(int argc, char **argv)
 	  apply_masks(*new_buffers, alpha(time_block), X1_history(time_block), X2_history(time_block), masks, clusters.values, N_clusters, FFT_pN, FFT_pN/2, FFT_df, Xxo_plan, Xo);
 	  
 	  //// Solve the permutations to achieve continuity of the active streams. ///////////
-	  static Buffer<int>  C       (o.d("max_clusters"), 0), old_C(C); // so no index offset is needed as 0 can also be used.
-	  static Buffer<real> dist_k  (o.d("max_clusters"), FLT_MAX );
-	  static Buffer<real> acorr_k (o.d("max_clusters"), -FLT_MAX);
-	  static Buffer<real> dtotal_k(o.d("max_clusters"), FLT_MAX );
+	  static Buffer<int>  C       (o.i("max_clusters"), 0), old_C(C); // so no index offset is needed as 0 can also be used.
+	  static Buffer<real> dist_k  (o.i("max_clusters"), FLT_MAX );
+	  static Buffer<real> acorr_k (o.i("max_clusters"), -FLT_MAX);
+	  static Buffer<real> dtotal_k(o.i("max_clusters"), FLT_MAX );
+	  /*
+	  static IdList active_streams(N_max), assigned_clusters(o.i("max_clusters"));
 
+	  ////// NEW METHOD
 
+	  // Life
+	  for (int i=0; i < active_streams.last(); ++i)
+	    {
+	      int id = active_streams[i];
 
+	      for (int j = 0; j < N_clusters; ++j)
+		{
+		  
+		}
+	    }
+
+	  ///// END OF NEW METHOD
+	  */
 	  C.clear();	  
 
 	  if (old_N_clusters) // No continuity to enforce if there are no past clusters.

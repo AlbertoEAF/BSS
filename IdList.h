@@ -14,7 +14,7 @@ class IdList
   inline unsigned int size();
   inline unsigned int last();
  
-  int operator() (unsigned int n);
+  int operator[] (unsigned int n);
 
   bool add(int value); // It is made to crash if can't add. No need to check the return value.
   bool del(int value);

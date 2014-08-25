@@ -15,7 +15,7 @@ unsigned int IdList::last ()
   return _last;
 }
 
-int IdList::operator() (unsigned int n)
+int IdList::operator[] (unsigned int n)
 {
   Guarantee (n < _last, "Accessed out of the allowed range. Don't go over last().");
 

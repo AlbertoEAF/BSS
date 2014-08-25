@@ -155,7 +155,7 @@ Buffer<T>::Buffer (const Buffer<T> & copy) // USES MALLOC TO AVOID CALLING THE C
 template <class T> 
 T & Buffer<T>::operator [] (size_t pos)
 {
-  Assert (pos < m_size, "Out of bounds access (%lu) for Buffer(%lu) !",pos, m_size);
+  Assert (pos < m_size, "Out of bounds access (%lu) for Buffer(%lu) ! *this=%p",pos, m_size, this);
   
   return m[pos];
 }

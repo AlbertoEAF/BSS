@@ -1290,9 +1290,14 @@ int main(int argc, char **argv)
   static Buffer<real> M1(FFT_pN/2);
   static Histogram<real> M1hist(1,0,FFT_pN/2,HistogramBounds::Bounded);
 
+
+
   for (idx time_block = 0; time_block < time_blocks; ++time_block)
     {
+      printf(GREEN "                  t_block = %ld / %u               N = %ld / %ld\n" NOCOLOR, time_block, time_blocks,   time_block*FFT_slide, samples);
       idx block_offset = time_block*FFT_slide;
+
+      printf(RED "%p %p\n" NOCOLOR, &x1, &x1_wav);
 
       for (idx i = 0; i < FFT_N; ++i)
 	{
@@ -1513,12 +1518,15 @@ int main(int argc, char **argv)
 		{
 		  int new_id = Streams.acquire_id();
 		  active_streams.add(new_id);
+
 		  fftw_execute_r2r(xX1_plan, new_buffers->raw(j), tmp_X());
 		  evenHC2magnitude(FFT_pN, tmp_X(), tmp_M());
+
 		  Streams.stream_id_add_buffer_at(new_id, *(*new_buffers)(j), tmp_M, time_block*FFT_slide);
+
 		  printf(GREEN "New stream %d born.\n" NOCOLOR, new_id);
 
-		  // No need to assign j to assigned_clusters at this stage.
+		  // No need to assign j to assigned_clusters at this stage since we're running sequentially through j.
 		}
 	    }
 
@@ -1582,7 +1590,8 @@ int main(int argc, char **argv)
 	  */
 	      static Gnuplot px1;
 
-	      px1.replot(&x1_wav[time_block*FFT_slide],FFT_N, "x1");
+	      if ((time_block+1)*FFT_slide < samples)
+		px1.replot(&x1_wav[time_block*FFT_slide],FFT_N, "x1");
 	      /*
 	      static Matrix<real> Acorr(o.d("max_clusters"),o.d("max_clusters"));
 	      Acorr.clear();
@@ -1622,9 +1631,7 @@ int main(int argc, char **argv)
 	      if (WAIT)
 		wait();
 	  /////////////////////////////////////////////////////////////////////////////////////
-  
-	  write_data(wav_out, new_buffers, FFT_N, FFT_slide); // Explicitly use the initial region FFT_N and exclude the padding FFT_pN.
-
+	      write_data(wav_out, new_buffers, FFT_N, FFT_slide); // Explicitly use the initial region FFT_N and exclude the padding FFT_pN.
 	  old_N_clusters = N_clusters;
 	  old_C.copy(C);
 	  old_clusters.copy(clusters);
@@ -1656,6 +1663,7 @@ int main(int argc, char **argv)
 	  //system(("cp "+filepath+" tmp_dats/hist.dat && gen_movie.sh tmp_dats tmp_pngs 3D.gnut && feh tmp_pngs/hist.png").c_str());
 	  //wait();	
 	}
+      printf("Time_block %ld/%u     N=%ld/%ld\n", time_block, time_blocks,    time_block*FFT_slide, samples);
     }
 
 	
@@ -1732,7 +1740,7 @@ int main(int argc, char **argv)
   fftw_destroy_plan(xX2_plan);
   fftw_destroy_plan(Xxo_plan);
 	
-
+  Streams.release_ids();
 
   if (render > 0)
     Guarantee0( system("make render") , "Couldn't generate the movies.");

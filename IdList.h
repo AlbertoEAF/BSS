@@ -11,8 +11,8 @@ class IdList
  public:
   IdList (unsigned int n);
 
-  inline unsigned int size();
-  inline unsigned int last();
+  unsigned int size();
+  unsigned int last();
  
   int operator[] (unsigned int n);
 
@@ -20,6 +20,8 @@ class IdList
   bool del(int value);
 
   bool has(int value);
+
+  void clear();
 
   void print();
 

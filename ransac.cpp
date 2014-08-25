@@ -58,6 +58,15 @@ void evenHC2magnitude(int samples, real *hc, real *magnitude)
     magnitude[i] = norm(hc[i], hc[samples-i]); // Not true for odd samples!!!
 }
 
+void evenHC2magnitude(Buffer<real> &hc, Buffer<real> &magnitude)
+{
+  magnitude[0] = hc[0];
+  idx I = hc.size()/2, samples = hc.size();
+  for (idx i=1; i < I; ++i)
+    magnitude[i] = norm(hc[i], hc[samples-i]); // Not true for odd samples!!!
+}
+
+
 int valid_FFT_convolution(idx h_nonzero_size, idx FFT_N)
 {
   idx g_nonzero_size = FFT_N - h_nonzero_size + 1;
@@ -1432,24 +1441,89 @@ int main(int argc, char **argv)
 	  static Buffer<real> dist_k  (o.i("max_clusters"), FLT_MAX );
 	  static Buffer<real> acorr_k (o.i("max_clusters"), -FLT_MAX);
 	  static Buffer<real> dtotal_k(o.i("max_clusters"), FLT_MAX );
-	  /*
+	  
 	  static IdList active_streams(N_max), assigned_clusters(o.i("max_clusters"));
+
+	  static Buffer<real> tmp_M(FFT_pN/2), tmp_X(FFT_pN);
 
 	  ////// NEW METHOD
 
-	  // Life
-	  for (int i=0; i < active_streams.last(); ++i)
-	    {
-	      int id = active_streams[i];
+	  assigned_clusters.clear();
 
+	  // Life
+	  for (int k=0; k < active_streams.last(); ++k)
+	    {
+	      int id = active_streams[k];
+
+	      dist_k.clear();
+	      acorr_k.clear();
+	      dtotal_k.clear();
+	
 	      for (int j = 0; j < N_clusters; ++j)
 		{
+		  dist_k[j] = distance(old_clusters.values[k], clusters.values[j]);
+		  // This computation can be deferred so a single acorr is done to the closest cluster and only if it fails is the array calculated.
 		  
+		  acorr_k[j] = array_ops::inner_product(Streams.last_buf_raw(id,FFT_slide),
+							new_buffers->raw(j), FFT_N-FFT_slide)
+		    / std::sqrt(array_ops::energy(new_buffers->raw(j),FFT_N-FFT_slide));
+		  
+		  dtotal_k[j] = Dtotal(Streams.last_buf_raw(id,FFT_slide),
+				       new_buffers->raw(j), FFT_N-FFT_slide);
+		}
+	      
+	      acorr_k /= std::sqrt(array_ops::energy(Streams.last_buf_raw(id,FFT_slide), FFT_N-FFT_slide));
+
+	      int closest_j = dist_k.min_index();
+	      int optimal_acorr_j = acorr_k.max_index();
+	      int optimal_dtotal_j = dtotal_k.min_index();	
+	      
+	      
+	      printf(BLUE "\n(closest_j,max_a,min_Dtotal) = ( %d %ld %ld )\n" NOCOLOR, closest_j, acorr_k.max_index(), dtotal_k.min_index());
+	      cout << "Dist: ";
+	      dist_k.print(N_clusters);
+	      cout << "Acorr: ";
+	      acorr_k.print(N_clusters);
+	      cout << "dtotal: ";
+	      dtotal_k.print(N_clusters);
+	      
+	      // Life
+	      if (acorr_k[optimal_acorr_j] > 0.9)
+		{
+		  printf(GREEN "Stream %d lives through %d\n" NOCOLOR, id, optimal_acorr_j);
+		  
+		  fftw_execute_r2r(xX1_plan, new_buffers->raw(optimal_acorr_j), tmp_X());
+		  evenHC2magnitude(FFT_pN, tmp_X(), tmp_M());
+
+		  Streams.stream_id_add_buffer_at(id, *(*new_buffers)(optimal_acorr_j), tmp_M, time_block*FFT_slide);
+
+		  assigned_clusters.add(optimal_acorr_j);
+		}
+	      else // Death
+		{
+		  printf(GREEN "Stream %d died.\n" NOCOLOR, id);
+		  active_streams.del(id);
+		}
+	    }
+	  // Birth
+	  for (int j=0; j < N_clusters; ++j)
+	    {
+	      printf("B(%d/%d)\n", j,N_clusters);
+	      if (! assigned_clusters.has(j))
+		{
+		  int new_id = Streams.acquire_id();
+		  active_streams.add(new_id);
+		  fftw_execute_r2r(xX1_plan, new_buffers->raw(j), tmp_X());
+		  evenHC2magnitude(FFT_pN, tmp_X(), tmp_M());
+		  Streams.stream_id_add_buffer_at(new_id, *(*new_buffers)(j), tmp_M, time_block*FFT_slide);
+		  printf(GREEN "New stream %d born.\n" NOCOLOR, new_id);
+
+		  // No need to assign j to assigned_clusters at this stage.
 		}
 	    }
 
 	  ///// END OF NEW METHOD
-	  */
+	  /*
 	  C.clear();	  
 
 	  if (old_N_clusters) // No continuity to enforce if there are no past clusters.
@@ -1503,9 +1577,9 @@ int main(int argc, char **argv)
 		    }
 
 		  
-
+	  
 		}
-
+	  */
 	      static Gnuplot px1;
 
 	      px1.replot(&x1_wav[time_block*FFT_slide],FFT_N, "x1");
@@ -1521,6 +1595,8 @@ int main(int argc, char **argv)
 	      cout << Acorr;
 	      puts(NOCOLOR);
 	      */
+
+	      /*
 	      printf("C = ");
 	      cout << C << endl;
 
@@ -1538,10 +1614,13 @@ int main(int argc, char **argv)
 		    }
 		}
 	      
-
+	      
 	      if (WAIT)
 		wait();
 	    }
+	      */
+	      if (WAIT)
+		wait();
 	  /////////////////////////////////////////////////////////////////////////////////////
   
 	  write_data(wav_out, new_buffers, FFT_N, FFT_slide); // Explicitly use the initial region FFT_N and exclude the padding FFT_pN.

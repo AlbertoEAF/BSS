@@ -25,7 +25,7 @@ int IdList::operator[] (unsigned int n)
 
 bool IdList::add(int value)
 {
-  Guarantee(_last < _size, "Can't add items anymore.");
+  Guarantee(_last < _size, "Can't add items anymore to IdList(%u).", _size);
 
   _list[_last] = value;
   ++_last;
@@ -51,6 +51,8 @@ bool IdList::del(int value)
   return false;
 }
 
+
+
 bool IdList::has(int value)
 {
   for (unsigned int i=0; i < _last; ++i)
@@ -60,9 +62,18 @@ bool IdList::has(int value)
   return false;
 }
 
+void IdList::clear()
+{
+  _list.clear();
+  _last = 0;
+}
+
+
 void IdList::print()
 {
   for (unsigned int i=0; i < _last; ++i)
     std::cout << _list[i] << " ";
   std::cout << std::endl;
 }
+
+

@@ -220,13 +220,13 @@ void Buffer<T>::copy(const T *copy, size_t copy_size)
 template <class T> 
 void Buffer<T>::add_at(Buffer<T> &buf, size_t pos)
 {
-  size_t I = pos+buf.size();
+  size_t I = buf.size();
     
-  Assert(I <= m_size, "Buffer added at such position results in out of bounds operations.");
+  Assert(pos+I <= m_size, "Buffer added at such position results in out of bounds operations.");
 
 
-  for (size_t i=pos; i<I; ++i)
-    m[i] += buf[i];
+  for (size_t i=0; i<I; ++i)
+    m[pos+i] += buf[i];
 }
 
  

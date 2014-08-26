@@ -222,7 +222,7 @@ void Buffer<T>::add_at(Buffer<T> &buf, size_t pos)
 {
   size_t I = buf.size();
     
-  Assert(pos+I <= m_size, "Buffer added at such position results in out of bounds operations.");
+  Assert(pos+I <= m_size, "Buffer(%lu).add_at() added Buffer(%lu) at %lu resulting in %lu out of bounds accesses.", m_size, buf.m_size, pos, buf.size()+pos-m_size);
 
 
   for (size_t i=0; i<I; ++i)

@@ -31,6 +31,11 @@ void swap (T &a, T &b)
   b = tmp;
 }
 
+template <class T>
+T div_up(T num, T den)
+{
+  return num/den + (num%den?1:0);
+}
 
 real abs (real a, real b) { return std::sqrt(a*a + b*b); }
 real abs2(real a, real b) { return a*a + b*b; }
@@ -139,9 +144,9 @@ void hc_multiply (real *z1, real *z2, real *z, idx size)
 		     &z[i], &z[size-i]);
 }
 
-template <class T> T blocks (T terms, T block_size)
+template <class T> T blocks (T n, T block_size)
 {
-  return terms/block_size + ( terms % block_size ? 1:0 );
+  return n/block_size + ( n % block_size ? 1:0 );
 }
 
 
@@ -1079,7 +1084,9 @@ int main(int argc, char **argv)
   _DUET.FFT_pN = _DUET.FFT_p * _DUET.FFT_N;
   const idx FFT_pN = _DUET.FFT_pN;
 
-  const idx time_blocks = 1 + blocks(samples, FFT_slide);
+  //  const idx time_blocks = 1 + blocks(samples, FFT_slide);
+
+  const idx time_blocks = div_up(samples-FFT_N,FFT_slide) + 1;
 
   //// Storage allocation ///////
 
@@ -1097,14 +1104,14 @@ int main(int argc, char **argv)
 
   // 2 sets of buffers [optional: +1] are needed to allow up to 50% overlapping. If writing and computing is done simultaneously instead of writing and waiting for the old  buffer that is freed at the next write_data call end an additional buffer is needed to store current computations.
   Buffers<real> 
-    wav_out(N_max, time_blocks*FFT_slide, fftw_malloc, fftw_free), 
+    wav_out(N_max, time_blocks*FFT_slide+(FFT_N-FFT_slide), fftw_malloc, fftw_free), 
     bufs1(N_max,FFT_pN,fftw_malloc,fftw_free), bufs2(bufs1), bufs3(bufs1);
   Buffers<real> *old_buffers=NULL, *new_buffers=NULL;
   // Convenient interface to handle bufs pointers.
   DoubleLinkedList<Buffers<real>*> bufs;
   bufs.append(&bufs1); bufs.append(&bufs2); bufs.append(&bufs3);
   
-  StreamSet Streams(o.i("streams"), time_blocks*FFT_slide, FFT_pN/2);
+  StreamSet Streams(o.i("streams"), time_blocks*FFT_slide+(FFT_N-FFT_slide), FFT_pN/2);
   
 
 
@@ -1304,7 +1311,7 @@ int main(int argc, char **argv)
 
   for (idx time_block = 0; time_block < time_blocks; ++time_block)
     {
-      printf(GREEN "\t\t time_block %lu/%lu\n" NOCOLOR, time_block, time_blocks);
+      printf(GREEN "\t\t time_block (%lu+1)/%lu\n" NOCOLOR, time_block, time_blocks);
       idx block_offset = time_block*FFT_slide;
 
       for (idx i = 0; i < FFT_N; ++i)
@@ -1450,9 +1457,9 @@ int main(int argc, char **argv)
 	  static Buffer<int>  C       (o.i("max_clusters"), 0), old_C(C); // so no index offset is needed as 0 can also be used.
 	  static Buffer<real> dist_k  (o.i("max_clusters"), FLT_MAX );
 	  static Buffer<real> acorr_k (o.i("max_clusters"), -FLT_MAX);
-	  static Buffer<real> dtotal_k(o.i("max_clusters"), FLT_MAX );
+	  //static Buffer<real> dtotal_k(o.i("max_clusters"), FLT_MAX );
 	  
-	  static IdList active_streams(N_max), assigned_clusters(o.i("max_clusters"));
+	  static IdList active_streams(o.i("active_streams")), assigned_clusters(o.i("max_clusters"));
 
 	  static Buffer<real> tmp_M(FFT_pN/2), tmp_X(FFT_pN);
 
@@ -1467,7 +1474,7 @@ int main(int argc, char **argv)
 
 	      dist_k.clear ();
 	      acorr_k.clear();
-	      dtotal_k.clear();
+	      //	      dtotal_k.clear();
 
 	      real *ptr_prev_buf = Streams.last_buf_raw(id,FFT_slide);
 	      real Eprev = array_ops::energy(ptr_prev_buf,FFT_pN-FFT_slide);
@@ -1483,12 +1490,9 @@ int main(int argc, char **argv)
 
 		  acorr_k[j] = array_ops::inner_product(ptr_prev_buf,
 							ptr_next_buf,
-							FFT_N-FFT_slide)
-		    / std::sqrt(Enext);
-		  
-		  dtotal_k[j] = Dtotal(ptr_prev_buf,
-				       ptr_next_buf,
-				       FFT_N-FFT_slide);
+							FFT_N-FFT_slide) / std::sqrt(Enext);
+		    		  
+		  // dtotal_k[j] = Dtotal(ptr_prev_buf, ptr_next_buf, FFT_N-FFT_slide);
 		}
 	      
 	      acorr_k /= std::sqrt(Eprev);
@@ -1500,9 +1504,6 @@ int main(int argc, char **argv)
 		      puts(RED "SHIT!" NOCOLOR);
 		      
 		      cout << Eprev << "--" << array_ops::energy(new_buffers->raw(l),FFT_pN-FFT_slide) << ">";
-
-		      
-
 		      
 		    }
 		}
@@ -1510,16 +1511,16 @@ int main(int argc, char **argv)
 
 	      int closest_j = dist_k.min_index();
 	      int optimal_acorr_j = acorr_k.max_index();
-	      int optimal_dtotal_j = dtotal_k.min_index();	
 	      
-	      printf(BLUE "\n(closest_j,max_a,min_Dtotal) = ( %d %d %d )\n" NOCOLOR, closest_j, optimal_acorr_j, optimal_dtotal_j);
+	      printf(BLUE "\n(closest_j,max_a) = ( %d %d )\n" NOCOLOR, closest_j, optimal_acorr_j);
 	      cout << "Dist: ";
 	      dist_k.print(N_clusters);
 	      cout << "Acorr: ";
 	      acorr_k.print(N_clusters);
-	      cout << "dtotal: ";
-	      dtotal_k.print(N_clusters);
+	      //cout << "dtotal: ";
+	      //dtotal_k.print(N_clusters);
 	      
+
 	      // Life 
 	      if ( acorr_k[optimal_acorr_j] > o.f("a0min") && ( !o.i("single_assignment") || !assigned_clusters.has(optimal_acorr_j) ) )
 		{
@@ -1531,8 +1532,8 @@ int main(int argc, char **argv)
 		  Streams.stream_id_add_buffer_at(id, *(*new_buffers)(optimal_acorr_j), tmp_M, time_block, FFT_slide, clusters.values[optimal_acorr_j]);
 
 		  assigned_clusters.add(optimal_acorr_j);
-		}
-	      else if ( std::abs(Streams.pos(id).y-clusters.values[closest_j].y) < 1e-5  )
+		}/*
+	      else if ( std::abs(Streams.pos(id).y-clusters.values[closest_j].y) < o.f("ddeltamin")  )
 		{
 		  printf(GREEN "Stream %d lives through %d by pos-continuity.\n" NOCOLOR, id, closest_j);
 		  
@@ -1542,7 +1543,7 @@ int main(int argc, char **argv)
 		  Streams.stream_id_add_buffer_at(id, *(*new_buffers)(closest_j), tmp_M, time_block, FFT_slide, clusters.values[closest_j]);
 
 		  assigned_clusters.add(closest_j);
-		}
+		  }*/
 	      else // Death
 		{
 		  printf(GREEN "Stream %d died.\n" NOCOLOR, id);
@@ -1572,63 +1573,7 @@ int main(int argc, char **argv)
 	    }
 
 	  ///// END OF NEW METHOD
-	  /*
-	  C.clear();	  
 
-	  if (old_N_clusters) // No continuity to enforce if there are no past clusters.
-	    {
-
-	      cout << "Continuity--------------------\n";
-	      printf(GREEN "old_N = %d -> N = %d\n" NOCOLOR, old_N_clusters, N_clusters);
-	      clusters.print(N_clusters);
-
-	      // #clusters for which a continuation in the current time-frame was found.
-	      int continuations=0; 
-
-	      for (int k=0; k < old_N_clusters; ++k)
-		{
-		  dist_k.clear();
-		  acorr_k.clear();
-		  dtotal_k.clear();
-		  for (int j=0; j < N_clusters; ++j)
-		    {
-		      dist_k[j] = distance(old_clusters.values[k], clusters.values[j]);
-		      // This computation can be deferred so a single acorr is done to the closest cluster and only if it fails is the array calculated.
-		      
-		      acorr_k[j] = array_ops::inner_product(old_buffers->raw(k,FFT_slide),
-							    new_buffers->raw(j), FFT_N-FFT_slide)
-			/ std::sqrt(array_ops::energy(new_buffers->raw(j),FFT_N-FFT_slide));
-		      
-		      dtotal_k[j] = Dtotal(old_buffers->raw(k,FFT_slide),
-					   new_buffers->raw(j), FFT_N-FFT_slide);
-		    }
-
-		  acorr_k /= std::sqrt(array_ops::energy(old_buffers->raw(k,FFT_slide), FFT_N-FFT_slide));
-
-		  int closest_j = dist_k.min_index();
-		  int optimal_acorr_j = acorr_k.max_index();
-		  int optimal_dtotal_j = dtotal_k.min_index();	
-	
-
-		  printf(BLUE "\n(closest_j,max_a,min_Dtotal) = ( %d %ld %ld )\n" NOCOLOR, closest_j, acorr_k.max_index(), dtotal_k.min_index());
-		  cout << "Dist: ";
-		  dist_k.print(N_clusters);
-		  cout << "Acorr: ";
-		  acorr_k.print(N_clusters);
-		  cout << "dtotal: ";
-		  dtotal_k.print(N_clusters);
-
-		  // It is an acceptable continuation of Ck and Cj isn't assigned yet. Cj=Ck.
-		  if (acorr_k[optimal_acorr_j] > 0.5)// && C[optimal_acorr_j] == -1)
-		    {
-		      C[optimal_acorr_j] = k+1;
-		      ++continuations;
-		    }
-
-		  
-	  
-		}
-	  */
 	      static Gnuplot px1;
 
 	      if ((time_block+1)*FFT_slide < samples)

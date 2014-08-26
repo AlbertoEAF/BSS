@@ -100,7 +100,7 @@ enum class Status : std::int8_t { Unitialized, Active, Inactive, Dead };
 class StreamSet // Non-thread-safe.
 {
  public:
- StreamSet(unsigned int streams, size_t data_len, size_t spectrum_magnitude_size) : _streams(streams), _data(streams, data_len, fftw_malloc, fftw_free), _spectrum(streams, spectrum_magnitude_size), _last_buf(streams), _first_active_block(streams), _last_active_block(streams), _status(streams, Status::Unitialized), _latest_id(0) {};
+ StreamSet(unsigned int streams, size_t data_len, size_t spectrum_magnitude_size) : _streams(streams), _data(streams, data_len, fftw_malloc, fftw_free), _spectrum(streams, spectrum_magnitude_size), _last_buf(streams), _first_active_time_block(streams), _last_active_time_block(streams), _active_blocks(streams), _status(streams, Status::Unitialized), _latest_id(streams) {};
 
   unsigned int streams() { return _streams; }
 
@@ -116,7 +116,11 @@ class StreamSet // Non-thread-safe.
   Buffer<real> *& last_buf(unsigned int id) { Assert(id, "Id must be larger than 0."); return _last_buf[id-1];      };
   Buffer<real> *  stream  (unsigned int id) { return _data.get_buffer(id); };
 
-  void stream_id_add_buffer_at(unsigned int id, Buffer<real> &buf, Buffer<real> &magnitude, size_t pos);
+  unsigned int & first_active_time_block(unsigned int id) { Assert(id, "Id<=0"); return _first_active_time_block[id-1]; }
+  unsigned int & last_active_time_block (unsigned int id) { Assert(id, "Id<=0"); return  _last_active_time_block[id-1]; }
+  unsigned int & active_blocks          (unsigned int id) { Assert(id, "Id<=0"); return           _active_blocks[id-1]; }
+
+  void stream_id_add_buffer_at(unsigned int id, Buffer<real> &buf, Buffer<real> &magnitude, unsigned int block, unsigned int block_size);
 
   real * last_buf_raw(unsigned int id, size_t pos = 0) { Assert(id, "Id must be larger than 0."); return &(*_last_buf[id-1])[pos];}
 
@@ -127,7 +131,7 @@ class StreamSet // Non-thread-safe.
   BufferPool<real>      _data;
   Buffers<real>         _spectrum;
   Buffer<Buffer<real>*> _last_buf;
-  Buffer <unsigned int> _first_active_block, _last_active_block;
+  Buffer <unsigned int> _first_active_time_block, _last_active_time_block, _active_blocks;
   Buffer<Status>        _status;
 
 
@@ -135,9 +139,14 @@ class StreamSet // Non-thread-safe.
   unsigned int _latest_id;
 };
 
-void StreamSet::stream_id_add_buffer_at(unsigned int id, Buffer<real> &buf, Buffer<real> &magnitude, size_t pos)
+void StreamSet::stream_id_add_buffer_at(unsigned int id, Buffer<real> &buf, Buffer<real> &magnitude, unsigned int block, unsigned int block_size)
 {
-  stream(id)->add_at(buf, pos);
+  stream(id)->add_at(buf, block*block_size);
   last_buf(id) = &buf;
   (*spectrum(id)) += magnitude;
+
+  if (! active_blocks(id))
+    first_active_time_block(id) = block;
+  last_active_time_block(id) = block;
+  active_blocks(id) += 1;
 };

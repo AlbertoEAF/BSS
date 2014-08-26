@@ -242,24 +242,25 @@ void heuristic_aggregate_preclusters (RankList<real,real> &preclusters, const DU
     }
 }
 
-void heuristic_clustering(Histogram<real> &hist, RankList<real,real> &preclusters, const DUETcfg &DUET, real min_peak_distance)
+void heuristic_clustering(Histogram<real> &hist, RankList<real,real> &clusters, const DUETcfg &DUET, real min_peak_distance)
 {
-  heuristic_pre_filter_clusters(hist, preclusters, DUET.min_peak_fall, DUET.noise_threshold);
+  heuristic_pre_filter_clusters(hist, clusters, 
+				DUET.min_peak_fall, DUET.noise_threshold);
   //	cout << preclusters;
-  heuristic_aggregate_preclusters(preclusters, DUET, min_peak_distance);
+  heuristic_aggregate_preclusters(clusters, DUET, min_peak_distance);
 }
 
 
 /// Aggregates clusters to the biggest cluster inside a certain radius (in box coordinates)
-void heuristic_aggregate_preclusters2D (RankList<real,Point2D<real> > &preclusters, const DUETcfg &DUET)
+void heuristic_aggregate_preclusters2D (RankList<real,Point2D<real> > &clusters, const DUETcfg &DUET)
 {
-  size_t size = preclusters.eff_size(DUET.noise_threshold);
+  size_t size = clusters.eff_size(DUET.noise_threshold);
 
-  real max_score = preclusters.scores[0];
+  real max_score = clusters.scores[0];
   for (size_t i=0; i < size; ++i)
-    if (preclusters.scores[i] * DUET.max_peak_scale_disparity < max_score)
+    if (clusters.scores[i] * DUET.max_peak_scale_disparity < max_score)
       {
-	preclusters.del(i,DUET.noise_threshold);
+	clusters.del(i,DUET.noise_threshold);
 	--size;
 	--i; // just deleted, check again
       }
@@ -269,9 +270,9 @@ void heuristic_aggregate_preclusters2D (RankList<real,Point2D<real> > &precluste
 	{
 	  for (size_t cluster=0; cluster < i; ++cluster)
 	    {
-	      if (belongs(preclusters.values[i], preclusters.values[cluster], DUET.min_peak_dalpha, DUET.min_peak_ddelta))
+	      if (belongs(clusters.values[i], clusters.values[cluster], DUET.min_peak_dalpha, DUET.min_peak_ddelta))
 		{
-		  preclusters.del(i,DUET.noise_threshold);
+		  clusters.del(i,DUET.noise_threshold);
 		  --size; // Just deleted an element. No need to process extra 0-score entries.
 		  --i; // The rest of the list was pushed up, process the next entry which is in the same position.
 		}
@@ -280,11 +281,11 @@ void heuristic_aggregate_preclusters2D (RankList<real,Point2D<real> > &precluste
     }
 }
 
-void heuristic_clustering2D(Histogram2D<real> &hist, RankList<real, Point2D<real> > &preclusters, const DUETcfg &DUET)
+void heuristic_clustering2D(Histogram2D<real> &hist, RankList<real, Point2D<real> > &clusters, const DUETcfg &DUET)
 {
-  heuristic_pre_filter_clusters2D(hist, preclusters, DUET.min_peak_fall, DUET.noise_threshold);
-  //	cout << preclusters;
-  heuristic_aggregate_preclusters2D(preclusters, DUET);
+  heuristic_pre_filter_clusters2D(hist, clusters, DUET.min_peak_fall, DUET.noise_threshold);
+  //	cout << clusters;
+  heuristic_aggregate_preclusters2D(clusters, DUET);
 }
 
 // L2-norm for a vector with start and end point a, b
@@ -1497,11 +1498,11 @@ int main(int argc, char **argv)
 		    {
 		      puts(RED "SHIT!" NOCOLOR);
 		      
-		      cout << Eprev << "--\n\n\n\n\n" << array_ops::energy(new_buffers->raw(l),FFT_pN-FFT_slide) << ">";
+		      cout << Eprev << "--" << array_ops::energy(new_buffers->raw(l),FFT_pN-FFT_slide) << ">";
 
-		     
+		      
 
-		      return 1;
+		      
 		    }
 		}
 
@@ -1525,7 +1526,7 @@ int main(int argc, char **argv)
 		  fftw_execute_r2r(xX1_plan, new_buffers->raw(optimal_acorr_j), tmp_X());
 		  evenHC2magnitude(FFT_pN, tmp_X(), tmp_M());
 
-		  Streams.stream_id_add_buffer_at(id, *(*new_buffers)(optimal_acorr_j), tmp_M, time_block*FFT_slide);
+		  Streams.stream_id_add_buffer_at(id, *(*new_buffers)(optimal_acorr_j), tmp_M, time_block, FFT_slide);
 
 		  assigned_clusters.add(optimal_acorr_j);
 		}
@@ -1549,7 +1550,7 @@ int main(int argc, char **argv)
 		  fftw_execute_r2r(xX1_plan, new_buffers->raw(j), tmp_X());
 		  evenHC2magnitude(FFT_pN, tmp_X(), tmp_M());
 
-		  Streams.stream_id_add_buffer_at(new_id, *(*new_buffers)(j), tmp_M, time_block*FFT_slide);
+		  Streams.stream_id_add_buffer_at(new_id, *(*new_buffers)(j), tmp_M, time_block, FFT_slide);
 
 		  printf(GREEN "New stream %d born.\n" NOCOLOR, new_id);
 
@@ -1782,14 +1783,17 @@ int main(int argc, char **argv)
 	    streams_max_abs = maxabs;
 	}
 
+      puts("(active_blocks) stream [DONE/FAIL]");
       for (unsigned int stream_id = 1; stream_id <= Streams.latest_id(); ++stream_id)
 	{
 	  std::string wav_filepath("xstream"+itos(stream_id)+"_rebuilt.wav");
-	  printf("%s...", wav_filepath.c_str());
+	  printf("(%u) %s ...", Streams.active_blocks(stream_id), wav_filepath.c_str());
 	  fflush(stdout);
 	  print_status( wav::write_mono(wav_filepath, (*Streams.stream(stream_id))(), samples, sample_rate_Hz,streams_max_abs) );
 	}
     }
+
+
   Streams.release_ids();
 
   if (render > 0)

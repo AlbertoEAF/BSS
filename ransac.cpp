@@ -1481,7 +1481,7 @@ int main(int argc, char **argv)
 	
 	      for (int j = 0; j < N_clusters; ++j)
 		{
-		  dist_k[j] = distance(old_clusters.values[k], clusters.values[j]);
+		  dist_k[j] = std::abs(Streams.pos(id).y-clusters.values[j].y);// distance(old_clusters.values[k], clusters.values[j]);
 		  // This computation can be deferred so a single acorr is done to the closest cluster and only if it fails is the array calculated.
 		  
 
@@ -1522,7 +1522,7 @@ int main(int argc, char **argv)
 	      
 
 	      // Life 
-	      if ( acorr_k[optimal_acorr_j] > o.f("a0min") && ( !o.i("single_assignment") || !assigned_clusters.has(optimal_acorr_j) ) )
+	      if ( acorr_k[optimal_acorr_j] > o.f("a0min") )
 		{
 		  printf(GREEN "Stream %d lives through %d\n" NOCOLOR, id, optimal_acorr_j);
 		  
@@ -1532,8 +1532,8 @@ int main(int argc, char **argv)
 		  Streams.stream_id_add_buffer_at(id, *(*new_buffers)(optimal_acorr_j), tmp_M, time_block, FFT_slide, clusters.values[optimal_acorr_j]);
 
 		  assigned_clusters.add(optimal_acorr_j);
-		}/*
-	      else if ( std::abs(Streams.pos(id).y-clusters.values[closest_j].y) < o.f("ddeltamin")  )
+		}
+	      else if ( std::abs(Streams.pos(id).y-clusters.values[closest_j].y) < o.f("ddelta_accept")  )
 		{
 		  printf(GREEN "Stream %d lives through %d by pos-continuity.\n" NOCOLOR, id, closest_j);
 		  
@@ -1543,7 +1543,7 @@ int main(int argc, char **argv)
 		  Streams.stream_id_add_buffer_at(id, *(*new_buffers)(closest_j), tmp_M, time_block, FFT_slide, clusters.values[closest_j]);
 
 		  assigned_clusters.add(closest_j);
-		  }*/
+		  }
 	      else // Death
 		{
 		  printf(GREEN "Stream %d died.\n" NOCOLOR, id);

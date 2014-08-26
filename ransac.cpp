@@ -754,6 +754,7 @@ void apply_masks(Buffers<real> &buffers, real *alpha, real *X1, real *X2, Buffer
 	    }
 	}
       /*
+	// Tried to filter weak components but degrades the signal until musical noise is generated.
       for (int f = 1, fmax = FFT_N/2; f < fmax; ++f)
 	{
 	  real fabs2 = abs2(Xo[f],Xo[FFT_N-f]);
@@ -1506,6 +1507,7 @@ int main(int argc, char **argv)
 		    }
 		}
 
+
 	      int closest_j = dist_k.min_index();
 	      int optimal_acorr_j = acorr_k.max_index();
 	      int optimal_dtotal_j = dtotal_k.min_index();	
@@ -1518,7 +1520,7 @@ int main(int argc, char **argv)
 	      cout << "dtotal: ";
 	      dtotal_k.print(N_clusters);
 	      
-	      // Life
+	      // Life 
 	      if ( acorr_k[optimal_acorr_j] > o.f("a0min") && ( !o.i("single_assignment") || !assigned_clusters.has(optimal_acorr_j) ) )
 		{
 		  printf(GREEN "Stream %d lives through %d\n" NOCOLOR, id, optimal_acorr_j);
@@ -1526,9 +1528,20 @@ int main(int argc, char **argv)
 		  fftw_execute_r2r(xX1_plan, new_buffers->raw(optimal_acorr_j), tmp_X());
 		  evenHC2magnitude(FFT_pN, tmp_X(), tmp_M());
 
-		  Streams.stream_id_add_buffer_at(id, *(*new_buffers)(optimal_acorr_j), tmp_M, time_block, FFT_slide);
+		  Streams.stream_id_add_buffer_at(id, *(*new_buffers)(optimal_acorr_j), tmp_M, time_block, FFT_slide, clusters.values[optimal_acorr_j]);
 
 		  assigned_clusters.add(optimal_acorr_j);
+		}
+	      else if ( std::abs(Streams.pos(id).y-clusters.values[closest_j].y) < 1e-5  )
+		{
+		  printf(GREEN "Stream %d lives through %d by pos-continuity.\n" NOCOLOR, id, closest_j);
+		  
+		  fftw_execute_r2r(xX1_plan, new_buffers->raw(closest_j), tmp_X());
+		  evenHC2magnitude(FFT_pN, tmp_X(), tmp_M());
+
+		  Streams.stream_id_add_buffer_at(id, *(*new_buffers)(closest_j), tmp_M, time_block, FFT_slide, clusters.values[closest_j]);
+
+		  assigned_clusters.add(closest_j);
 		}
 	      else // Death
 		{
@@ -1550,7 +1563,7 @@ int main(int argc, char **argv)
 		  fftw_execute_r2r(xX1_plan, new_buffers->raw(j), tmp_X());
 		  evenHC2magnitude(FFT_pN, tmp_X(), tmp_M());
 
-		  Streams.stream_id_add_buffer_at(new_id, *(*new_buffers)(j), tmp_M, time_block, FFT_slide);
+		  Streams.stream_id_add_buffer_at(new_id, *(*new_buffers)(j), tmp_M, time_block, FFT_slide, clusters.values[j]);
 
 		  printf(GREEN "New stream %d born.\n" NOCOLOR, new_id);
 

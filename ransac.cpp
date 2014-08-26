@@ -32,7 +32,8 @@ void swap (T &a, T &b)
 }
 
 
-real norm(real a, real b) { return std::sqrt(a*a + b*b); }
+real abs (real a, real b) { return std::sqrt(a*a + b*b); }
+real abs2(real a, real b) { return a*a + b*b; }
 
 /// Returns the success state of the input and prints [DONE] or [FAIL] accordingly.
 bool print_status (bool success)
@@ -52,7 +53,7 @@ void evenHC2magnitude(int samples, real *hc, real *magnitude)
   magnitude[0] = hc[0];
   idx I = samples/2;
   for (idx i=1; i < I; ++i)
-    magnitude[i] = norm(hc[i], hc[samples-i]); // Not true for odd samples!!!
+    magnitude[i] = abs(hc[i], hc[samples-i]); // Indexing not true for odd samples!!!
 }
 
 void evenHC2magnitude(Buffer<real> &hc, Buffer<real> &magnitude)
@@ -60,7 +61,7 @@ void evenHC2magnitude(Buffer<real> &hc, Buffer<real> &magnitude)
   magnitude[0] = hc[0];
   idx I = hc.size()/2, samples = hc.size();
   for (idx i=1; i < I; ++i)
-    magnitude[i] = norm(hc[i], hc[samples-i]); // Not true for odd samples!!!
+    magnitude[i] = abs(hc[i], hc[samples-i]); // Indexing not true for odd samples!!!
 }
 
 
@@ -289,7 +290,7 @@ void heuristic_clustering2D(Histogram2D<real> &hist, RankList<real, Point2D<real
 // L2-norm for a vector with start and end point a, b
 real distance(const Point2D<real> &a, const Point2D<real> &b)
 {
-  return norm(b.x-a.x, b.y-a.y);
+  return abs(b.x-a.x, b.y-a.y);
 }
 
 // Returns the index of the closest cluster in clusters.
@@ -320,7 +321,7 @@ real DUEThist_score(real x1re, real x1im, real x2re, real x2im, real omega, real
   real s_re, s_im, s_abs;
   complex_multiply(x1re,x1im, x2re,x2im, &s_re,&s_im);
 
-  s_abs = norm(s_re,s_im);
+  s_abs = abs(s_re,s_im);
 
   return std::pow(s_abs,p)*std::pow(omega,q); // The tables of the powers of omega could be reused.
 }
@@ -725,6 +726,8 @@ void apply_masks(Buffers<real> &buffers, real *alpha, real *X1, real *X2, Buffer
 	  Xo[0] = a_k*X1[0]-X2[0];
 	  Xo[0] *= Xo[0] / (1 + a_k*a_k);
 	}
+      
+      real maxXabs=0;
       for (uint f = 1, f_max = FFT_N/2; f < f_max; ++f)
 	{
 	  if (masks[f] == source)
@@ -736,6 +739,10 @@ void apply_masks(Buffers<real> &buffers, real *alpha, real *X1, real *X2, Buffer
 
 	      std::complex<real> X(std::complex<real>(X1[f],X1[f_im])+std::polar<real>(a_k,delta_k*omega) * std::complex<real>(X2[f],X2[f_im]));
 
+	      real Xabs = std::norm(X);
+	      if (Xabs > maxXabs)
+		maxXabs = Xabs;
+
 #ifdef OLD_PEAK_ASSIGN
 	      Xo[f   ] = X1[f   ];
 	      Xo[f_im] = X1[f_im];
@@ -745,6 +752,17 @@ void apply_masks(Buffers<real> &buffers, real *alpha, real *X1, real *X2, Buffer
 #endif // OLD_PEAK_ASSIGN
 	    }
 	}
+      /*
+      for (int f = 1, fmax = FFT_N/2; f < fmax; ++f)
+	{
+	  real fabs2 = abs2(Xo[f],Xo[FFT_N-f]);
+	  if (fabs2 < maxXabs*1e-2)
+	    {
+	      // printf("f=%d %g\n", f, fabs2/maxXabs);
+	      Xo[f] = Xo[FFT_N-f] = 0;
+	    }    
+	}
+      */
       fftw_execute_r2r(FFTi_plan, Xo(), buffers.raw(source));
     }
 

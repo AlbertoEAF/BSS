@@ -219,7 +219,7 @@ int main (int argc, char *argv[])
   std::string x2_filepath = (argc == 3 ? argv[2] : o("x2_wav"));
 
   SndfileHandle x1_file(x1_filepath), x2_file(x2_filepath);
-  if ( ! ok(x1_file) || ! ok(x2_file) )
+  if ( ! wav::ok(x1_file) || ! wav::ok(x2_file) )
     return EXIT_FAILURE;
 
   const unsigned int sample_rate_Hz = x1_file.samplerate();

@@ -5,16 +5,6 @@ IdList::IdList(unsigned int n)
 {
 }
 
-unsigned int IdList::size ()
-{
-  return _size;
-}
-
-unsigned int IdList::N ()
-{
-  return _N;
-}
-
 int IdList::operator[] (unsigned int n)
 {
   Guarantee (n < _N, "Out of bounds access IdList(%u)::operator[%u]. Don't go over IdList::N().", _size, n);

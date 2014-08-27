@@ -11,8 +11,8 @@ class IdList
  public:
   IdList (unsigned int n);
 
-  unsigned int size();
-  unsigned int N();
+  inline unsigned int size() { return _size; }
+  inline unsigned int N()    { return _N;    }
  
   // By index
   int operator[] (unsigned int n);

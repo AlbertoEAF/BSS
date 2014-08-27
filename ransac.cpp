@@ -1573,7 +1573,6 @@ int main(int argc, char **argv)
 		      D.fill_row_with(s, FLT_MAX);
 		      D.fill_col_with(j, FLT_MAX);
 
-		      //		      printf(GREEN "Stream %d lives through %lu by pos.\n" NOCOLOR, id, j);
 		      printf("%d@%lu ", id, j);
 		    }
 		  else
@@ -1584,21 +1583,6 @@ int main(int argc, char **argv)
 	  // Death
 	  for (int s = 0; s < active_streams.N(); ++s)
 	    {
-	      // Declare IdList::last as inline!!!
-	      // Declare IdList::last as inline!!!
-	      // Declare IdList::last as inline!!!
-	      // Declare IdList::last as inline!!!
-	      // Declare IdList::last as inline!!!
-	      // Declare IdList::last as inline!!!
-	      // Declare IdList::last as inline!!!
-	      // Declare IdList::last as inline!!!
-	      // Declare IdList::last as inline!!!
-	      // Declare IdList::last as inline!!!
-	      // Declare IdList::last as inline!!!
-	      // Declare IdList::last as inline!!!
-	      // Declare IdList::last as inline!!!
-	      // Declare IdList::last as inline!!!
-
 	      int id = active_streams[s];
 	      // The difference is zero for streams assigned during this time block.
 	      int stream_inactive_blocks = time_block - Streams.last_active_time_block(id);

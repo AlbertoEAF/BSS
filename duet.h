@@ -104,7 +104,7 @@ class StreamSet // Non-thread-safe.
 
   unsigned int streams() { return _streams; }
 
-  void clear (unsigned int id) { stream(id)->clear(); spectrum(id)->clear(); }
+  void clear (unsigned int id);
 
 
   unsigned int acquire_id() { _latest_id = _data.try_acquire_id(); Guarantee(_latest_id, "Impossible to allocate new stream."); return _latest_id; }
@@ -123,7 +123,7 @@ class StreamSet // Non-thread-safe.
   inline Point2D<real> & pos                    (unsigned int id) { Assert(id, "Id=0"); return                     _pos[id-1]; }
 
 
-  void stream_id_add_buffer_at(unsigned int id, int cluster, Buffer<real> &buf, Buffer<real> &magnitude, unsigned int block, unsigned int block_size, Point2D<real> &cluster_pos);
+  void add_buffer_at(unsigned int id, int cluster, Buffer<real> &buf, Buffer<real> &magnitude, unsigned int block, unsigned int block_size, Point2D<real> &cluster_pos);
 
   inline real * last_buf_raw(unsigned int id, size_t pos = 0) { Assert(id, "Id=0"); return &(*_last_buf[id-1])[pos];}
 
@@ -145,7 +145,19 @@ class StreamSet // Non-thread-safe.
   unsigned int _latest_id;
 };
 
-void StreamSet::stream_id_add_buffer_at(unsigned int id, int cluster, Buffer<real> &buf, Buffer<real> &magnitude, unsigned int block, unsigned int block_size, Point2D<real> &cluster_pos)
+void StreamSet::clear(unsigned int id)
+{
+  stream(id)->clear(); 
+  spectrum(id)->clear(); 
+  pos(id) = Point2D<real>();
+  last_buf(id) = NULL;
+  last_cluster(id) = 0;
+  first_active_time_block(id) = 0; 
+  last_active_time_block(id) = 0;
+  active_blocks(id) = 0;
+}
+
+void StreamSet::add_buffer_at(unsigned int id, int cluster, Buffer<real> &buf, Buffer<real> &magnitude, unsigned int block, unsigned int block_size, Point2D<real> &cluster_pos)
 {
   stream(id)->add_at(buf, block*block_size);
   last_buf(id) = &buf;

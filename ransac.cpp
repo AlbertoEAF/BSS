@@ -966,6 +966,10 @@ int main(int argc, char **argv)
   const int  MAX_ACTIVE_STREAMS = o.i("max_active_streams");
   const real A0MIN              = o.f("a0min");
 
+  const int MIN_ACTIVE_BLOCKS = o.i("min_active_blocks");
+
+  int merged_streams = 0;
+
   // Convolution Smoothing tests //////////////////////////////////////////////////////////////
   /////////////////////////////////////////////////////////////////////////////////////////////
   /*
@@ -1477,7 +1481,7 @@ int main(int argc, char **argv)
 	    D (MAX_ACTIVE_STREAMS, MAX_CLUSTERS,  FLT_MAX), 
 	    A0(MAX_ACTIVE_STREAMS, MAX_CLUSTERS, -FLT_MAX);
 	  
-	  static IdList active_streams(MAX_ACTIVE_STREAMS), assigned_clusters(MAX_CLUSTERS);
+	  static IdList active_streams(MAX_ACTIVE_STREAMS), merging_streams(MAX_ACTIVE_STREAMS), assigned_clusters(MAX_CLUSTERS);
 
 	  static Buffer<real> tmp_M(FFT_pN/2), tmp_X(FFT_pN);
 
@@ -1487,6 +1491,7 @@ int main(int argc, char **argv)
 	  // LDB 
 	  
 	  D.clear(); A0.clear();
+	  merging_streams.clear();
 	  assigned_clusters.clear();
 
 	  // (old) k->j (new)
@@ -1529,7 +1534,7 @@ int main(int argc, char **argv)
 		      fftw_execute_r2r(xX1_plan, new_buffers->raw(j), tmp_X());
 		      evenHC2magnitude(FFT_pN, tmp_X(), tmp_M());
 
-		      Streams.stream_id_add_buffer_at(id, j, *(*new_buffers)(j), tmp_M, time_block, FFT_slide, clusters.values[j]);
+		      Streams.add_buffer_at(id, j, *(*new_buffers)(j), tmp_M, time_block, FFT_slide, clusters.values[j]);
 
 		      assigned_clusters.add(j);
 
@@ -1563,7 +1568,7 @@ int main(int argc, char **argv)
 		      fftw_execute_r2r(xX1_plan, new_buffers->raw(j), tmp_X());
 		      evenHC2magnitude(FFT_pN, tmp_X(), tmp_M());
 
-		      Streams.stream_id_add_buffer_at(id, j, *(*new_buffers)(j), tmp_M, time_block, FFT_slide, clusters.values[j]);
+		      Streams.add_buffer_at(id, j, *(*new_buffers)(j), tmp_M, time_block, FFT_slide, clusters.values[j]);
 
 		      assigned_clusters.add(j);		  
 
@@ -1590,10 +1595,48 @@ int main(int argc, char **argv)
 		{
 		  active_streams.del(id);
 
-		  printf(RED "Stream id %d has died.\n" NOCOLOR, id);
+		  // Add stream to the list of streams to merge. Note we won't merge to other streams in the same condition but only streams that remain active.
+		  if ( Streams.active_blocks(id) <= MIN_ACTIVE_BLOCKS )
+		    merging_streams.add(id);
+		  else
+		    printf(RED "Stream id %d has died.\n" NOCOLOR, id);
 		}
 	      else if (stream_inactive_blocks)
 		printf(GREEN "Stream %d remains inactive by %d/%d time_blocks.\n" NOCOLOR, id, stream_inactive_blocks, MAX_SILENCE_BLOCKS);
+	    }
+
+	  // Merge to an active stream. Note that this is the only stage at which more than one stream can be assigned to a destination stream (merging procedure).
+	  if (active_streams.N())
+	    {
+	      for (int m = 0; m < merging_streams.N(); ++m )
+		{
+		  int m_id = merging_streams[m];
+		  real min_distance = FLT_MAX;
+		  int s_id_match = active_streams[0];
+	      
+		  for (int s = 0; s < active_streams.N(); ++s)
+		    {
+		      int s_id = active_streams[s];
+
+		      real distance = Lambda_distance(Streams.pos(m_id), Streams.pos(s_id));
+		      if (distance < min_distance)
+			{
+			  min_distance = distance;
+			  s_id_match = s_id;
+			}
+		    }
+
+		  ++merged_streams;
+
+		  
+		  // PERFORMANCE: This can be implemented more efficiently by adding only the active portion.
+		  Streams.stream(s_id_match)->add_at(*(Streams.stream(m_id)),0);
+		   
+		  // Now we can free up this stream since it has been merged.
+		  Streams.release_id(m_id); // Cleans it up before erasing.
+
+		  printf(GREEN "Stream %d merged to %d.\n" NOCOLOR, m_id, s_id_match);
+		}
 	    }
 
 	  // Birth
@@ -1609,7 +1652,7 @@ int main(int argc, char **argv)
 	      fftw_execute_r2r(xX1_plan, new_buffers->raw(j), tmp_X());
 	      evenHC2magnitude(FFT_pN, tmp_X(), tmp_M());
 	      
-	      Streams.stream_id_add_buffer_at(id, j, *(*new_buffers)(j), tmp_M, time_block, FFT_slide, clusters.values[j]);
+	      Streams.add_buffer_at(id, j, *(*new_buffers)(j), tmp_M, time_block, FFT_slide, clusters.values[j]);
 	      
 	      printf("%d ", id);
  	    }
@@ -1722,7 +1765,7 @@ int main(int argc, char **argv)
   fftw_destroy_plan(xX2_plan);
   fftw_destroy_plan(Xxo_plan);
 
-  printf(GREEN "%u streams in %lu time blocks.\n" NOCOLOR, Streams.latest_id(),time_blocks);
+
   
 
 
@@ -1741,12 +1784,17 @@ int main(int argc, char **argv)
       puts("(active_blocks) stream [DONE/FAIL]");
       for (unsigned int stream_id = 1; stream_id <= Streams.latest_id(); ++stream_id)
 	{
+	  if (!Streams.active_blocks(stream_id))
+	    continue;
+
 	  std::string wav_filepath("xstream"+itos(stream_id)+"_rebuilt.wav");
 	  printf("(%u) %s ...", Streams.active_blocks(stream_id), wav_filepath.c_str());
 	  fflush(stdout);
 	  print_status( wav::write_mono(wav_filepath, (*Streams.stream(stream_id))(), samples, sample_rate_Hz,streams_max_abs) );
 	}
     }
+
+  printf(GREEN "%u streams - %d merged streams in %lu time blocks.\n" NOCOLOR, Streams.latest_id(), merged_streams, time_blocks);
 
 
   Streams.release_ids();

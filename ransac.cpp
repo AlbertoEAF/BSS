@@ -954,6 +954,8 @@ int main(int argc, char **argv)
   */
 
   Options o("settings.cfg", Quit, 1);
+  const static int MAX_CLUSTERS       = o.i("max_clusters");
+  const static int MAX_ACTIVE_STREAMS = o.i("max_active_streams");
   DUETcfg _DUET; // Just to initialize, then a const DUET is initialized from this one.
 
   // Convolution Smoothing tests //////////////////////////////////////////////////////////////
@@ -1454,12 +1456,13 @@ int main(int argc, char **argv)
 	  apply_masks(*new_buffers, alpha(time_block), X1_history(time_block), X2_history(time_block), masks, clusters.values, N_clusters, FFT_pN, FFT_pN/2, FFT_df, Xxo_plan, Xo);
 	  
 	  //// Solve the permutations to achieve continuity of the active streams. ///////////
-	  static Buffer<int>  C       (o.i("max_clusters"), 0), old_C(C); // so no index offset is needed as 0 can also be used.
-	  static Buffer<real> dist_k  (o.i("max_clusters"), FLT_MAX );
-	  static Buffer<real> acorr_k (o.i("max_clusters"), -FLT_MAX);
-	  //static Buffer<real> dtotal_k(o.i("max_clusters"), FLT_MAX );
+	  static Buffer<int>  C       (MAX_CLUSTERS, 0), old_C(C); // so no index offset is needed as 0 can also be used.
+	  static Buffer<real> dist_k  (MAX_CLUSTERS, FLT_MAX );
+	  static Buffer<real> acorr_k (MAX_CLUSTERS, -FLT_MAX);
+
+	  static Matrix<real> D (MAX_ACTIVE_STREAMS, MAX_CLUSTERS, FLT_MAX), A0(MAX_ACTIVE_STREAMS, MAX_CLUSTERS, -FLT_MAX);
 	  
-	  static IdList active_streams(o.i("active_streams")), assigned_clusters(o.i("max_clusters"));
+	  static IdList active_streams(MAX_ACTIVE_STREAMS), assigned_clusters(MAX_CLUSTERS);
 
 	  static Buffer<real> tmp_M(FFT_pN/2), tmp_X(FFT_pN);
 
@@ -1474,7 +1477,6 @@ int main(int argc, char **argv)
 
 	      dist_k.clear ();
 	      acorr_k.clear();
-	      //	      dtotal_k.clear();
 
 	      real *ptr_prev_buf = Streams.last_buf_raw(id,FFT_slide);
 	      real Eprev = array_ops::energy(ptr_prev_buf,FFT_pN-FFT_slide);
@@ -1490,9 +1492,7 @@ int main(int argc, char **argv)
 
 		  acorr_k[j] = array_ops::inner_product(ptr_prev_buf,
 							ptr_next_buf,
-							FFT_N-FFT_slide) / std::sqrt(Enext);
-		    		  
-		  // dtotal_k[j] = Dtotal(ptr_prev_buf, ptr_next_buf, FFT_N-FFT_slide);
+							FFT_N-FFT_slide) / std::sqrt(Enext);		    		  
 		}
 	      
 	      acorr_k /= std::sqrt(Eprev);
@@ -1529,7 +1529,7 @@ int main(int argc, char **argv)
 		  fftw_execute_r2r(xX1_plan, new_buffers->raw(optimal_acorr_j), tmp_X());
 		  evenHC2magnitude(FFT_pN, tmp_X(), tmp_M());
 
-		  Streams.stream_id_add_buffer_at(id, *(*new_buffers)(optimal_acorr_j), tmp_M, time_block, FFT_slide, clusters.values[optimal_acorr_j]);
+		  Streams.stream_id_add_buffer_at(id, optimal_acorr_j, *(*new_buffers)(optimal_acorr_j), tmp_M, time_block, FFT_slide, clusters.values[optimal_acorr_j]);
 
 		  assigned_clusters.add(optimal_acorr_j);
 		}
@@ -1540,7 +1540,7 @@ int main(int argc, char **argv)
 		  fftw_execute_r2r(xX1_plan, new_buffers->raw(closest_j), tmp_X());
 		  evenHC2magnitude(FFT_pN, tmp_X(), tmp_M());
 
-		  Streams.stream_id_add_buffer_at(id, *(*new_buffers)(closest_j), tmp_M, time_block, FFT_slide, clusters.values[closest_j]);
+		  Streams.stream_id_add_buffer_at(id, closest_j, *(*new_buffers)(closest_j), tmp_M, time_block, FFT_slide, clusters.values[closest_j]);
 
 		  assigned_clusters.add(closest_j);
 		  }
@@ -1564,7 +1564,7 @@ int main(int argc, char **argv)
 		  fftw_execute_r2r(xX1_plan, new_buffers->raw(j), tmp_X());
 		  evenHC2magnitude(FFT_pN, tmp_X(), tmp_M());
 
-		  Streams.stream_id_add_buffer_at(new_id, *(*new_buffers)(j), tmp_M, time_block, FFT_slide, clusters.values[j]);
+		  Streams.stream_id_add_buffer_at(new_id, j, *(*new_buffers)(j), tmp_M, time_block, FFT_slide, clusters.values[j]);
 
 		  printf(GREEN "New stream %d born.\n" NOCOLOR, new_id);
 
@@ -1591,29 +1591,6 @@ int main(int argc, char **argv)
 	      puts(NOCOLOR);
 	      */
 
-	      /*
-	      printf("C = ");
-	      cout << C << endl;
-
-
-	      // Can also be implemented with no-match<0 instead of ==0. This avoids offset math.
-	      int from, to;
-	      for (int j=0; j<N_clusters; ++j)
-		{
-		  if (C[j] && C[j] != j+1)
-		    {
-		      from = j;
-		      to = C[j]-1;
-		      swap(C[from], C[to]);
-		      new_buffers->swap(from,to);
-		    }
-		}
-	      
-	      
-	      if (WAIT)
-		wait();
-	    }
-	      */
 	      if (WAIT)
 		wait();
 	  /////////////////////////////////////////////////////////////////////////////////////
@@ -1622,8 +1599,6 @@ int main(int argc, char **argv)
 	  old_C.copy(C);
 	  old_clusters.copy(clusters);
 	}
-
-      //static Buffer<real> hist_alpha(hist.xbins()), hist_delta(hist.ybins());
 
       if (o.i("show_each_hist"))
 	{
@@ -1647,7 +1622,6 @@ int main(int argc, char **argv)
 	  std::string filepath = "hist_dats/" + itosNdigits(time_block,10) + ".dat";
 	  hist.write_to_gnuplot_pm3d_binary_data(filepath.c_str());
 	  //system(("cp "+filepath+" tmp_dats/hist.dat && gen_movie.sh tmp_dats tmp_pngs 3D.gnut && feh tmp_pngs/hist.png").c_str());
-	  //wait();	
 	}
     }
 

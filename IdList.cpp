@@ -1,7 +1,7 @@
 #include "IdList.h"
 
 IdList::IdList(unsigned int n) 
-  : _list(n), _last(0), _size(n)
+  : _list(n), _N(0), _size(n)
 {
 }
 
@@ -10,14 +10,14 @@ unsigned int IdList::size ()
   return _size;
 }
 
-unsigned int IdList::last ()
+unsigned int IdList::N ()
 {
-  return _last;
+  return _N;
 }
 
 int IdList::operator[] (unsigned int n)
 {
-  Guarantee (n < _last, "Accessed out of the allowed range. Don't go over last().");
+  Guarantee (n < _N, "Out of bounds access IdList(%u)::operator[%u]. Don't go over IdList::N().", _size, n);
 
   return _list[n];
 }
@@ -25,24 +25,24 @@ int IdList::operator[] (unsigned int n)
 
 bool IdList::add(int value)
 {
-  Guarantee(_last < _size, "Can't add items anymore to IdList(%u).", _size);
+  Guarantee(_N < _size, "Can't add items anymore to IdList(%u).", _size);
 
-  _list[_last] = value;
-  ++_last;
+  _list[_N] = value;
+  ++_N;
 
   return true;
 }
 
 bool IdList::del(int value)
 {
-  for (unsigned int i = 0; i < _last; ++i)
+  for (unsigned int i = 0; i < _N; ++i)
     {
       if (_list[i] == value)
 	{
-	  for (unsigned int j = i; j+1 < _last; ++j)
+	  for (unsigned int j = i; j+1 < _N; ++j)
 	    _list[j] = _list[j+1];
 
-	  --_last;
+	  --_N;
 
 	  return true;
 	}
@@ -55,7 +55,7 @@ bool IdList::del(int value)
 
 bool IdList::has(int value)
 {
-  for (unsigned int i=0; i < _last; ++i)
+  for (unsigned int i=0; i < _N; ++i)
     if (_list[i] == value)
       return true;
     
@@ -65,13 +65,13 @@ bool IdList::has(int value)
 void IdList::clear()
 {
   _list.clear();
-  _last = 0;
+  _N = 0;
 }
 
 
 void IdList::print()
 {
-  for (unsigned int i=0; i < _last; ++i)
+  for (unsigned int i=0; i < _N; ++i)
     std::cout << _list[i] << " ";
   std::cout << std::endl;
 }

@@ -83,8 +83,11 @@ class Matrix
   const Matrix & operator *= (const T factor);
   const Matrix & operator /= (const T factor);
 
-  void max_index(size_t &row, size_t &col);
-  void min_index(size_t &row, size_t &col);
+  void max_index(size_t &row, size_t &col, size_t max_row_index, size_t max_col_index);
+  void min_index(size_t &row, size_t &col, size_t max_row_index, size_t max_col_index);
+
+  void fill_row_with(size_t row, T value);
+  void fill_col_with(size_t col, T value);
     
   void print(size_t rows, size_t cols);
 
@@ -305,13 +308,13 @@ const Matrix<T,alloc_mode> & Matrix<T,alloc_mode>::operator /= (const T factor)
 }
 
 template <class T, MatrixAlloc::Mode alloc_mode>
-void Matrix<T,alloc_mode>::max_index(size_t &row, size_t &col)
+void Matrix<T,alloc_mode>::max_index(size_t &row, size_t &col, size_t max_row_index, size_t max_col_index)
 {
   T m(_default_value), value;
 
   row = col = 0;
-  for (size_t r=0; r < m_rows; ++r)
-    for (size_t c=0; c < m_cols; ++c)
+  for (size_t r=0; r < max_row_index; ++r)
+    for (size_t c=0; c < max_col_index; ++c)
       {
 	value = (*this)(r,c);
 	if (value > m)
@@ -324,13 +327,13 @@ void Matrix<T,alloc_mode>::max_index(size_t &row, size_t &col)
 }
 
 template <class T, MatrixAlloc::Mode alloc_mode>
-void Matrix<T,alloc_mode>::min_index(size_t &row, size_t &col)
+void Matrix<T,alloc_mode>::min_index(size_t &row, size_t &col, size_t max_row_index, size_t max_col_index)
 {
   T m(_default_value), value;
 
   row = col = 0;
-  for (size_t r=0; r < m_rows; ++r)
-    for (size_t c=0; c < m_cols; ++c)
+  for (size_t r=0; r < max_row_index; ++r)
+    for (size_t c=0; c < max_col_index; ++c)
       {
 	value = (*this)(r,c);
 	if (value > m)
@@ -353,5 +356,18 @@ void Matrix<T,alloc_mode>::print(size_t rows, size_t cols)
     }
 }
 
+template <class T, MatrixAlloc::Mode alloc_mode>
+void Matrix<T,alloc_mode>::fill_row_with(size_t row, T value)
+{
+  for (size_t j=0; j < m_cols; ++j)
+    (*this)(row,j) = value;
+}
+
+template <class T, MatrixAlloc::Mode alloc_mode>
+void Matrix<T,alloc_mode>::fill_col_with(size_t col, T value)
+{
+  for (size_t i=0; i < m_rows; ++i)
+    (*this)(i,col) = value;
+}
 
 #endif // MATRIX_H

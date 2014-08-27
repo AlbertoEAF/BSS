@@ -959,9 +959,12 @@ int main(int argc, char **argv)
   */
 
   Options o("settings.cfg", Quit, 1);
-  const static int MAX_CLUSTERS       = o.i("max_clusters");
-  const static int MAX_ACTIVE_STREAMS = o.i("max_active_streams");
+
   DUETcfg _DUET; // Just to initialize, then a const DUET is initialized from this one.
+
+  const int  MAX_CLUSTERS       = o.i("max_clusters");
+  const int  MAX_ACTIVE_STREAMS = o.i("max_active_streams");
+  const real A0MIN              = o.f("a0min");
 
   // Convolution Smoothing tests //////////////////////////////////////////////////////////////
   /////////////////////////////////////////////////////////////////////////////////////////////
@@ -1045,6 +1048,8 @@ int main(int argc, char **argv)
 
   const uint sample_rate_Hz = x1_file.samplerate();
   const idx  samples        = x1_file.frames(); 
+  const real Ts             = 1.0/(real)sample_rate_Hz;
+
 
   Buffer<real> x1_wav(samples), x2_wav(samples);
   x1_file.read(x1_wav(), samples);
@@ -1080,6 +1085,8 @@ int main(int argc, char **argv)
   printf(YELLOW "FFT_N = %ld\n" "FFT_slide = %ld (%ld%%)\n" NOCOLOR, FFT_N, _DUET.FFT_slide, _DUET.FFT_slide_percentage);
 
   const idx FFT_slide = _DUET.FFT_slide;
+
+  const unsigned int MAX_SILENCE_BLOCKS = std::ceil(o.f("stream_max_inactive_time_s")/((real)FFT_slide*Ts));
 
   // This will require triple-buffering
   Guarantee(FFT_slide >= FFT_N/2, "FFT_slide(%ld) > FFT_N/2(%ld)", FFT_slide, FFT_N/2);
@@ -1124,6 +1131,7 @@ int main(int argc, char **argv)
 
 
   const real FFT_df = sample_rate_Hz / (real) FFT_pN;
+
 
   _DUET.Fmax = std::min<int>(o.f("DUET.high_cutoff_Hz", Warn)/FFT_df, 
 			     int(FFT_pN/2));
@@ -1175,7 +1183,6 @@ int main(int argc, char **argv)
 
   RankList<real, Point2D<real> > 
     clusters(o.d("max_clusters"),0.0,Point2D<real>()), 
-    old_clusters(clusters),  
     cumulative_clusters(N_max,0.0,Point2D<real>());
   RankList<real, real> 
     delta_clusters(o.d("max_clusters"), 0.0), // Bigger than neeeded, less peaks arise in the marginals (combinations of clusters alpha,delta -> 2D clusters).
@@ -1206,7 +1213,7 @@ int main(int argc, char **argv)
 
   const DUETcfg DUET = _DUET; // Make every parameter constant to avoid mistakes
 
-  int N_clusters = 0, old_N_clusters = 0;
+  int N_clusters = 0;
 
 
   /////////////////////////// TEST HISTOGRAMS /////////////////////////////////////////////7
@@ -1449,6 +1456,7 @@ int main(int argc, char **argv)
       */
 
 
+
       ///////// Apply masks and rebuild current frame to audio and add it to the appropriate outputs
       if (! o.i("DUET.static_rebuild"))
 	{
@@ -1473,166 +1481,169 @@ int main(int argc, char **argv)
 
 	  static Buffer<real> tmp_M(FFT_pN/2), tmp_X(FFT_pN);
 
-	  ////// NEW METHOD
+	  
+
+	  
+	  // LDB 
+	  
+	  D.clear(); A0.clear();
+	  assigned_clusters.clear();
 
 	  // (old) k->j (new)
-	  for (int s=0; s < active_streams.last(); ++s)
+	  for (int s=0; s < active_streams.N(); ++s)
 	    {
 	      int id = active_streams[s];
 	      for (int j=0; j < N_clusters; ++j)
 		{
 		  D (s,j) = Lambda_distance(Streams.pos(id),clusters.values[j]);
+		  // Since streams haven't been assigned yet, streams assigned right at the last block have a difference of 1.
 		  if (time_block - Streams.last_active_time_block(id) == 1)
 		    A0(s,j) = array_ops::a0(Streams.last_buf_raw(id,FFT_slide), new_buffers->raw(j), FFT_N-FFT_slide);
 		}
 	    }
-
-	  for (int s=0; s < active_streams.last(); ++s)
+	  
+	  for (int s=0; s < active_streams.N(); ++s)
 	    Streams.print(active_streams[s]);
-	  printf("Active_Streams=%u clusters = %u\n", active_streams.last(), N_clusters);
+	  printf("Active_Streams=%u clusters = %u\n", active_streams.N(), N_clusters);
 	  puts("D:");
-	  D.print (active_streams.last(), N_clusters);
+	  D.print (active_streams.N(), N_clusters);
 	  puts("A0:");
-	  A0.print(active_streams.last(), N_clusters);
-
-
-	  assigned_clusters.clear();
-
+	  A0.print(active_streams.N(), N_clusters);
+	  
 	  // Life
-	  for (int k=0; k < active_streams.last(); ++k)
+	  if (active_streams.N() && N_clusters)
 	    {
-	      int id = active_streams[k];
-
-	      dist_k.clear ();
-	      acorr_k.clear();
-
-	      real *ptr_prev_buf = Streams.last_buf_raw(id,FFT_slide);
-	      real Eprev = array_ops::energy(ptr_prev_buf,FFT_pN-FFT_slide);
-	
-	      for (int j = 0; j < N_clusters; ++j)
+	      // Life Stage 1 : global A0 > A0MIN assignment
+	      printf(GREEN "Streams that live by A0: ");
+	      while( 1 )
 		{
-		  dist_k[j] = std::abs(Streams.pos(id).y-clusters.values[j].y);// distance(old_clusters.values[k], clusters.values[j]);
-		  // This computation can be deferred so a single acorr is done to the closest cluster and only if it fails is the array calculated.
-		  
+		  static size_t s, j; // no need to init at 0 every turn.
+		  A0.max_index(s,j, active_streams.N(), N_clusters);
 
-		  real *ptr_next_buf = new_buffers->raw(j);
-		  real Enext = array_ops::energy(ptr_next_buf,FFT_pN-FFT_slide);
-
-		  acorr_k[j] = array_ops::inner_product(ptr_prev_buf,
-							ptr_next_buf,
-							FFT_N-FFT_slide) / std::sqrt(Enext);		    		  
-		}
+		  real a0(A0(s,j));
 	      
-	      acorr_k /= std::sqrt(Eprev);
-
-	      for (int l=0; l < N_clusters; ++l)
-		{
-		  if (std::isnan(acorr_k[l]))
+		  if ( a0 > A0MIN ) // Life
 		    {
-		      puts(RED "SHIT!" NOCOLOR);
-		      
-		      cout << Eprev << "--" << array_ops::energy(new_buffers->raw(l),FFT_pN-FFT_slide) << ">";
-		      
+		      int id(active_streams[s]);
+	  
+		      fftw_execute_r2r(xX1_plan, new_buffers->raw(j), tmp_X());
+		      evenHC2magnitude(FFT_pN, tmp_X(), tmp_M());
+
+		      Streams.stream_id_add_buffer_at(id, j, *(*new_buffers)(j), tmp_M, time_block, FFT_slide, clusters.values[j]);
+
+		      assigned_clusters.add(j);
+
+
+		      // Remove entries that are no longer candidates for assignment from lookup (stream id=active_streams[s] and cluster j).
+		      A0.fill_row_with(s, -FLT_MAX);
+		      A0.fill_col_with(j, -FLT_MAX);
+		      D.fill_row_with(s, FLT_MAX);
+		      D.fill_col_with(j, FLT_MAX);
+
+		      //		      printf(GREEN "Stream %d lives through %lu by A0.\n" NOCOLOR, id, j);
+		      printf("%d@%lu ", id, j);
 		    }
+		  else
+		    break; // no more a0 > A0MIN
 		}
+	      puts("\n" NOCOLOR);
+	      // Life Stage 2 : global pos assignment (Lambda_distance < threshold) 
+	      printf(GREEN "Streams that live by pos: ");
+	      while( 1 )
+		{	      
+		  static size_t s, j; // no need to init at 0 every turn.
+		  D.min_index(s,j, active_streams.N(), N_clusters);
 
-
-	      int closest_j = dist_k.min_index();
-	      int optimal_acorr_j = acorr_k.max_index();
-	      
-	      printf(BLUE "\n(closest_j,max_a) = ( %d %d )\n" NOCOLOR, closest_j, optimal_acorr_j);
-	      cout << "Dist: ";
-	      dist_k.print(N_clusters);
-	      cout << "Acorr: ";
-	      acorr_k.print(N_clusters);
-	      //cout << "dtotal: ";
-	      //dtotal_k.print(N_clusters);
-	      
-
-	      // Life 
-	      if ( acorr_k[optimal_acorr_j] > o.f("a0min") )
-		{
-		  printf(GREEN "Stream %d lives through %d\n" NOCOLOR, id, optimal_acorr_j);
+		  real d(D(s,j));
 		  
-		  fftw_execute_r2r(xX1_plan, new_buffers->raw(optimal_acorr_j), tmp_X());
-		  evenHC2magnitude(FFT_pN, tmp_X(), tmp_M());
+		  if ( d < o.f("max_Lambda_distance") ) // Life
+		    {
+		      int id(active_streams[s]);
+		  
+		      fftw_execute_r2r(xX1_plan, new_buffers->raw(j), tmp_X());
+		      evenHC2magnitude(FFT_pN, tmp_X(), tmp_M());
 
-		  Streams.stream_id_add_buffer_at(id, optimal_acorr_j, *(*new_buffers)(optimal_acorr_j), tmp_M, time_block, FFT_slide, clusters.values[optimal_acorr_j]);
+		      Streams.stream_id_add_buffer_at(id, j, *(*new_buffers)(j), tmp_M, time_block, FFT_slide, clusters.values[j]);
 
-		  assigned_clusters.add(optimal_acorr_j);
+		      assigned_clusters.add(j);		  
+
+		      // Remove entries that are no longer candidates for assignment from lookup (stream id=active_streams[s] and cluster j).
+		      A0.fill_row_with(s, -FLT_MAX);
+		      A0.fill_col_with(j, -FLT_MAX);
+		      D.fill_row_with(s, FLT_MAX);
+		      D.fill_col_with(j, FLT_MAX);
+
+		      //		      printf(GREEN "Stream %d lives through %lu by pos.\n" NOCOLOR, id, j);
+		      printf("%d@%lu ", id, j);
+		    }
+		  else
+		    break; // no more a0 > A0MIN	      
 		}
-	      else if ( std::abs(Streams.pos(id).y-clusters.values[closest_j].y) < o.f("ddelta_accept")  )
-		{
-		  printf(GREEN "Stream %d lives through %d by pos-continuity.\n" NOCOLOR, id, closest_j);
-		  
-		  fftw_execute_r2r(xX1_plan, new_buffers->raw(closest_j), tmp_X());
-		  evenHC2magnitude(FFT_pN, tmp_X(), tmp_M());
+	      puts("\n" NOCOLOR);
+	    }
+	  // Death
+	  for (int s = 0; s < active_streams.N(); ++s)
+	    {
+	      // Declare IdList::last as inline!!!
+	      // Declare IdList::last as inline!!!
+	      // Declare IdList::last as inline!!!
+	      // Declare IdList::last as inline!!!
+	      // Declare IdList::last as inline!!!
+	      // Declare IdList::last as inline!!!
+	      // Declare IdList::last as inline!!!
+	      // Declare IdList::last as inline!!!
+	      // Declare IdList::last as inline!!!
+	      // Declare IdList::last as inline!!!
+	      // Declare IdList::last as inline!!!
+	      // Declare IdList::last as inline!!!
+	      // Declare IdList::last as inline!!!
+	      // Declare IdList::last as inline!!!
 
-		  Streams.stream_id_add_buffer_at(id, closest_j, *(*new_buffers)(closest_j), tmp_M, time_block, FFT_slide, clusters.values[closest_j]);
-
-		  assigned_clusters.add(closest_j);
-		  }
-	      else // Death
+	      int id = active_streams[s];
+	      // The difference is zero for streams assigned during this time block.
+	      int stream_inactive_blocks = time_block - Streams.last_active_time_block(id);
+	      if (stream_inactive_blocks > MAX_SILENCE_BLOCKS)
 		{
-		  printf(GREEN "Stream %d died.\n" NOCOLOR, id);
 		  active_streams.del(id);
 
-		  static Gnuplot pDM;
-		  pDM.plot((*Streams.spectrum(id))(),FFT_pN/2,"M at Death");
+		  printf(RED "Stream id %d has died.\n" NOCOLOR, id);
 		}
+	      else if (stream_inactive_blocks)
+		printf(GREEN "Stream %d remains inactive by %d/%d time_blocks.\n" NOCOLOR, id, stream_inactive_blocks, MAX_SILENCE_BLOCKS);
 	    }
+
 	  // Birth
-	  for (int j=0; j < N_clusters; ++j)
+	  printf(GREEN "Born streams: ");
+	  for (int j = 0; j < N_clusters; ++j)
 	    {
-	      if (! assigned_clusters.has(j))
-		{
-		  int new_id = Streams.acquire_id();
-		  active_streams.add(new_id);
+	      if (assigned_clusters.has(j))
+		continue;
 
-		  fftw_execute_r2r(xX1_plan, new_buffers->raw(j), tmp_X());
-		  evenHC2magnitude(FFT_pN, tmp_X(), tmp_M());
-
-		  Streams.stream_id_add_buffer_at(new_id, j, *(*new_buffers)(j), tmp_M, time_block, FFT_slide, clusters.values[j]);
-
-		  printf(GREEN "New stream %d born.\n" NOCOLOR, new_id);
-
-		  // No need to assign j to assigned_clusters at this stage since we're running sequentially through j.
-		}
-	    }
-
-	  ///// END OF NEW METHOD
-
-	      static Gnuplot px1;
-
-	      if ((time_block+1)*FFT_slide < samples)
-		px1.replot(&x1_wav[time_block*FFT_slide],FFT_N, "x1");
-	      /*
-	      static Matrix<real> Acorr(o.d("max_clusters"),o.d("max_clusters"));
-	      Acorr.clear();
-	      for (int u = 0; u < N_clusters; ++u)
-		for (int v = u; v < N_clusters; ++v)
-		  Acorr(u,v) = array_ops::a0(new_buffers->raw(u),
-					     new_buffers->raw(v),
-					     FFT_N);
-	      puts(BLUE);
-	      cout << Acorr;
-	      puts(NOCOLOR);
-	      */
-
-	      if (WAIT)
-		wait();
-	  /////////////////////////////////////////////////////////////////////////////////////
-	      write_data(wav_out, new_buffers, FFT_N, FFT_slide); // Explicitly use the initial region FFT_N and exclude the padding FFT_pN.
-	  old_N_clusters = N_clusters;
-	  //old_C.copy(C);
-	  old_clusters.copy(clusters);
-	}
-
+	      int id = Streams.acquire_id();
+	      active_streams.add(id);
+	      
+	      fftw_execute_r2r(xX1_plan, new_buffers->raw(j), tmp_X());
+	      evenHC2magnitude(FFT_pN, tmp_X(), tmp_M());
+	      
+	      Streams.stream_id_add_buffer_at(id, j, *(*new_buffers)(j), tmp_M, time_block, FFT_slide, clusters.values[j]);
+	      
+	      printf("%d ", id);
+ 	    }
+	  puts("\n" NOCOLOR);
+	  
+	  if (WAIT)
+	    wait();
+	} // End of dynamic-rebuild
+      
       if (o.i("show_each_hist"))
 	{
+	  static Gnuplot px1;
+	  if ((time_block+1)*FFT_slide < samples)
+	    px1.replot(&x1_wav[time_block*FFT_slide],FFT_N, "x1");
+
 	  palpha.replot(alpha_range(), (*hist_alpha.raw())(),hist_alpha.bins(), "alpha");
 	  pdelta.replot(delta_range(), (*hist_delta.raw())(),hist_delta.bins(), "delta");	  
-
+	  
 	  if (o.i("show_each_hist")>1)
 	    {
 	      hist.write_to_gnuplot_pm3d_data("hist.dat");
@@ -1651,7 +1662,8 @@ int main(int argc, char **argv)
 	  hist.write_to_gnuplot_pm3d_binary_data(filepath.c_str());
 	  //system(("cp "+filepath+" tmp_dats/hist.dat && gen_movie.sh tmp_dats tmp_pngs 3D.gnut && feh tmp_pngs/hist.png").c_str());
 	}
-    }
+
+    } // End of blockwise processing
 
 	
   ///// Static Heuristic Rebuilding! ///////////////////////////////////////////////////////////////////
@@ -1681,7 +1693,7 @@ int main(int argc, char **argv)
 
   // Plot the 3D histogram with gnuplot and the simulation and DUET overlays
   // Since the "" must be passed with quotes inside the gnuplot command a triple \ is needed and  a single \ is needed for the outer command.
-  RENDER_HIST("cumulative_hist.dat", "Cumulative hist", 1);
+  RENDER_HIST("cumulative_hist.dat", "Cumulative hist", o.i("hist_pause"));
   
   static Gnuplot pM1hist;
   pM1hist.plot((*M1hist.raw())(),FFT_pN/2,"M1 histogram");      
@@ -1690,7 +1702,6 @@ int main(int argc, char **argv)
 
   if (o.i("DUET.static_rebuild"))
     {
-
       // Build the masks and rebuild the signals
       for (idx t_block = 0; t_block < time_blocks; ++t_block)
 	{

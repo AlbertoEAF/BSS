@@ -112,20 +112,20 @@ class StreamSet // Non-thread-safe.
 
   void release_ids() { _data.release_ids(); }
 
-  Buffer<real> *  spectrum(unsigned int id)     { Assert(id, "Id=0"); return _spectrum(id-1); }
-  Buffer<real> *& last_buf(unsigned int id)     { Assert(id, "Id=0"); return _last_buf[id-1]; }
-  Buffer<real> *  stream  (unsigned int id)     { return _data.get_buffer(id); }
+  inline Buffer<real> *  spectrum(unsigned int id)     { Assert(id, "Id=0"); return _spectrum(id-1); }
+  inline Buffer<real> *& last_buf(unsigned int id)     { Assert(id, "Id=0"); return _last_buf[id-1]; }
+  inline Buffer<real> *  stream  (unsigned int id)     { return _data.get_buffer(id); }
 
-  unsigned int  & first_active_time_block(unsigned int id) { Assert(id, "Id=0"); return _first_active_time_block[id-1]; }
-  unsigned int  & last_active_time_block (unsigned int id) { Assert(id, "Id=0"); return  _last_active_time_block[id-1]; }
-  unsigned int  & active_blocks          (unsigned int id) { Assert(id, "Id=0"); return           _active_blocks[id-1]; }
-  int           & last_cluster           (unsigned int id) { Assert(id, "Id=0"); return            _last_cluster[id-1]; }
-  Point2D<real> & pos                    (unsigned int id) { Assert(id, "Id=0"); return                     _pos[id-1]; }
+  inline unsigned int  & first_active_time_block(unsigned int id) { Assert(id, "Id=0"); return _first_active_time_block[id-1]; }
+  inline unsigned int  & last_active_time_block (unsigned int id) { Assert(id, "Id=0"); return  _last_active_time_block[id-1]; }
+  inline unsigned int  & active_blocks          (unsigned int id) { Assert(id, "Id=0"); return           _active_blocks[id-1]; }
+  inline int           & last_cluster           (unsigned int id) { Assert(id, "Id=0"); return            _last_cluster[id-1]; }
+  inline Point2D<real> & pos                    (unsigned int id) { Assert(id, "Id=0"); return                     _pos[id-1]; }
 
 
   void stream_id_add_buffer_at(unsigned int id, int cluster, Buffer<real> &buf, Buffer<real> &magnitude, unsigned int block, unsigned int block_size, Point2D<real> &cluster_pos);
 
-  real * last_buf_raw(unsigned int id, size_t pos = 0) { Assert(id, "Id=0"); return &(*_last_buf[id-1])[pos];}
+  inline real * last_buf_raw(unsigned int id, size_t pos = 0) { Assert(id, "Id=0"); return &(*_last_buf[id-1])[pos];}
 
   const unsigned int _streams;
 

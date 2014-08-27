@@ -12,13 +12,14 @@ class IdList
   IdList (unsigned int n);
 
   unsigned int size();
-  unsigned int last();
+  unsigned int N();
  
+  // By index
   int operator[] (unsigned int n);
 
+  // By value
   bool add(int value); // It is made to crash if can't add. No need to check the return value.
   bool del(int value);
-
   bool has(int value);
 
   void clear();
@@ -26,10 +27,9 @@ class IdList
   void print();
 
 
-
  private:
   Buffer<int> _list;
-  unsigned int _last, _size;
+  unsigned int _N, _size;
 };
 
 

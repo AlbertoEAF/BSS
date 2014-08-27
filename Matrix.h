@@ -82,17 +82,23 @@ class Matrix
 
   const Matrix & operator *= (const T factor);
   const Matrix & operator /= (const T factor);
+
+  void max_index(size_t &row, size_t &col);
+  void min_index(size_t &row, size_t &col);
     
+  void print(size_t rows, size_t cols);
+
  private:
   const size_t m_rows, m_cols, m_size;
   T *m;
+  T _default_value;
 };
 
        
        
 template <class T, MatrixAlloc::Mode alloc_mode>
 Matrix<T,alloc_mode>::Matrix (size_t rows, size_t cols, T default_value) 
-: m_rows(rows), m_cols(cols), m_size(rows*cols), m(NULL)
+  : m_rows(rows), m_cols(cols), m_size(rows*cols), m(NULL), _default_value(default_value)
 {
   Guarantee(m_size, "Initializing matrix with size 0 in at least one of the dimensions.");
 
@@ -105,7 +111,7 @@ Matrix<T,alloc_mode>::Matrix (size_t rows, size_t cols, T default_value)
 
 template <class T, MatrixAlloc::Mode alloc_mode> 
 Matrix<T,alloc_mode>::Matrix (const Matrix<T,alloc_mode> & copy) 
-: m_rows(copy.rows()), m_cols(copy.cols()), m_size(copy.size()), m(NULL)
+  : m_rows(copy.rows()), m_cols(copy.cols()), m_size(copy.size()), m(NULL), _default_value(copy._default_value)
 {
   Assert(copy.size(), "Copying matrix with size 0 in at least one of the dimensions!");
 
@@ -117,7 +123,7 @@ Matrix<T,alloc_mode>::Matrix (const Matrix<T,alloc_mode> & copy)
 
 template <class T, MatrixAlloc::Mode alloc_mode> 
 Matrix<T,alloc_mode>::Matrix (const Matrix<T,alloc_mode> * copy) 
-: m_rows(copy->rows()), m_cols(copy->cols()), m_size(copy->size()), m(NULL)
+  : m_rows(copy->rows()), m_cols(copy->cols()), m_size(copy->size()), m(NULL), _default_value(copy->_default_value)
 {
   Assert(copy->size(), "Copying matrix with size 0 in at least one of the dimensions!");
 
@@ -298,6 +304,54 @@ const Matrix<T,alloc_mode> & Matrix<T,alloc_mode>::operator /= (const T factor)
   return *this;
 }
 
+template <class T, MatrixAlloc::Mode alloc_mode>
+void Matrix<T,alloc_mode>::max_index(size_t &row, size_t &col)
+{
+  T m(_default_value), value;
+
+  row = col = 0;
+  for (size_t r=0; r < m_rows; ++r)
+    for (size_t c=0; c < m_cols; ++c)
+      {
+	value = (*this)(r,c);
+	if (value > m)
+	  {
+	    m = value;
+	    row = r;
+	    col = c;
+	  }
+      }
+}
+
+template <class T, MatrixAlloc::Mode alloc_mode>
+void Matrix<T,alloc_mode>::min_index(size_t &row, size_t &col)
+{
+  T m(_default_value), value;
+
+  row = col = 0;
+  for (size_t r=0; r < m_rows; ++r)
+    for (size_t c=0; c < m_cols; ++c)
+      {
+	value = (*this)(r,c);
+	if (value > m)
+	  {
+	    m = value;
+	    row = r;
+	    col = c;
+	  }
+      }
+}
+
+template <class T, MatrixAlloc::Mode alloc_mode>
+void Matrix<T,alloc_mode>::print(size_t rows, size_t cols)
+{
+  for (size_t i=0; i < rows; ++i)
+    {
+      for (size_t j=0; j < cols; ++j)
+	std::cout << (*this)(i,j) << " ";
+      std::cout << std::endl;
+    }
+}
 
 
 #endif // MATRIX_H

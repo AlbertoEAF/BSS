@@ -144,6 +144,11 @@ void hc_multiply (real *z1, real *z2, real *z, idx size)
 		     &z[i], &z[size-i]);
 }
 
+real Lambda_distance(Point2D<real> &a, Point2D<real> &b)
+{
+  return std::abs(a.y-b.y);
+}
+
 template <class T> T blocks (T n, T block_size)
 {
   return n/block_size + ( n % block_size ? 1:0 );
@@ -1456,17 +1461,40 @@ int main(int argc, char **argv)
 	  apply_masks(*new_buffers, alpha(time_block), X1_history(time_block), X2_history(time_block), masks, clusters.values, N_clusters, FFT_pN, FFT_pN/2, FFT_df, Xxo_plan, Xo);
 	  
 	  //// Solve the permutations to achieve continuity of the active streams. ///////////
-	  static Buffer<int>  C       (MAX_CLUSTERS, 0), old_C(C); // so no index offset is needed as 0 can also be used.
+	  //	  static Buffer<int>  C       (MAX_CLUSTERS, 0), old_C(C); // so no index offset is needed as 0 can also be used.
 	  static Buffer<real> dist_k  (MAX_CLUSTERS, FLT_MAX );
 	  static Buffer<real> acorr_k (MAX_CLUSTERS, -FLT_MAX);
 
-	  static Matrix<real> D (MAX_ACTIVE_STREAMS, MAX_CLUSTERS, FLT_MAX), A0(MAX_ACTIVE_STREAMS, MAX_CLUSTERS, -FLT_MAX);
+	  static Matrix<real> 
+	    D (MAX_ACTIVE_STREAMS, MAX_CLUSTERS,  FLT_MAX), 
+	    A0(MAX_ACTIVE_STREAMS, MAX_CLUSTERS, -FLT_MAX);
 	  
 	  static IdList active_streams(MAX_ACTIVE_STREAMS), assigned_clusters(MAX_CLUSTERS);
 
 	  static Buffer<real> tmp_M(FFT_pN/2), tmp_X(FFT_pN);
 
 	  ////// NEW METHOD
+
+	  // (old) k->j (new)
+	  for (int s=0; s < active_streams.last(); ++s)
+	    {
+	      int id = active_streams[s];
+	      for (int j=0; j < N_clusters; ++j)
+		{
+		  D (s,j) = Lambda_distance(Streams.pos(id),clusters.values[j]);
+		  if (time_block - Streams.last_active_time_block(id) == 1)
+		    A0(s,j) = array_ops::a0(Streams.last_buf_raw(id,FFT_slide), new_buffers->raw(j), FFT_N-FFT_slide);
+		}
+	    }
+
+	  for (int s=0; s < active_streams.last(); ++s)
+	    Streams.print(active_streams[s]);
+	  printf("Active_Streams=%u clusters = %u\n", active_streams.last(), N_clusters);
+	  puts("D:");
+	  D.print (active_streams.last(), N_clusters);
+	  puts("A0:");
+	  A0.print(active_streams.last(), N_clusters);
+
 
 	  assigned_clusters.clear();
 
@@ -1596,7 +1624,7 @@ int main(int argc, char **argv)
 	  /////////////////////////////////////////////////////////////////////////////////////
 	      write_data(wav_out, new_buffers, FFT_N, FFT_slide); // Explicitly use the initial region FFT_N and exclude the padding FFT_pN.
 	  old_N_clusters = N_clusters;
-	  old_C.copy(C);
+	  //old_C.copy(C);
 	  old_clusters.copy(clusters);
 	}
 

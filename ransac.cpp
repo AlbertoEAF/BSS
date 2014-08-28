@@ -581,9 +581,13 @@ real Hamming0(idx n, idx N)
 }
 real Hamming(idx n, idx N) 
 { 
-  //  return 1 - (0.53836 + 0.46164*std::cos(_2Pi*n/(N-1.0))); 
+  return 0.54 - 0.46*std::cos(_2Pi*n/(N-1.0));
+}
+real myHamming(idx n, idx N) 
+{ 
   return 0.46164 - 0.46164*std::cos(_2Pi*n/(N-1.0));
 }
+
 real Rectangular(idx n, idx N)
 {
   return 1;
@@ -1283,12 +1287,21 @@ int main(int argc, char **argv)
   */
   ///////////////////////////////////////////////////////////////////////////////////////////////
 
+  
+
+  
+
 
   Buffer<real> W(FFT_N);
   if (o("window",Ignore) == "Hamming0")
     {
       puts(YELLOW "W=Hamming0" NOCOLOR);
       build_window(W,Hamming0);      
+    }
+  else if (o("window",Ignore) == "myHamming")
+    {
+      puts(YELLOW "W=myHamming" NOCOLOR);
+      build_window(W,myHamming);      
     }
   else if (o("window",Ignore) == "Hamming")
     {
@@ -1315,10 +1328,22 @@ int main(int argc, char **argv)
     {
       puts("Calculating histograms...");      
     }
+  
   /*
-    Gnuplot Wplot;
-    Wplot.plot_y(W(),W.size(),"W");
-    wait();
+    // Windows plot
+  static Gnuplot Wplot;
+  build_window(W,Hann);
+  Wplot.plot(W(),W.size(),"Hann");
+  build_window(W,myHamming);
+  Wplot.plot(W(),W.size(),"myHamming");
+  build_window(W,Hamming);
+  Wplot.plot(W(),W.size(),"Hamming");
+  build_window(W,Hamming0);
+  Wplot.plot(W(),W.size(),"Hamming0");
+  build_window(W,Rectangular);
+  Wplot.plot(W(),W.size(),"Rectangular");
+  //  Wplot.plot(W(),W.size(),"W");
+  wait();
   */
 
   static Gnuplot pM1;
@@ -1436,11 +1461,6 @@ int main(int argc, char **argv)
       	
       ///////// pre-Filter histogram clusters ///////////////////
 		
-      heuristic_clustering2D(hist, clusters, DUET);
-      heuristic_clustering(hist_alpha, alpha_clusters, DUET, DUET.min_peak_dalpha);
-      heuristic_clustering(hist_delta, delta_clusters, DUET, DUET.min_peak_ddelta);
-
-      cout << YELLOW << clusters << NOCOLOR;
 
       /*
 	Buffer<Point2D<real> > clusters(preclusters.eff_size(DUET.noise_threshold));
@@ -1465,6 +1485,14 @@ int main(int argc, char **argv)
       ///////// Apply masks and rebuild current frame to audio and add it to the appropriate outputs
       if (! o.i("DUET.static_rebuild"))
 	{
+	  heuristic_clustering2D(hist, clusters, DUET);
+	  heuristic_clustering(hist_alpha, alpha_clusters, DUET, DUET.min_peak_dalpha);
+	  heuristic_clustering(hist_delta, delta_clusters, DUET, DUET.min_peak_ddelta);
+
+	  cout << YELLOW << clusters << NOCOLOR;
+
+
+
 	  N_clusters = clusters.eff_size(DUET.noise_threshold); 
       		
 	  old_buffers = bufs.read();
@@ -1666,9 +1694,11 @@ int main(int argc, char **argv)
       if (o.i("show_each_hist"))
 	{
 	  static Gnuplot px1;
+	  /*
 	  if ((time_block+1)*FFT_slide < samples)
 	    px1.replot(&x1_wav[time_block*FFT_slide],FFT_N, "x1");
-
+	  */
+	  px1.replot(x1(),FFT_N,"x1*W");
 	  palpha.replot(alpha_range(), (*hist_alpha.raw())(),hist_alpha.bins(), "alpha");
 	  pdelta.replot(delta_range(), (*hist_delta.raw())(),hist_delta.bins(), "delta");	  
 	  

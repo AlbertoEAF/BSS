@@ -958,7 +958,8 @@ int main(int argc, char **argv)
   return 0;
   */
 
-  Options o("settings.cfg", Quit, 1);
+  Options _o("presets.cfg", Quit, 1); // Choose the preset file.
+  Options o (_o("preset").c_str(), Quit, 1); // True configuration file (preset)
 
   DUETcfg _DUET; // Just to initialize, then a const DUET is initialized from this one.
 

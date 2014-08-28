@@ -1523,21 +1523,26 @@ int main(int argc, char **argv)
 	  merging_streams.clear();
 	  assigned_clusters.clear();
 
-	  // (old) k->j (new)
+	  // Calculate the distance between old streams and new buffers in terms of D and A0. A0 requires applying the complementary window.
 	  for (int s=0; s < active_streams.N(); ++s)
 	    {
+	      static Buffer<real> W_buf_stream(FFT_N-FFT_slide), W_buf_new_stream(FFT_N-FFT_slide);
+
 	      int id = active_streams[s];
-	      Buffer<real> W_buf_stream(Streams.last_buf_raw(id,FFT_slide), FFT_N-FFT_slide);
+	      W_buf_stream.copy(Streams.last_buf_raw(id,FFT_slide), FFT_N-FFT_slide);
 	      for (int u=0; u < FFT_slide; ++u)
 		W_buf_stream[u] *= W[u]; // Apply the complementary window of the next block.
 
 	      for (int j=0; j < N_clusters; ++j)
 		{
+		  // D
 		  D (s,j) = Lambda_distance(Streams.pos(id),clusters.values[j]);
+
+		  // A0 (with complementary windows applied)
 		  // Since streams haven't been assigned yet, streams assigned right at the last block have a difference of 1.
 		  if (time_block - Streams.last_active_time_block(id) == 1)
 		    {
-		      Buffer<real> W_buf_new_stream(new_buffers->raw(j),FFT_N-FFT_slide);
+		      W_buf_new_stream.copy(new_buffers->raw(j), FFT_N-FFT_slide); // We could calculate them all only once beforehand since they're reutilized for each old stream.
 		      for (int u=0; u < FFT_N-FFT_slide; ++u)
 			W_buf_new_stream[u] *= W[u+FFT_slide]; // Apply the past complementary window.
 		      A0(s,j) = array_ops::a0(W_buf_stream(), W_buf_new_stream(), FFT_N-FFT_slide);

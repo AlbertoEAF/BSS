@@ -1527,12 +1527,21 @@ int main(int argc, char **argv)
 	  for (int s=0; s < active_streams.N(); ++s)
 	    {
 	      int id = active_streams[s];
+	      Buffer<real> W_buf_stream(Streams.last_buf_raw(id,FFT_slide), FFT_N-FFT_slide);
+	      for (int u=0; u < FFT_slide; ++u)
+		W_buf_stream[u] *= W[u]; // Apply the complementary window of the next block.
+
 	      for (int j=0; j < N_clusters; ++j)
 		{
 		  D (s,j) = Lambda_distance(Streams.pos(id),clusters.values[j]);
 		  // Since streams haven't been assigned yet, streams assigned right at the last block have a difference of 1.
 		  if (time_block - Streams.last_active_time_block(id) == 1)
-		    A0(s,j) = array_ops::a0(Streams.last_buf_raw(id,FFT_slide), new_buffers->raw(j), FFT_N-FFT_slide);
+		    {
+		      Buffer<real> W_buf_new_stream(new_buffers->raw(j),FFT_N-FFT_slide);
+		      for (int u=0; u < FFT_N-FFT_slide; ++u)
+			W_buf_new_stream[u] *= W[u+FFT_slide]; // Apply the past complementary window.
+		      A0(s,j) = array_ops::a0(W_buf_stream(), W_buf_new_stream(), FFT_N-FFT_slide);
+		    }
 		}
 	    }
 	  

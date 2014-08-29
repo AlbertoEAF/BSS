@@ -483,29 +483,6 @@ void calc_alpha_delta(idx time_block, idx pN, idx sample_rate_Hz,
 	  DUET_hist_add_score(hist, hist_alpha, hist_delta, _alpha, _delta, X1[f],X1[fI], X2[f],X2[fI], omega, DUET);
 	}
     }
-
-
-  // For the convolution of the histograms
-
-  if (DUET.use_smoothing)
-    {
-      static Buffer<real> 
-	conv_kernel_alpha(hist_alpha.gen_gaussian_kernel(DUET.sigma_alpha)),
-	conv_kernel_delta(hist_delta.gen_gaussian_kernel(DUET.sigma_delta)),
-	conv_hist_alpha  (hist_alpha.bins()), 
-	conv_hist_delta  (hist_delta.bins());
-
-      static Matrix<real> 
-	conv_kernel(hist.gen_gaussian_kernel(DUET.sigma_alpha, DUET.sigma_delta)),
-	conv_hist  (hist.xbins(),hist.ybins());
-
-      // New blurring method: convolution
-      hist_alpha.kernel_convolution(conv_kernel_alpha, conv_hist_alpha);
-      hist_delta.kernel_convolution(conv_kernel_delta, conv_hist_delta);
-      // WARNING: VERY SLOW OPERATION
-      if (DUET.use_smoothing_2D)
-	hist.kernel_convolution(conv_kernel, conv_hist); ///SLOW!!
-    }
 }
 
 void ransac_test(idx time_block, idx pN, idx sample_rate_Hz,
@@ -899,6 +876,10 @@ void separation_stats(Buffers<real> &s, Buffers<real> &o, int N, idx samples)
 
 
 
+    
+
+
+
 
 /**
    Arguments: prgm [FFT_N] [x1_wav] [x2_wav]
@@ -1196,6 +1177,17 @@ int main(int argc, char **argv)
 
   const DUETcfg DUET = _DUET; // Make every parameter constant to avoid mistakes
 
+  // For the histogram smoothing.
+  static Buffer<real> 
+    conv_kernel_alpha(hist_alpha.gen_gaussian_kernel(DUET.sigma_alpha)),
+    conv_kernel_delta(hist_delta.gen_gaussian_kernel(DUET.sigma_delta)),
+    conv_hist_alpha  (hist_alpha.bins()), 
+    conv_hist_delta  (hist_delta.bins());
+  static Matrix<real> 
+    conv_kernel(hist.gen_gaussian_kernel(DUET.sigma_alpha, DUET.sigma_delta)),
+    conv_hist  (hist.xbins(),hist.ybins());
+
+
   int N_clusters = 0;
 
 
@@ -1288,18 +1280,13 @@ int main(int argc, char **argv)
       system("make cleanhists");
     }
   else
-    {
-      puts("Calculating histograms...");      
-    }
+    puts("Calculating histograms...");      
+    
   
-
-
   static Gnuplot pM1;
   pM1.set_xlabel("f (Hz)");
   static Buffer<real> M1(FFT_pN/2);
   static Histogram<real> M1hist(1,0,FFT_pN/2,HistogramBounds::Bounded);
-
-
 
   for (idx time_block = 0; time_block < time_blocks; ++time_block)
     {
@@ -1370,6 +1357,16 @@ int main(int argc, char **argv)
       hist_alpha.clear();
       hist_delta.clear();
       calc_alpha_delta(time_block, FFT_pN, sample_rate_Hz, X1, X2, alpha, delta, hist, hist_alpha, hist_delta, DUET);
+      
+      if (DUET.use_smoothing && ! STATIC_REBUILD)
+	{
+	  hist_alpha.kernel_convolution(conv_kernel_alpha, conv_hist_alpha);
+	  hist_delta.kernel_convolution(conv_kernel_delta, conv_hist_delta);
+
+	  if (DUET.use_smoothing_2D) // WARNING: VERY SLOW OPERATION
+	    hist.kernel_convolution(conv_kernel, conv_hist);
+	}
+
       //ransac_test(time_block, FFT_pN, sample_rate_Hz, X1, X2, alpha, delta, hist, hist_alpha, hist_delta, DUET);
       
       /*
@@ -1690,8 +1687,19 @@ int main(int argc, char **argv)
   ///// Static Heuristic Rebuilding! ///////////////////////////////////////////////////////////////////
   puts(GREEN "Doing static-heuristic rebuilding..." NOCOLOR);
   cumulative_hist -= hist;
+  if (STATIC_REBUILD && DUET.use_smoothing)
+    {
+      /*
+      hist_alpha.kernel_convolution(conv_kernel_alpha, conv_hist_alpha);
+      hist_delta.kernel_convolution(conv_kernel_delta, conv_hist_delta);
+      */
+
+      if (DUET.use_smoothing_2D) // WARNING: VERY SLOW OPERATION
+	cumulative_hist.kernel_convolution(conv_kernel, conv_hist);
+    }  
   cumulative_hist.write_to_gnuplot_pm3d_data("cumulative_hist.dat");
-  
+
+
 
   heuristic_clustering2D(cumulative_hist, cumulative_clusters, DUET);
 

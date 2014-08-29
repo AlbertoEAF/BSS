@@ -19,7 +19,7 @@ void RENDER_HIST(const std::string &filepath, const std::string &title, bool pau
   system(cmd.c_str()); 
 }
 
-const real _2Pi = 2*M_PI;
+
 
 template <class T> void print(T o) { cout << o << endl; }
 
@@ -570,28 +570,6 @@ void ransac_test(idx time_block, idx pN, idx sample_rate_Hz,
 }
 
 
-// Window functions
-real Hann(idx n, idx N) 
-{ 
-  return 0.5 * (1.0 - std::cos(_2Pi*n/(N-1.0))); 
-}
-real Hamming0(idx n, idx N) 
-{ 
-  return 0.53836 + 0.46164*std::cos(_2Pi*n/(N-1.0)); 
-}
-real Hamming(idx n, idx N) 
-{ 
-  return 0.54 - 0.46*std::cos(_2Pi*n/(N-1.0));
-}
-real myHamming(idx n, idx N) 
-{ 
-  return 0.46164 - 0.46164*std::cos(_2Pi*n/(N-1.0));
-}
-
-real Rectangular(idx n, idx N)
-{
-  return 1;
-}
 
 #define RELEASE(x) {}
 
@@ -918,12 +896,6 @@ void separation_stats(Buffers<real> &s, Buffers<real> &o, int N, idx samples)
   */
 }
 
-void build_window(Buffer<real> &W, real (*Wfunction)(idx n, idx N))
-{
-  idx N = W.size();
-  for (idx n=0; n < N; ++n)
-    W[n] = Wfunction(n,N);
-}
 
 
 
@@ -972,6 +944,8 @@ int main(int argc, char **argv)
   const real A0MIN              = o.f("a0min");
 
   const int MIN_ACTIVE_BLOCKS = o.i("min_active_blocks");
+
+  const bool STATIC_REBUILD = o.i("DUET.static_rebuild");
 
   int merged_streams = 0;
 
@@ -1288,36 +1262,8 @@ int main(int argc, char **argv)
   ///////////////////////////////////////////////////////////////////////////////////////////////
 
   
-
-  
-
-
   Buffer<real> W(FFT_N);
-  if (o("window",Ignore) == "Hamming0")
-    {
-      puts(YELLOW "W=Hamming0" NOCOLOR);
-      build_window(W,Hamming0);      
-    }
-  else if (o("window",Ignore) == "myHamming")
-    {
-      puts(YELLOW "W=myHamming" NOCOLOR);
-      build_window(W,myHamming);      
-    }
-  else if (o("window",Ignore) == "Hamming")
-    {
-      puts(YELLOW "W=Hamming" NOCOLOR);
-      build_window(W,Hamming);      
-    }
-  else if (o("window",Ignore) == "Hann")
-    {
-      puts(YELLOW "W=Hann" NOCOLOR);
-      build_window(W,Hann);
-    }
-  else
-    {
-      puts(YELLOW "W=Rectangular" NOCOLOR);
-      build_window(W,Rectangular);
-    }
+  select_window(o("window"), W);
 
   if (render >= 0)
     {
@@ -1355,7 +1301,8 @@ int main(int argc, char **argv)
 
   for (idx time_block = 0; time_block < time_blocks; ++time_block)
     {
-      printf(GREEN "\t\t time_block (%lu+1)/%lu\n" NOCOLOR, time_block, time_blocks);
+      if (! STATIC_REBUILD)
+	printf(GREEN "\t\t time_block (%lu+1)/%lu\n" NOCOLOR, time_block, time_blocks);
       idx block_offset = time_block*FFT_slide;
 
       for (idx i = 0; i < FFT_N; ++i)
@@ -1483,7 +1430,7 @@ int main(int argc, char **argv)
 
 
       ///////// Apply masks and rebuild current frame to audio and add it to the appropriate outputs
-      if (! o.i("DUET.static_rebuild"))
+      if (! STATIC_REBUILD)
 	{
 	  heuristic_clustering2D(hist, clusters, DUET);
 	  heuristic_clustering(hist_alpha, alpha_clusters, DUET, DUET.min_peak_dalpha);
@@ -1772,7 +1719,7 @@ int main(int argc, char **argv)
 
 
 
-  if (o.i("DUET.static_rebuild"))
+  if (STATIC_REBUILD)
     {
       // Build the masks and rebuild the signals
       for (idx t_block = 0; t_block < time_blocks; ++t_block)
@@ -1791,7 +1738,7 @@ int main(int argc, char **argv)
 
   system("rm -f x*_rebuilt.wav");
 
-  int wav_N = ( o.i("DUET.static_rebuild") ? N_clusters : N_max );
+  int wav_N = ( STATIC_REBUILD ? N_clusters : N_max );
 
   for (uint source = 0; source < wav_N; ++source)
     {
@@ -1810,11 +1757,7 @@ int main(int argc, char **argv)
   fftw_destroy_plan(xX2_plan);
   fftw_destroy_plan(Xxo_plan);
 
-
-  
-
-
-  if (! o.i("DUET.static_rebuild"))
+  if (! STATIC_REBUILD)
     {
       // Look for the normalization
       real streams_max_abs = 0;

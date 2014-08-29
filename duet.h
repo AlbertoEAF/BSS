@@ -59,6 +59,9 @@ using std::endl;
 
 #include "CyclicCounter.h"
 
+const real _2Pi = 2*M_PI;
+#include "windows.h"
+
 
 struct DUETcfg
 {

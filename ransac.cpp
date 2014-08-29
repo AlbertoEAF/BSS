@@ -1265,16 +1265,6 @@ int main(int argc, char **argv)
   Buffer<real> W(FFT_N);
   select_window(o("window"), W);
 
-  if (render >= 0)
-    {
-      puts("Calculating and writing histograms...");
-      system("make cleanhists");
-    }
-  else
-    {
-      puts("Calculating histograms...");      
-    }
-  
   /*
     // Windows plot
   static Gnuplot Wplot;
@@ -1291,6 +1281,18 @@ int main(int argc, char **argv)
   //  Wplot.plot(W(),W.size(),"W");
   wait();
   */
+
+  if (render >= 0)
+    {
+      puts("Calculating and writing histograms...");
+      system("make cleanhists");
+    }
+  else
+    {
+      puts("Calculating histograms...");      
+    }
+  
+
 
   static Gnuplot pM1;
   pM1.set_xlabel("f (Hz)");

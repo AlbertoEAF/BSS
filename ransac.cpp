@@ -1358,6 +1358,33 @@ int main(int argc, char **argv)
       hist_delta.clear();
       calc_alpha_delta(time_block, FFT_pN, sample_rate_Hz, X1, X2, alpha, delta, hist, hist_alpha, hist_delta, DUET);
       
+      //////////////////// MANUAL PEAK TESTING MODE //////////////////////
+      if (o.i("test_peak_tracking"))
+	{
+	  // Do not compare A0, only positions.
+	  X1_history.clear();
+	  X2_history.clear();
+
+	  hist.clear();
+	  hist_alpha.clear();
+	  hist_delta.clear();
+
+	  // Manual values
+	  real malpha, mdelta, mI;
+	  while(1)
+	    {
+	      cout << BLUE << "Manual(I=0 to finish)    I alpha delta = " << NOCOLOR;
+	      std::cin >> mI;
+	      if (std::abs(mI)<1e-9)
+		break;
+	      cin >> malpha >> mdelta;
+
+	      hist(malpha,mdelta) += mI;
+	      hist_alpha(malpha) += mI;
+	      hist_delta(mdelta) += mI;
+	    }
+	}
+
       if (DUET.use_smoothing && ! STATIC_REBUILD)
 	{
 	  hist_alpha.kernel_convolution(conv_kernel_alpha, conv_hist_alpha);
@@ -1503,6 +1530,7 @@ int main(int argc, char **argv)
 	  D.print (active_streams.N(), N_clusters);
 	  puts("A0:");
 	  A0.print(active_streams.N(), N_clusters);
+
 	  
 	  // Life
 	  if (active_streams.N() && N_clusters)
@@ -1549,7 +1577,7 @@ int main(int argc, char **argv)
 		  D.min_index(s,j, active_streams.N(), N_clusters);
 
 		  real d(D(s,j));
-		  
+
 		  if ( d < o.f("max_Lambda_distance") ) // Life
 		    {
 		      int id(active_streams[s]);
@@ -1566,8 +1594,6 @@ int main(int argc, char **argv)
 		      A0.fill_col_with(j, -FLT_MAX);
 		      D.fill_row_with(s, FLT_MAX);
 		      D.fill_col_with(j, FLT_MAX);
-
-		      printf("%d@%lu ", id, j);
 		    }
 		  else
 		    break; // no more a0 > A0MIN	      
@@ -1654,13 +1680,9 @@ int main(int argc, char **argv)
       if (o.i("show_each_hist"))
 	{
 	  static Gnuplot px1;
-	  /*
-	  if ((time_block+1)*FFT_slide < samples)
-	    px1.replot(&x1_wav[time_block*FFT_slide],FFT_N, "x1");
-	  */
 	  px1.replot(x1(),FFT_N,"x1*W");
-	  palpha.replot(alpha_range(), (*hist_alpha.raw())(),hist_alpha.bins(), "alpha");
-	  pdelta.replot(delta_range(), (*hist_delta.raw())(),hist_delta.bins(), "delta");	  
+	  palpha.plot(alpha_range(), (*hist_alpha.raw())(),hist_alpha.bins(), "alpha");
+	  pdelta.plot(delta_range(), (*hist_delta.raw())(),hist_delta.bins(), "delta");	  
 	  
 	  if (o.i("show_each_hist")>1)
 	    {
@@ -1689,11 +1711,9 @@ int main(int argc, char **argv)
   cumulative_hist -= hist;
   if (STATIC_REBUILD && DUET.use_smoothing)
     {
-      /*
       hist_alpha.kernel_convolution(conv_kernel_alpha, conv_hist_alpha);
       hist_delta.kernel_convolution(conv_kernel_delta, conv_hist_delta);
-      */
-
+      
       if (DUET.use_smoothing_2D) // WARNING: VERY SLOW OPERATION
 	cumulative_hist.kernel_convolution(conv_kernel, conv_hist);
     }  

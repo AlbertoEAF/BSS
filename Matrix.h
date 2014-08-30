@@ -336,7 +336,7 @@ void Matrix<T,alloc_mode>::min_index(size_t &row, size_t &col, size_t max_row_in
     for (size_t c=0; c < max_col_index; ++c)
       {
 	value = (*this)(r,c);
-	if (value > m)
+	if (value < m)
 	  {
 	    m = value;
 	    row = r;

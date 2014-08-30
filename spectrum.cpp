@@ -22,7 +22,6 @@ void RENDER_HIST(const std::string &filepath, const std::string &title, bool pau
   system(cmd.c_str()); 
 }
 
-const real _2Pi = 2*M_PI;
 
 template <class T> void print(T o) { cout << o << endl; }
 
@@ -478,13 +477,13 @@ void calc_alpha_delta(idx time_block, idx pN, idx sample_rate_Hz,
   if (DUET.use_smoothing)
     {
       static Buffer<real> 
-	conv_kernel_alpha(hist_alpha.gen_gaussian_kernel(DUET.smoothing_Delta_alpha)),
-	conv_kernel_delta(hist_delta.gen_gaussian_kernel(DUET.smoothing_Delta_delta)),
+	conv_kernel_alpha(hist_alpha.gen_gaussian_kernel(DUET.sigma_alpha)),
+	conv_kernel_delta(hist_delta.gen_gaussian_kernel(DUET.sigma_delta)),
 	conv_hist_alpha  (hist_alpha.bins()), 
 	conv_hist_delta  (hist_delta.bins());
 
       static Matrix<real> 
-	conv_kernel(hist.gen_gaussian_kernel(DUET.smoothing_Delta_alpha, DUET.smoothing_Delta_delta)),
+	conv_kernel(hist.gen_gaussian_kernel(DUET.sigma_alpha, DUET.sigma_delta)),
 	conv_hist  (hist.xbins(),hist.ybins());
 
       // New blurring method: convolution
@@ -557,24 +556,6 @@ void ransac_test(idx time_block, idx pN, idx sample_rate_Hz,
 }
 
 
-// Window functions
-real Hann(idx n, idx N) 
-{ 
-  return 0.5 * (1.0 - std::cos(_2Pi*n/(N-1.0))); 
-}
-real Hamming0(idx n, idx N) 
-{ 
-  return 0.53836 + 0.46164*std::cos(_2Pi*n/(N-1.0)); 
-}
-real Hamming(idx n, idx N) 
-{ 
-  //  return 1 - (0.53836 + 0.46164*std::cos(_2Pi*n/(N-1.0))); 
-  return 0.46164 - 0.46164*std::cos(_2Pi*n/(N-1.0));
-}
-real Rectangular(idx n, idx N)
-{
-  return 1;
-}
 
 #define RELEASE(x) {}
 
@@ -880,15 +861,6 @@ void separation_stats(Matrix<real> &s, Matrix<real> &o, int N, idx samples)
   */
 }
 
-void build_window(Buffer<real> &W, real (*Wfunction)(idx n, idx N))
-{
-  idx N = W.size();
-  for (idx n=0; n < N; ++n)
-      W[n] = Wfunction(n,N);
-}
-
-
-
 
 /**
    Arguments: prgm [FFT_N] [x1_wav] [x2_wav]
@@ -1124,12 +1096,12 @@ int main(int argc, char **argv)
   _DUET.p = o.f("hist.p");
   _DUET.q = o.f("hist.q");
 
-  _DUET.smoothing_Delta_alpha = o.f("hist.smoothing_Delta_alpha");
-  _DUET.smoothing_Delta_delta = o.f("hist.smoothing_Delta_delta");
+  _DUET.sigma_alpha = o.f("hist.sigma_alpha");
+  _DUET.sigma_delta = o.f("hist.sigma_delta");
 
-  _DUET.use_smoothing = ((_DUET.smoothing_Delta_alpha>hist.dx()) && (_DUET.smoothing_Delta_delta>hist.dy()) && o.i("hist.use_smoothing") ? true : false);
+  _DUET.use_smoothing = o.i("hist.use_smoothing");
   
-  printf("%g %g :: %g %g\n", _DUET.smoothing_Delta_alpha, hist.dx(), _DUET.smoothing_Delta_delta, hist.dy());
+  printf("%g %g :: %g %g\n", _DUET.sigma_alpha, hist.dx(), _DUET.sigma_delta, hist.dy());
 
   if (o.i("hist.assert_use_smoothing"))
     Guarantee(_DUET.use_smoothing, "Smoothing disabled! (Make sure histogram resolution is bigger than the smoothing)");

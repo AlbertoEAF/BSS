@@ -267,6 +267,7 @@ void heuristic_aggregate_preclusters2D (RankList<real,Point2D<real> > &clusters,
   size_t size = clusters.eff_size(DUET.noise_threshold);
 
   real max_score = clusters.scores[0];
+
   for (size_t i=0; i < size; ++i)
     if (clusters.scores[i] * DUET.max_peak_scale_disparity < max_score)
       {
@@ -294,7 +295,7 @@ void heuristic_aggregate_preclusters2D (RankList<real,Point2D<real> > &clusters,
 void heuristic_clustering2D(Histogram2D<real> &hist, RankList<real, Point2D<real> > &clusters, const DUETcfg &DUET)
 {
   heuristic_pre_filter_clusters2D(hist, clusters, DUET.min_peak_fall, DUET.noise_threshold);
-  //	cout << clusters;
+  //  cout << clusters;
   heuristic_aggregate_preclusters2D(clusters, DUET);
 }
 
@@ -1256,23 +1257,6 @@ int main(int argc, char **argv)
   
   Buffer<real> W(FFT_N);
   select_window(o("window"), W);
-
-  /*
-    // Windows plot
-  static Gnuplot Wplot;
-  build_window(W,Hann);
-  Wplot.plot(W(),W.size(),"Hann");
-  build_window(W,myHamming);
-  Wplot.plot(W(),W.size(),"myHamming");
-  build_window(W,Hamming);
-  Wplot.plot(W(),W.size(),"Hamming");
-  build_window(W,Hamming0);
-  Wplot.plot(W(),W.size(),"Hamming0");
-  build_window(W,Rectangular);
-  Wplot.plot(W(),W.size(),"Rectangular");
-  //  Wplot.plot(W(),W.size(),"W");
-  wait();
-  */
 
   if (render >= 0)
     {

@@ -57,6 +57,7 @@ utils: libs convolve.cpp invert_ir.cpp
 	$(CC) $(CCFLAGS) -o view view.cpp gnuplot_ipp/gnuplot_ipp.o $(PRECISION) $(LIBS)
 	$(CC) $(CCFLAGS) -o integrator integrator.cpp gnuplot_ipp/gnuplot_ipp.o $(PRECISION) $(LIBS)
 	$(CC) $(CCFLAGS) -o spectrum spectrum.cpp gnuplot_ipp/gnuplot_ipp.o timer.o $(PRECISION) $(LIBS) 
+	$(CC) $(CCFLAGS) -o window_plots window_plots.cpp gnuplot_ipp/gnuplot_ipp.o timer.o $(PRECISION) $(LIBS) 
 
 u:
 	g++ -DNDEBUG -O2 -o xcorr xcorr.cpp  $(LIBS) -fopenmp -std=c++11

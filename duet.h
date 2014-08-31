@@ -94,6 +94,16 @@ struct DUETcfg
   real min_peak_fall;
   real min_peak_dalpha;
   real min_peak_ddelta;
+
+  real max_Lambda_distance;
+  
+
+  // Stream behaviour
+  int max_silence_blocks;
+  int min_active_blocks;
+  real a0min;
+  int max_clusters;
+  int max_active_streams;
 };
 
 void evenHC2magnitude(int samples, real *hc, real *magnitude);

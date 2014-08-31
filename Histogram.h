@@ -107,7 +107,7 @@ template <class T>
 Histogram<T>::Histogram(const Histogram &cpy)
 : _m(NULL), _dx(cpy._dx), _min(cpy._min), _max(cpy._max), _bins(cpy._bins), _bound_type(cpy._bound_type)
 {
-  _m = new Matrix<T>(cpy._m);
+  _m = new Buffer<T>(*cpy._m);
 }
 
 /*

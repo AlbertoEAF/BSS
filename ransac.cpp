@@ -1,5 +1,6 @@
 #include "duet.h"
 
+int merged_streams = 0; // Just for debug / printing (seems something's wrong: more merges than streams)
 
 //#define OLD_MASK_BUILD
 //#define OLD_PEAK_ASSIGN
@@ -857,6 +858,209 @@ void separation_stats(Buffers<real> &s, Buffers<real> &o, int N, idx samples)
 
 
 
+void LDMB2C(StreamSet &Streams, IdList &active_streams, Buffers<real> *new_buffers, Buffer<Point2D<real> > &clusters_pos, int N_clusters, idx time_block, Buffer<real> &W, Buffer<int> &C, const DUETcfg &DUET)
+{
+  static const int MAX_CLUSTERS = DUET.max_clusters;
+  static const int MAX_ACTIVE_STREAMS = DUET.max_active_streams;
+  static const int FFT_N = DUET.FFT_N;
+  static const int FFT_slide = DUET.FFT_slide;
+  static const int FFT_overlap = FFT_N-FFT_slide;
+  static const int MAX_SILENCE_BLOCKS = DUET.max_silence_blocks;
+  static const int MIN_ACTIVE_BLOCKS = DUET.min_active_blocks;
+
+  //// Solve the permutations to achieve continuity of the active streams. ///////////
+  static Buffer<real> dist_k  (MAX_CLUSTERS, FLT_MAX );
+  static Buffer<real> acorr_k (MAX_CLUSTERS, -FLT_MAX);
+
+  static Matrix<real> 
+    D (MAX_ACTIVE_STREAMS, MAX_CLUSTERS,  FLT_MAX), 
+    A0(MAX_ACTIVE_STREAMS, MAX_CLUSTERS, -FLT_MAX);
+	  
+  static IdList 
+    merging_streams  (MAX_ACTIVE_STREAMS), 
+    assigned_clusters(MAX_CLUSTERS);
+	  
+  // LDB 
+	  
+  C.clear(); D.clear(); A0.clear();
+  merging_streams.clear();
+  assigned_clusters.clear();
+
+  // Calculate the distance between old streams and new buffers in terms of D and A0. A0 requires applying the complementary window.
+  for (int s=0; s < active_streams.N(); ++s)
+    {
+      static Buffer<real> W_buf_stream(FFT_overlap), W_buf_new_stream(FFT_overlap);
+
+      int id = active_streams[s];
+      W_buf_stream.copy(Streams.last_buf_raw(id,FFT_slide), FFT_overlap);
+      for (int u=0; u < FFT_overlap; ++u)
+	W_buf_stream[u] *= W[u]; // Apply the complementary window of the next block.
+
+      for (int j=0; j < N_clusters; ++j)
+	{
+	  // D
+	  D (s,j) = Lambda_distance(Streams.pos(id),clusters_pos[j]);
+
+	  // A0 (with complementary windows applied)
+	  // Since streams haven't been assigned yet, streams assigned right at the last block have a difference of 1.
+	  if (time_block - Streams.last_active_time_block(id) == 1)
+	    {
+	      // PERFORMANCE: We could calculate them all only once beforehand since they're reutilized for each old stream.
+	      W_buf_new_stream.copy(new_buffers->raw(j), FFT_overlap); 
+	      for (int u=0; u < FFT_overlap; ++u)
+		W_buf_new_stream[u] *= W[u+FFT_slide]; // Apply the past complementary window.
+	      // PERFORMANCE: Can do the normalization outside manually.
+	      A0(s,j) = array_ops::a0(W_buf_stream(), W_buf_new_stream(), FFT_N-FFT_slide);
+	    }
+	}
+    }
+	  
+  for (int s=0; s < active_streams.N(); ++s)
+    Streams.print(active_streams[s]);
+  printf("Active_Streams=%u clusters = %u\n", active_streams.N(), N_clusters);
+  puts("D:");
+  D.print (active_streams.N(), N_clusters);
+  puts("A0:");
+  A0.print(active_streams.N(), N_clusters);
+
+	  
+  // Life
+  if (active_streams.N() && N_clusters)
+    {
+      // Life Stage 1 : global A0 > A0MIN assignment
+      printf(GREEN "Streams that live by A0: ");
+      while( 1 )
+	{
+	  static size_t s, j; // no need to init at 0 every turn.
+	  A0.max_index(s,j, active_streams.N(), N_clusters);
+
+	  real a0(A0(s,j));
+	      
+	  if ( a0 > DUET.a0min ) // Life
+	    {
+	      int id(active_streams[s]);
+	  
+	      assigned_clusters.add(j);
+
+	      C[j] = id;
+
+	      /* Remove entries that are no longer candidates for assignment from lookup
+		 (stream id=active_streams[s] and cluster j). */
+	      A0.fill_row_with(s, -FLT_MAX);
+	      A0.fill_col_with(j, -FLT_MAX);
+	      D.fill_row_with(s, FLT_MAX);
+	      D.fill_col_with(j, FLT_MAX);
+
+	      printf("%d@%lu ", id, j);
+	    }
+	  else
+	    break; // no more a0 > A0MIN
+	}
+      puts("\n" NOCOLOR);
+      // Life Stage 2 : global pos assignment (Lambda_distance < threshold) 
+      printf(GREEN "Streams that live by pos: ");
+      while( 1 )
+	{	      
+	  static size_t s, j; // no need to init at 0 every turn.
+	  D.min_index(s,j, active_streams.N(), N_clusters);
+
+	  real d(D(s,j));
+
+	  if ( d < DUET.max_Lambda_distance ) // Life
+	    {
+	      int id(active_streams[s]);
+		  
+	      C[j] = id;
+
+	      assigned_clusters.add(j);		  
+
+	      /* Remove entries that are no longer candidates for assignment from lookup 
+		 (stream id=active_streams[s] and cluster j). */
+	      A0.fill_row_with(s, -FLT_MAX);
+	      A0.fill_col_with(j, -FLT_MAX);
+	      D.fill_row_with(s, FLT_MAX);
+	      D.fill_col_with(j, FLT_MAX);
+
+	      printf("%d@%lu ", id, j);
+	    }
+	  else
+	    break; // no more a0 > A0MIN	      
+	}
+      puts("\n" NOCOLOR);
+    }
+  // Death
+  for (int s = 0; s < active_streams.N(); ++s)
+    {
+      int id = active_streams[s];
+      // The difference is zero for freshly active streams (right at the previous block).
+      int stream_inactive_blocks = time_block - Streams.last_active_time_block(id) - 1;
+      if (stream_inactive_blocks > MAX_SILENCE_BLOCKS)
+	{
+	  active_streams.del(id);
+
+	  // Add stream to the list of streams to merge. Note we won't merge to other streams in the same condition but only streams that remain active.
+	  if ( Streams.active_blocks(id) <= MIN_ACTIVE_BLOCKS )
+	    merging_streams.add(id);
+	  else
+	    printf(RED "Stream id %d has died.\n" NOCOLOR, id);
+	}
+      else if (stream_inactive_blocks)
+	printf(GREEN "Stream %d remains inactive by %d/%d time_blocks.\n" NOCOLOR, id, stream_inactive_blocks, MAX_SILENCE_BLOCKS);
+    }
+
+  // Merge
+  // Merge to the closest active stream. Note that this is the only stage at which more than one stream can be assigned to a destination stream (merging procedure).
+  if (active_streams.N())
+    {
+      for (int m = 0; m < merging_streams.N(); ++m )
+	{
+	  int m_id = merging_streams[m];
+	      
+	  // Find the closest active stream to stream id=m_id.
+	  real min_distance = FLT_MAX;
+	  int  s_id_match   = active_streams[0];
+	  for (int s = 0; s < active_streams.N(); ++s)
+	    {
+	      int s_id = active_streams[s];
+
+	      real distance = Lambda_distance(Streams.pos(m_id), Streams.pos(s_id));
+	      if (distance < min_distance)
+		{
+		  min_distance = distance;
+		  s_id_match = s_id;
+		}
+	    }
+
+	  ++merged_streams;
+
+		  
+	  // PERFORMANCE: This can be implemented more efficiently by adding only the active portion.
+	  Streams.stream(s_id_match)->add_at(*(Streams.stream(m_id)),0);
+		   
+	  // Now we can free up this stream since it has been merged.
+	  Streams.release_id(m_id); 
+
+	  printf(GREEN "Stream %d merged to %d.\n" NOCOLOR, m_id, s_id_match);
+	}
+    }
+
+  // Birth
+  // For each cluster left unassigned a new stream is born.
+  printf(GREEN "Born streams: ");
+  for (int j = 0; j < N_clusters; ++j)
+    {
+      if (! assigned_clusters.has(j)) 
+	{
+	  int id = Streams.acquire_id();
+	  active_streams.add(id);
+	  
+	  C[j] = id;
+
+	  printf("%d ", id);
+	}
+    }
+  puts("\n" NOCOLOR);
+} // End of LDMB
 
     
 
@@ -883,15 +1087,21 @@ int main(int argc, char **argv)
 
   DUETcfg _DUET; // Just to initialize, then a const DUET is initialized from this one.
 
+  // Stream behaviour
   const int  MAX_CLUSTERS       = o.i("max_clusters");
   const int  MAX_ACTIVE_STREAMS = o.i("max_active_streams");
+  const int  MIN_ACTIVE_BLOCKS  = o.i("min_active_blocks");
   const real A0MIN              = o.f("a0min");
-
-  const int MIN_ACTIVE_BLOCKS = o.i("min_active_blocks");
 
   const bool STATIC_REBUILD = o.i("DUET.static_rebuild");
 
-  int merged_streams = 0;
+  _DUET.max_clusters        = MAX_CLUSTERS;
+  _DUET.max_active_streams  = MAX_ACTIVE_STREAMS;
+  _DUET.min_active_blocks   = MIN_ACTIVE_BLOCKS;
+  _DUET.a0min               = A0MIN;
+  _DUET.max_Lambda_distance = o.f("max_Lambda_distance");
+
+  const int N_accum = o.i("N_accum_frames"); // how many frames should be accumulated.
 
   int WAIT = o.i("wait");
 
@@ -981,6 +1191,7 @@ int main(int argc, char **argv)
   const idx FFT_slide = _DUET.FFT_slide;
 
   const unsigned int MAX_SILENCE_BLOCKS = std::ceil(o.f("stream_max_inactive_time_s")/((real)FFT_slide*Ts));
+  _DUET.max_silence_blocks = MAX_SILENCE_BLOCKS;
 
   // This will require triple-buffering
   Guarantee(FFT_slide >= FFT_N/2, "FFT_slide(%ld) > FFT_N/2(%ld)", FFT_slide, FFT_N/2);
@@ -1066,8 +1277,9 @@ int main(int argc, char **argv)
 
   Histogram<real> 
     hist_alpha(o.d("hist.dalpha"), o.d("alpha.min"), o.d("alpha.max"), hist_bound_type),
-    hist_delta(o.d("hist.ddelta"), o.d("delta.min"), o.d("delta.max"), hist_bound_type);
-  Histogram2D<real> cumulative_hist(hist), old_hist(hist);
+    hist_delta(o.d("hist.ddelta"), o.d("delta.min"), o.d("delta.max"), hist_bound_type),
+    chist_alpha(hist_alpha), chist_delta(hist_delta); // Short-time cumulative histograms
+  Histogram2D<real> cumulative_hist(hist), chist(hist), old_hist(hist);
   // Buffers for the axis of alpha and delta
   Buffer<real> alpha_range(hist_alpha.bins()), delta_range(hist_delta.bins()); 
   alpha_range.fill_range(o.d("alpha.min"), o.d("alpha.max"));
@@ -1223,7 +1435,7 @@ int main(int argc, char **argv)
 	    }
 	}
 
-      if (DUET.use_smoothing && ! STATIC_REBUILD)
+      if (DUET.use_smoothing && ! STATIC_REBUILD && ! N_accum)
 	{
 	  hist_alpha.kernel_convolution(conv_kernel_alpha, conv_hist_alpha);
 	  hist_delta.kernel_convolution(conv_kernel_delta, conv_hist_delta);
@@ -1243,16 +1455,15 @@ int main(int argc, char **argv)
 
 	diff_hist = hist;
 	diff_hist -= old_hist;
-      */
-      /*
+
 	old_hist.plot(po, "Old");
 	prod_hist.plot(pp, "Prod");
 	diff_hist.plot(pd, "Diff");
-      */
-      //hist.plot(ph, "Hist");
-      //wait();
-      
-      if (o.i("cc") >= 0)
+
+	//hist.plot(ph, "Hist");
+	//wait();
+	
+	if (o.i("cc") >= 0)
 	{
 	  static CyclicCounter<int> cc(o.i("cc"));
 	  cout << BLUE << cc.value() << NOCOLOR << endl;
@@ -1266,257 +1477,107 @@ int main(int argc, char **argv)
 	      old_hist.clear();	  
 	    }
 	}
-
+      */
       //old_hist = hist;
       cumulative_hist += hist;
-      	
+
 
       ///////// Apply masks and rebuild current frame to audio and add it to the appropriate outputs
       if (! STATIC_REBUILD)
 	{
-	  heuristic_clustering2D(hist, clusters, DUET);
-	  heuristic_clustering(hist_alpha, alpha_clusters, DUET, DUET.min_peak_dalpha);
-	  heuristic_clustering(hist_delta, delta_clusters, DUET, DUET.min_peak_ddelta);
+	  static Buffer<int>  C(MAX_CLUSTERS, 0); // Classes: C[j] == id of designated stream
+	  static IdList active_streams(MAX_ACTIVE_STREAMS);
 
-	  cout << YELLOW << clusters << NOCOLOR;
+	  static CyclicCounter<int> cc(N_accum);
 
-	  N_clusters = clusters.eff_size(DUET.noise_threshold); 
-      		
-	  old_buffers = bufs.read();
-	  new_buffers = bufs.next();
-	
-	  build_masks(masks, alpha(time_block), delta(time_block), X1_history(time_block), X2_history(time_block), clusters.values, N_clusters, FFT_pN, FFT_pN/2, FFT_df, tmp_real_buffer_N_max);
-	  apply_masks(*new_buffers, alpha(time_block), X1_history(time_block), X2_history(time_block), masks, clusters.values, N_clusters, FFT_pN, FFT_pN/2, FFT_df, Xxo_plan, Xo);
-	  
-	  //// Solve the permutations to achieve continuity of the active streams. ///////////
-	  //	  static Buffer<int>  C       (MAX_CLUSTERS, 0), old_C(C); // so no index offset is needed as 0 can also be used.
-	  static Buffer<real> dist_k  (MAX_CLUSTERS, FLT_MAX );
-	  static Buffer<real> acorr_k (MAX_CLUSTERS, -FLT_MAX);
+	  chist += hist;
+	  chist_alpha += hist_alpha;
+	  chist_delta += hist_delta;
 
-	  static Matrix<real> 
-	    D (MAX_ACTIVE_STREAMS, MAX_CLUSTERS,  FLT_MAX), 
-	    A0(MAX_ACTIVE_STREAMS, MAX_CLUSTERS, -FLT_MAX);
-	  
-	  static IdList active_streams(MAX_ACTIVE_STREAMS), merging_streams(MAX_ACTIVE_STREAMS), assigned_clusters(MAX_CLUSTERS);
-
-	  static Buffer<real> tmp_M(FFT_pN/2), tmp_X(FFT_pN);
-
-	  
-
-	  
-	  // LDB 
-	  
-	  D.clear(); A0.clear();
-	  merging_streams.clear();
-	  assigned_clusters.clear();
-
-	  // Calculate the distance between old streams and new buffers in terms of D and A0. A0 requires applying the complementary window.
-	  for (int s=0; s < active_streams.N(); ++s)
+	  if (! cc.value() && time_block >= N_accum) // Process the set of N_accumulation frames
 	    {
-	      static Buffer<real> W_buf_stream(FFT_N-FFT_slide), W_buf_new_stream(FFT_N-FFT_slide);
-
-	      int id = active_streams[s];
-	      W_buf_stream.copy(Streams.last_buf_raw(id,FFT_slide), FFT_N-FFT_slide);
-	      for (int u=0; u < FFT_slide; ++u)
-		W_buf_stream[u] *= W[u]; // Apply the complementary window of the next block.
-
-	      for (int j=0; j < N_clusters; ++j)
+	      if (DUET.use_smoothing && ! STATIC_REBUILD)
 		{
-		  // D
-		  D (s,j) = Lambda_distance(Streams.pos(id),clusters.values[j]);
 
-		  // A0 (with complementary windows applied)
-		  // Since streams haven't been assigned yet, streams assigned right at the last block have a difference of 1.
-		  if (time_block - Streams.last_active_time_block(id) == 1)
-		    {
-		      W_buf_new_stream.copy(new_buffers->raw(j), FFT_N-FFT_slide); // We could calculate them all only once beforehand since they're reutilized for each old stream.
-		      for (int u=0; u < FFT_N-FFT_slide; ++u)
-			W_buf_new_stream[u] *= W[u+FFT_slide]; // Apply the past complementary window.
-		      A0(s,j) = array_ops::a0(W_buf_stream(), W_buf_new_stream(), FFT_N-FFT_slide);
-		    }
+		  chist_alpha.kernel_convolution(conv_kernel_alpha, conv_hist_alpha);
+		  chist_delta.kernel_convolution(conv_kernel_delta, conv_hist_delta);
+
+		  if (DUET.use_smoothing_2D) // WARNING: VERY SLOW OPERATION
+		    chist.kernel_convolution(conv_kernel, conv_hist);
 		}
-	    }
-	  
-	  for (int s=0; s < active_streams.N(); ++s)
-	    Streams.print(active_streams[s]);
-	  printf("Active_Streams=%u clusters = %u\n", active_streams.N(), N_clusters);
-	  puts("D:");
-	  D.print (active_streams.N(), N_clusters);
-	  puts("A0:");
-	  A0.print(active_streams.N(), N_clusters);
 
-	  
-	  // Life
-	  if (active_streams.N() && N_clusters)
-	    {
-	      // Life Stage 1 : global A0 > A0MIN assignment
-	      printf(GREEN "Streams that live by A0: ");
-	      while( 1 )
-		{
-		  static size_t s, j; // no need to init at 0 every turn.
-		  A0.max_index(s,j, active_streams.N(), N_clusters);
 
-		  real a0(A0(s,j));
+	      heuristic_clustering2D(chist, clusters, DUET);
+	      heuristic_clustering(chist_alpha, alpha_clusters, DUET, DUET.min_peak_dalpha);
+	      heuristic_clustering(chist_delta, delta_clusters, DUET, DUET.min_peak_ddelta);
+
+	      cout << YELLOW << clusters << NOCOLOR;
 	      
-		  if ( a0 > A0MIN ) // Life
+	      N_clusters = clusters.eff_size(DUET.noise_threshold); 
+	      
+
+	      // First of the accumulated time blocks for this accumulation set.
+	      unsigned int tb0 = time_block-N_accum+1; 
+	      // Process all the time frames inside the current accumulated frames region.
+	      for (unsigned int tr = N_accum; tr > 0; --tr)
+		{
+		  unsigned int tb = time_block-tr+1;
+		  
+		  old_buffers = bufs.read();
+		  new_buffers = bufs.next();
+
+		  build_masks(masks, alpha(tb), delta(tb), X1_history(tb), X2_history(tb), clusters.values, N_clusters, FFT_pN, FFT_pN/2, FFT_df, tmp_real_buffer_N_max);
+		  apply_masks(*new_buffers, alpha(tb), X1_history(tb), X2_history(tb), masks, clusters.values, N_clusters, FFT_pN, FFT_pN/2, FFT_df, Xxo_plan, Xo);
+
+		  if (tb == tb0) // This generates the class assignments C.
+		    LDMB2C (Streams, active_streams, new_buffers, 
+			    clusters.values, N_clusters, tb0, W, C, DUET);
+
+		  // Add the separated buffers to the streams.
+		  for (int j = 0; j < N_clusters; ++j)
 		    {
-		      int id(active_streams[s]);
-	  
+		      static Buffer<real> tmp_M(FFT_pN/2), tmp_X(FFT_pN);
+
+		      int id = C[j];
+
 		      fftw_execute_r2r(xX1_plan, new_buffers->raw(j), tmp_X());
 		      evenHC2magnitude(FFT_pN, tmp_X(), tmp_M());
-
-		      Streams.add_buffer_at(id, j, *(*new_buffers)(j), tmp_M, time_block, FFT_slide, clusters.values[j]);
-
-		      assigned_clusters.add(j);
-
-
-		      // Remove entries that are no longer candidates for assignment from lookup (stream id=active_streams[s] and cluster j).
-		      A0.fill_row_with(s, -FLT_MAX);
-		      A0.fill_col_with(j, -FLT_MAX);
-		      D.fill_row_with(s, FLT_MAX);
-		      D.fill_col_with(j, FLT_MAX);
-
-		      //		      printf(GREEN "Stream %d lives through %lu by A0.\n" NOCOLOR, id, j);
-		      printf("%d@%lu ", id, j);
+		      Streams.add_buffer_at(id, j, *(*new_buffers)(j), tmp_M,
+					    tb, FFT_slide, clusters.values[j]);
 		    }
-		  else
-		    break; // no more a0 > A0MIN
-		}
-	      puts("\n" NOCOLOR);
-	      // Life Stage 2 : global pos assignment (Lambda_distance < threshold) 
-	      printf(GREEN "Streams that live by pos: ");
-	      while( 1 )
-		{	      
-		  static size_t s, j; // no need to init at 0 every turn.
-		  D.min_index(s,j, active_streams.N(), N_clusters);
+  		}
 
-		  real d(D(s,j));
 
-		  if ( d < o.f("max_Lambda_distance") ) // Life
-		    {
-		      int id(active_streams[s]);
-		  
-		      fftw_execute_r2r(xX1_plan, new_buffers->raw(j), tmp_X());
-		      evenHC2magnitude(FFT_pN, tmp_X(), tmp_M());
-
-		      Streams.add_buffer_at(id, j, *(*new_buffers)(j), tmp_M, time_block, FFT_slide, clusters.values[j]);
-
-		      assigned_clusters.add(j);		  
-
-		      // Remove entries that are no longer candidates for assignment from lookup (stream id=active_streams[s] and cluster j).
-		      A0.fill_row_with(s, -FLT_MAX);
-		      A0.fill_col_with(j, -FLT_MAX);
-		      D.fill_row_with(s, FLT_MAX);
-		      D.fill_col_with(j, FLT_MAX);
-		    }
-		  else
-		    break; // no more a0 > A0MIN	      
-		}
-	      puts("\n" NOCOLOR);
-	    }
-	  // Death
-	  for (int s = 0; s < active_streams.N(); ++s)
-	    {
-	      int id = active_streams[s];
-	      // The difference is zero for streams assigned during this time block.
-	      int stream_inactive_blocks = time_block - Streams.last_active_time_block(id);
-	      if (stream_inactive_blocks > MAX_SILENCE_BLOCKS)
+	      if (o.i("show_each_hist"))
 		{
-		  active_streams.del(id);
-
-		  // Add stream to the list of streams to merge. Note we won't merge to other streams in the same condition but only streams that remain active.
-		  if ( Streams.active_blocks(id) <= MIN_ACTIVE_BLOCKS )
-		    merging_streams.add(id);
-		  else
-		    printf(RED "Stream id %d has died.\n" NOCOLOR, id);
-		}
-	      else if (stream_inactive_blocks)
-		printf(GREEN "Stream %d remains inactive by %d/%d time_blocks.\n" NOCOLOR, id, stream_inactive_blocks, MAX_SILENCE_BLOCKS);
-	    }
-
-	  // Merge to an active stream. Note that this is the only stage at which more than one stream can be assigned to a destination stream (merging procedure).
-	  if (active_streams.N())
-	    {
-	      for (int m = 0; m < merging_streams.N(); ++m )
-		{
-		  int m_id = merging_streams[m];
-		  real min_distance = FLT_MAX;
-		  int s_id_match = active_streams[0];
-	      
-		  for (int s = 0; s < active_streams.N(); ++s)
+		  static Gnuplot px1;
+		  px1.replot(x1(),FFT_N,"x1*W");
+		  palpha.plot(alpha_range(), (*hist_alpha.raw())(),hist_alpha.bins(), "alpha");
+		  pdelta.plot(delta_range(), (*hist_delta.raw())(),hist_delta.bins(), "delta");	  
+	  
+		  if (o.i("show_each_hist")>1)
 		    {
-		      int s_id = active_streams[s];
-
-		      real distance = Lambda_distance(Streams.pos(m_id), Streams.pos(s_id));
-		      if (distance < min_distance)
-			{
-			  min_distance = distance;
-			  s_id_match = s_id;
-			}
+		      hist.write_to_gnuplot_pm3d_data("hist.dat");
+		      RENDER_HIST("hist.dat", "Hist", o.i("hist_pause")); 
 		    }
-
-		  ++merged_streams;
-
-		  
-		  // PERFORMANCE: This can be implemented more efficiently by adding only the active portion.
-		  Streams.stream(s_id_match)->add_at(*(Streams.stream(m_id)),0);
-		   
-		  // Now we can free up this stream since it has been merged.
-		  Streams.release_id(m_id); // Cleans it up before erasing.
-
-		  printf(GREEN "Stream %d merged to %d.\n" NOCOLOR, m_id, s_id_match);
+		  else
+		    if (o.i("hist_pause"))
+		      wait();
 		}
-	    }
 
-	  // Birth
-	  printf(GREEN "Born streams: ");
-	  for (int j = 0; j < N_clusters; ++j)
-	    {
-	      if (assigned_clusters.has(j))
-		continue;
+	      if (render >= 0)
+		{
+		  std::string filepath = "hist_dats/" + itosNdigits(time_block,10) + ".dat";
+		  hist.write_to_gnuplot_pm3d_binary_data(filepath.c_str());
+		  //system(("cp "+filepath+" tmp_dats/hist.dat && gen_movie.sh tmp_dats tmp_pngs 3D.gnut && feh tmp_pngs/hist.png").c_str());
+		}
 
-	      int id = Streams.acquire_id();
-	      active_streams.add(id);
-	      
-	      fftw_execute_r2r(xX1_plan, new_buffers->raw(j), tmp_X());
-	      evenHC2magnitude(FFT_pN, tmp_X(), tmp_M());
-	      
-	      Streams.add_buffer_at(id, j, *(*new_buffers)(j), tmp_M, time_block, FFT_slide, clusters.values[j]);
-	      
-	      printf("%d ", id);
- 	    }
-	  puts("\n" NOCOLOR);
-	  
-	  if (WAIT)
-	    wait();
-	} // End of dynamic-rebuild
-      
-      if (o.i("show_each_hist"))
-	{
-	  static Gnuplot px1;
-	  px1.replot(x1(),FFT_N,"x1*W");
-	  palpha.plot(alpha_range(), (*hist_alpha.raw())(),hist_alpha.bins(), "alpha");
-	  pdelta.plot(delta_range(), (*hist_delta.raw())(),hist_delta.bins(), "delta");	  
-	  
-	  if (o.i("show_each_hist")>1)
-	    {
-	      hist.write_to_gnuplot_pm3d_data("hist.dat");
-	      RENDER_HIST("hist.dat", "Hist", o.i("hist_pause")); 
-	    }
-	  else
-	    if (o.i("hist_pause"))
-	      wait();
+	      chist.clear();
+	      chist_alpha.clear();
+	      chist_delta.clear();
+	    } // end of if (! cc.value())...
+	  ++cc;
 	}
-
-      ///////////////////////////////////////////////////////////
-
-      if (render >= 0)
-	{
-	  std::string filepath = "hist_dats/" + itosNdigits(time_block,10) + ".dat";
-	  hist.write_to_gnuplot_pm3d_binary_data(filepath.c_str());
-	  //system(("cp "+filepath+" tmp_dats/hist.dat && gen_movie.sh tmp_dats tmp_pngs 3D.gnut && feh tmp_pngs/hist.png").c_str());
-	}
-
     } // End of blockwise processing
 
 	

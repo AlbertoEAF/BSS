@@ -551,16 +551,6 @@ void ransac_test(idx time_block, idx pN, idx sample_rate_Hz,
 
 #define RELEASE(x) {}
 
-/*
-/// Copy one column from one matrix to another
-void copycol(Matrix<real> &b, Matrix<real> &a, size_t to_col, size_t from_col)
-{
-Assert(b.cols() == a.cols() && b.size() == a.size(), "Different sizes!");
-  
-for (size_t row = 0; row < a.rows(); ++row)
-b(row,to_col) = a(row,from_col);
-}
-*/
 
 // After giving one buffer in one call (new_buffer), at the end of the next (blocking) call, it can be released.
 // Cannot be reassigned to a different output because it stores the previous buffer and it would have conflicts, thus all the data must be passed 
@@ -863,15 +853,6 @@ void separation_stats(Buffers<real> &s, Buffers<real> &o, int N, idx samples)
     
       printf(BLUE "s%d : Dtotal=%g (%g/sample) SNR=%gdB E_r=%g\n" NOCOLOR, i, dtotal, dtotal/(real)samples, snr, E_r);     
     }
-  /*
-
-    for (int i = 0; i < N; ++i)
-    {
-    real dtotal = Dtotal(s(i),o(i),samples);
-
-    printf(BLUE "s%d : Dtotal = %f\n" NOCOLOR, i, dtotal);     
-    }
-  */
 }
 
 
@@ -896,25 +877,6 @@ int main(int argc, char **argv)
 
      and capital letters for the frequency domain
   */	
-  /*
-    Histogram2D<real> hi(3,5, -2,2,-5,5, HistogramBounds::Boundless);
-    hi.bin(1,0) = 3;
-    print(hi);
-    return 1;
-  */
-  
-  /*
-  // Test output overlap
-  Matrix<real> a(1,1000), b(1,10000);
-  for (int i=0; i < 1000; ++i)
-  a(0,i) = Hann(i,1000);
-  for (int loop=0; loop<5;++loop)
-  write_data(b, &a, 1000, 990);
-  Gnuplot p;
-  p.plot_y(b(),10000,"Hann");
-  wait();
-  return 0;
-  */
 
   Options _o("presets.cfg", Quit, 1); // Choose the preset file.
   Options o (_o("preset").c_str(), Quit, 1); // True configuration file (preset)
@@ -930,39 +892,6 @@ int main(int argc, char **argv)
   const bool STATIC_REBUILD = o.i("DUET.static_rebuild");
 
   int merged_streams = 0;
-
-  // Convolution Smoothing tests //////////////////////////////////////////////////////////////
-  /////////////////////////////////////////////////////////////////////////////////////////////
-  /*
-    Histogram<real> 
-    halpha(o.d("hist.dalpha"), o.d("alpha.min"), o.d("alpha.max"), HistogramBounds::Boundless),
-    hdelta(o.d("hist.ddelta"), o.d("delta.min"), o.d("delta.max"), HistogramBounds::Boundless);
-
-    static Buffer<real> 
-    conv_kernel_alpha(halpha.gen_gaussian_kernel(o.f("hist.smoothing_Delta_alpha"))),
-    conv_kernel_delta(hdelta.gen_gaussian_kernel(o.f("hist.smoothing_Delta_delta"))),
-    conv_halpha(halpha.bins()), 
-    conv_hdelta(hdelta.bins());
-
-    
-
-    Gnuplot ppa,ppd;
-
-    halpha(0) += 1;
-    hdelta(0.0001) += 1;
-  
-    halpha.kernel_convolution(conv_kernel_alpha, conv_halpha);
-    hdelta.kernel_convolution(conv_kernel_delta, conv_hdelta);
-
-    Buffer<real> delta_axis(hdelta.bins());
-    for (size_t i=0; i<delta_axis.size(); ++i)
-    delta_axis[i] = hdelta.min() + i*hdelta.dx();
-
-    ppa.plot((*halpha.raw())(),halpha.bins(),"alpha");
-    ppd.plot(delta_axis(),(*hdelta.raw())(),hdelta.bins(),"delta");
-  */
-  /////////////////////////////////////////////////////////////////////////////////////////////
-
 
   int WAIT = o.i("wait");
 
@@ -1191,69 +1120,6 @@ int main(int argc, char **argv)
 
   int N_clusters = 0;
 
-
-  /////////////////////////// TEST HISTOGRAMS /////////////////////////////////////////////7
-  /*
-    hist(.2,-.0001)+= 1;
-    hist(-.2,-.0001)+=1;
-    hist(0,-.0001)+=1;
-  
-    hist(.2,.0001) += 1;
-    hist(-.2,.0001)+=1;
-
-    hist(0,0)+=1;
-
-    hist(-0.23,0.00002)+=0.8;
-
-    hist(.3,0.00015)+=3;
-
-    hist(-.4,0.00013)+=2;
-
-    hist.fill_marginal_x(hist_alpha);
-    hist.fill_marginal_y(hist_delta);
-  
-      
-    static Buffer<real> 
-    conv_kernel_alpha(hist_alpha.gen_gaussian_kernel(DUET.sigma_alpha)),
-    conv_kernel_delta(hist_delta.gen_gaussian_kernel(DUET.sigma_delta)),
-    conv_hist_alpha  (hist_alpha.bins()), 
-    conv_hist_delta  (hist_delta.bins());
-
-    static Matrix<real> 
-    conv_kernel(hist.gen_gaussian_kernel(DUET.sigma_alpha, DUET.sigma_delta)),
-    conv_hist  (hist.xbins(),hist.ybins());
-
-    // New blurring method: convolution
-    hist_alpha.kernel_convolution(conv_kernel_alpha, conv_hist_alpha);
-    hist_delta.kernel_convolution(conv_kernel_delta, conv_hist_delta);
-    hist.kernel_convolution(conv_kernel, conv_hist); 
-
-    palpha.replot(alpha_range(), (*hist_alpha.raw())(),hist_alpha.bins(), "alpha");
-    pdelta.replot(delta_range(), (*hist_delta.raw())(),hist_delta.bins(), "delta");	  
-
-    hist.write_to_gnuplot_pm3d_data("hist.dat");
-    RENDER_HIST("hist.dat", "Hist", 1); 
-
-
-    while(1)
-    {
-    real Alpha,Delta;
-    cout << "(alpha,delta) = ";
-    cin >> Alpha >> Delta;
-
-    hist(Alpha,Delta) += 1;
-    hist_alpha(Alpha) += 1;
-    hist_delta(Delta) += 1;
-
-    palpha.replot(alpha_range(), (*hist_alpha.raw())(),hist_alpha.bins(), "alpha");
-    pdelta.replot(delta_range(), (*hist_delta.raw())(),hist_delta.bins(), "delta");	  
-
-    hist.write_to_gnuplot_pm3d_data("hist.dat");
-    RENDER_HIST("hist.dat", "Hist", 1); 
-    }
-  */
-  ///////////////////////////////////////////////////////////////////////////////////////////////
-
   
   Buffer<real> W(FFT_N);
   select_window(o("window"), W);
@@ -1307,11 +1173,6 @@ int main(int argc, char **argv)
 	  x1[i] = 0;
 	  x2[i] = 0;
 	}
-      /*
-	Gnuplot x1_plot;
-	x1_plot.plot_y(x1(),x1.size(), "x1");
-	wait();
-      */
 
       fftw_execute(xX1_plan);
       fftw_execute(xX2_plan);
@@ -1323,19 +1184,12 @@ int main(int argc, char **argv)
       for (idx f=0; f < FFT_pN/2; ++f)
 	M1hist(f) += M1[f];
 
-      /*
-	Gnuplot Mplot;
-	evenHC2magnitude(FFT_pN, X1(), x1());
-	Mplot.plot_y(x1(),x1.size()/2,"M1");
-	usleep(300000);
-      */
       // Keep the record of X1 for all time for later audio reconstruction
       for (idx f = 0; f < FFT_pN; ++f)
 	{
 	  X1_history(time_block,f) = X1[f];
 	  X2_history(time_block,f) = X2[f];
 	}
-
 
       hist.clear();
       hist_alpha.clear();
@@ -1416,28 +1270,6 @@ int main(int argc, char **argv)
       //old_hist = hist;
       cumulative_hist += hist;
       	
-      ///////// pre-Filter histogram clusters ///////////////////
-		
-
-      /*
-	Buffer<Point2D<real> > clusters(preclusters.eff_size(DUET.noise_threshold));
-	clusters.copy(preclusters.values(), clusters.size());
-
-	// Write the clusters to the plot overlay
-	std::ofstream clusters_dat;
-	clusters_dat.open("s_duet.dat");
-	for (idx i=0; i < clusters.size(); ++i)
-	clusters_dat << clusters[i].x << " " << clusters[i].y << " 0\n\n";
-	clusters_dat.close();
-      */
-      /*
-	prod_hist.write_to_gnuplot_pm3d_data("prod_hist.dat");
-	diff_hist.write_to_gnuplot_pm3d_data("diff_hist.dat");
-	RENDER_HIST("prod_hist.dat", "Prod", 0);
-	RENDER_HIST("diff_hist.dat", "Diff", 0);
-      */
-
-
 
       ///////// Apply masks and rebuild current frame to audio and add it to the appropriate outputs
       if (! STATIC_REBUILD)
@@ -1447,8 +1279,6 @@ int main(int argc, char **argv)
 	  heuristic_clustering(hist_delta, delta_clusters, DUET, DUET.min_peak_ddelta);
 
 	  cout << YELLOW << clusters << NOCOLOR;
-
-
 
 	  N_clusters = clusters.eff_size(DUET.noise_threshold); 
       		
@@ -1814,11 +1644,4 @@ int main(int argc, char **argv)
 
   return 0;
 }
-
-
-
-
-
-
-/////////////
 

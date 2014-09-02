@@ -61,7 +61,7 @@ using std::endl;
 
 const real _2Pi = 2*M_PI;
 #include "windows.h"
-
+#include "separation_metrics.hpp"
 
 struct DUETcfg
 {

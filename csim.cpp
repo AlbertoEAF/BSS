@@ -1,3 +1,6 @@
+// Comment for old platforms that do not fully support C++11
+#define NOISE_SUPPORT
+
 #include <iostream>
 
 #include <vector>
@@ -26,10 +29,10 @@
 
 #include "array_ops.h"
 
-/*
+#ifdef NOISE_SUPPORT
 #include <chrono> // C++11: time-seed for generator
 #include <random> // C++11: std::normal_distribution
-*/
+#endif//NOISE_SUPPORT
 
 //#include <float.h> // FLT_EPSILON
 #include <limits> // std::numeric_limits -> epsilon()
@@ -98,7 +101,7 @@ int get_project_sample_rate(Strings &sources)
     for (auto &path: sources)
     {
         SndfileHandle wav(path);
-        AssertRuntime(ok(wav), "Wav file %s is corrupted or doesn't exist.", path.c_str());
+        AssertRuntime(wav::ok(wav), "Wav file %s is corrupted or doesn't exist.", path.c_str());
 
         if (sample_rate_Hz)            
         {
@@ -242,14 +245,14 @@ int main()
     A /= max_A;
 
     /* Noise generator + distribution */
-    /*
+#ifdef NOISE_SUPPORT
     const real noise_stddev = o.d("noise.stddev", Ignore);
 
     unsigned seed = std::chrono::system_clock::now().time_since_epoch().count();
     std::default_random_engine generator (seed);
 
     std::normal_distribution<real> normal(0,noise_stddev);
-    */
+#endif//NOISE_SUPPORT
     /* ****************************** */
 
     /*
@@ -308,7 +311,7 @@ int main()
 	    //            write_mono_wav (output_folder+std::to_string(n)+"x"+std::to_string(m), out(), samples, sample_rate_Hz);
         }
 
-	write_waves(output_folder+std::to_string(n)+"x", out, sample_rate_Hz,1);
+	wav::write(output_folder+std::to_string(n)+"x", out, sample_rate_Hz,1);
     }
     
 
@@ -325,16 +328,16 @@ int main()
 	      out(m,i) += A(m,n) * linear_interpolation(waves,n, t_i-D(m,n), dt_s);
             }
         }
-	/*
+#ifdef NOISE_SUPPORT
 	if (noise_stddev > std::numeric_limits<real>::epsilon()) 
 	  {
 	    for (size_t i=0; i < samples; ++i)
 	      out(m,i) += normal(generator);
 	  }
-	*/
+#endif//NOISE_SUPPORT
 	//   write_mono_wav ((output_folder+"x"+std::to_string(m)+".wav").c_str(), out(), samples, sample_rate_Hz, 1/(real)N );
     }
-    write_waves(output_folder+"x", out, sample_rate_Hz, 1);
+    wav::write(output_folder+"x", out, sample_rate_Hz, 1);
 
 
     // Record the "real" source positions to a log

@@ -5,7 +5,6 @@
 #define BUFFERS_H__
 
 #include "Buffer.h"
-#include "array_ops.h"
 
 template <class T>
 class Buffers

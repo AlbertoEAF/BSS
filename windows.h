@@ -1,12 +1,11 @@
+// All the functions must be called with n<=N
+
 #ifndef WINDOWS_H__
 #define WINDOWS_H__
 
 #include <cmath>
 #include "types.h"
-
-// This functions must be called with n<=N
-
-
+#include "constants.h"
 
 
 
@@ -14,7 +13,6 @@ real Rectangular(idx n, idx N)
 {
   return 1;
 }
-
 
 // Hamming family
 

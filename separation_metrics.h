@@ -1,6 +1,9 @@
 #ifndef SEPARATION_METRICS_HPP__
 #define SEPARATION_METRICS_HPP__
 
+#include "types.h"
+#include "Buffer.h" // Already includes <cmath>
+
 bool in (int val, Buffer<int> &list)
 {
   size_t size = list.size();

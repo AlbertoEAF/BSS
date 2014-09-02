@@ -5,58 +5,6 @@ int merged_streams = 0; // Just for debug / printing (seems something's wrong: m
 //#define OLD_MASK_BUILD
 //#define OLD_PEAK_ASSIGN
 
-void RENDER_HIST(const std::string &filepath, const std::string &title, bool pause)
-{
-  std::string cmd("gnuplot -e \"splot \\\"");
-
-  cmd += filepath;
-  cmd += "\\\" u 1:2:3 w pm3d title \\\"";
-  cmd += title;
-  cmd += "\\\", \\\"s.dat\\\"  pt 7 ps .9 title \\\"Simulation clusters\\\", \\\"s_duet.dat\\\" pt 8 ps .8 title \\\"DUET clusters\\\"; set xlabel \\\"alpha\\\"; set ylabel \\\"delta (s)\\\";";
-  if (pause)
-    cmd += "pause -1";
-  cmd += "\"";
-
-  system(cmd.c_str()); 
-}
-
-template <class T> void print(T o) { cout << o << endl; }
-
-template <class T> 
-void swap (T &a, T &b)
-{
-  T tmp = a;
-  a = b;
-  b = tmp;
-}
-
-template <class T> T div_up(T num, T den) { return num/den + (num%den?1:0); }
-
-
-/// Returns the success state of the input and prints [DONE] or [FAIL] accordingly.
-bool print_status (bool success)
-{
-  if (success)
-    puts(GREEN "[DONE]" NOCOLOR);
-  else
-    puts(RED "[FAIL]" NOCOLOR);
-
-  return success;
-}
-
-
-
-real Lambda_distance(Point2D<real> &a, Point2D<real> &b)
-{
-  return std::abs(a.y-b.y);
-}
-
-template <class T> T blocks (T n, T block_size)
-{
-  return n/block_size + ( n % block_size ? 1:0 );
-}
-
-
 
 /// Returns the score for the DUET histogram based on the parameters p and q
 real DUEThist_score(real x1re, real x1im, real x2re, real x2im, real omega, real p, real q)
@@ -70,6 +18,7 @@ real DUEThist_score(real x1re, real x1im, real x2re, real x2im, real omega, real
 }
 
 /** Taken from bessel.c, also distributed in this folder. Calculates the modified Bessel function I0. */
+/*
 double bessi0( double x )
 {
   double ax,ans;
@@ -88,11 +37,13 @@ double bessi0( double x )
   }
   return ans;
 }
+*/
 
 /**
    @param[in] K - Number of active sources: theta.size() >= K
    @param[in] x - Must have fewer than RAND_MAX elements.
 */
+/*
 void RANSAC (Buffer<real> &theta, Buffer<real> &x, int K, int RANSAC_samples_per_source)
 {
   const int N = x.size();
@@ -114,7 +65,7 @@ void RANSAC (Buffer<real> &theta, Buffer<real> &x, int K, int RANSAC_samples_per
     }
 
 }
-
+*/
 
 
 void DUET_hist_add_score(Histogram2D<real> &hist, Histogram<real> &hist_alpha, Histogram<real> &hist_delta, real alpha, real delta, real X1_re, real X1_im, real X2_re, real X2_im, real omega, const DUETcfg &DUET)

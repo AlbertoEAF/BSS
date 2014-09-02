@@ -29,10 +29,6 @@
 #include "CyclicCounter.h"
 
 
-using std::cout;
-using std::cin;
-using std::endl;
-
 #include "constants.h"
 
 #include "DUETstruct.h"
@@ -45,6 +41,9 @@ using std::endl;
 
 
 
+using std::cout;
+using std::cin;
+using std::endl;
 
 
 
@@ -52,3 +51,53 @@ using std::endl;
 
 
 
+void RENDER_HIST(const std::string &filepath, const std::string &title, bool pause)
+{
+  std::string cmd("gnuplot -e \"splot \\\"");
+
+  cmd += filepath;
+  cmd += "\\\" u 1:2:3 w pm3d title \\\"";
+  cmd += title;
+  cmd += "\\\", \\\"s.dat\\\"  pt 7 ps .9 title \\\"Simulation clusters\\\", \\\"s_duet.dat\\\" pt 8 ps .8 title \\\"DUET clusters\\\"; set xlabel \\\"alpha\\\"; set ylabel \\\"delta (s)\\\";";
+  if (pause)
+    cmd += "pause -1";
+  cmd += "\"";
+
+  system(cmd.c_str()); 
+}
+
+template <class T> void print(T o) { cout << o << endl; }
+
+template <class T> 
+void swap (T &a, T &b)
+{
+  T tmp = a;
+  a = b;
+  b = tmp;
+}
+
+template <class T> T div_up(T num, T den) { return num/den + (num%den?1:0); }
+
+
+/// Returns the success state of the input and prints [DONE] or [FAIL] accordingly.
+bool print_status (bool success)
+{
+  if (success)
+    puts(GREEN "[DONE]" NOCOLOR);
+  else
+    puts(RED "[FAIL]" NOCOLOR);
+
+  return success;
+}
+
+
+
+real Lambda_distance(Point2D<real> &a, Point2D<real> &b)
+{
+  return std::abs(a.y-b.y);
+}
+
+template <class T> T blocks (T n, T block_size)
+{
+  return n/block_size + ( n % block_size ? 1:0 );
+}

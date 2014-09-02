@@ -109,3 +109,15 @@ render:
 	bash render.sh
 
 
+src:
+	rm -rf src
+	mkdir src
+	cp *.h src
+	cp *.cpp src
+	cp *.c src
+	cp mix src
+	cp run src
+	cp gnuplot_ipp src
+	cp libs src
+	cp render_cfg src
+	cp Makefile src

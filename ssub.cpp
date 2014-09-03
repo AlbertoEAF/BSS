@@ -222,21 +222,12 @@ int main(int argc, char **argv)
   for (int iterations = 0; iterations < o.i("iterations"); ++iterations)
     {
       if (o.i("use_final_silence"))
-	{
-	  StationaryNoisePSD(X_history, NPSD, (long int)time_blocks-(long int)Sb, (long int)time_blocks);	  
-	  cout << "Selecting blocks from " << time_blocks-Sb << " to " << time_blocks << endl;
-	}
-
+	StationaryNoisePSD(X_history, NPSD, (long int)time_blocks-(long int)Sb, (long int)time_blocks);	  
       else
-	{
 	  StationaryNoisePSD(X_history, NPSD, 0, Sb);
-	  cout << "Selecting blocks from " << time_blocks-Sb << " to " << time_blocks << endl;
-	}
-
 
       for (idx tb = 0; tb < time_blocks; ++tb)
 	SSub(X_history(tb), NPSD, cfg);
-     
     }
 
 
@@ -249,6 +240,14 @@ int main(int argc, char **argv)
 
   wav_out /= FFT_N;
   Gnuplot p;
+
+  /*
+    // Show amplitude envelope
+  wav_out.clear();
+  for (unsigned int tb=0; tb < time_blocks; ++tb)
+    wav_out.add_at(W,tb*FFT_slide);
+  */
+
   p.plot(wav_out(),wav_out.size(),"wav_out");
   wait();
 

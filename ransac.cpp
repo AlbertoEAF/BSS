@@ -916,8 +916,6 @@ int main(int argc, char **argv)
 
   for (idx time_block = 0; time_block < time_blocks; ++time_block)
     {
-      if (! STATIC_REBUILD)
-	printf(GREEN "\t\t time_block (%lu+1)/%lu\n" NOCOLOR, time_block, time_blocks);
       idx block_offset = time_block*FFT_slide;
 
       for (idx i = 0; i < FFT_N; ++i)
@@ -1060,9 +1058,10 @@ int main(int argc, char **argv)
 
 	  if (! cc.value() && time_block >= N_accum) // Process the set of N_accumulation frames
 	    {
+	      printf(GREEN "\t\t time_block (%lu+1)/%lu\n" NOCOLOR, time_block, time_blocks);
+
 	      if (DUET.use_smoothing)
 		{
-
 		  chist_alpha.kernel_convolution(conv_kernel_alpha, conv_hist_alpha);
 		  chist_delta.kernel_convolution(conv_kernel_delta, conv_hist_delta);
 
@@ -1231,8 +1230,9 @@ int main(int argc, char **argv)
 	}
     }
 
-	
-  // STATIC SEPARATION STATS //
+  puts("");
+  for (int n=0; n < original_waves_x1.buffers(); ++n)
+    printf(GREEN "o%d : SNR = %gdB\n" NOCOLOR, n,SNR(x1_wav(),original_waves_x1.raw(n),samples));
   if (STATIC_REBUILD)
     {
       puts("\nStatic Separation:");
@@ -1254,7 +1254,7 @@ int main(int argc, char **argv)
   fftw_destroy_plan(Xxo_plan);
 
 
-  printf(GREEN "%u streams - %d merged streams in %lu time blocks.\n" NOCOLOR, ACQUIRED_STREAMS, MERGED_STREAMS, time_blocks);
+  printf(GREEN "\n%u streams - %d merged streams in %lu time blocks.\n\n" NOCOLOR, ACQUIRED_STREAMS, MERGED_STREAMS, time_blocks);
 
 
   Streams.release_ids();

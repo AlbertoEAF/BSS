@@ -14,6 +14,14 @@ void evenHC2magnitude(int samples, real *hc, real *magnitude)
     magnitude[i] = abs(hc[i], hc[samples-i]); // Indexing not true for odd samples!!!
 }
 
+void evenHC2power(int samples, real *hc, real *power)
+{
+  power[0] = hc[0];
+  idx I = samples/2;
+  for (idx i=1; i < I; ++i)
+    power[i] = abs2(hc[i], hc[samples-i]); // Indexing not true for odd samples!!!
+}
+
 void evenHC2magnitude(Buffer<real> &hc, Buffer<real> &magnitude)
 {
   magnitude[0] = hc[0];

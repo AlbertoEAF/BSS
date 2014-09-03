@@ -751,7 +751,7 @@ int main(int argc, char **argv)
   _DUET.max_silence_blocks = MAX_SILENCE_BLOCKS;
 
   // This will require triple-buffering
-  Guarantee(FFT_slide >= FFT_N/2, "FFT_slide(%ld) > FFT_N/2(%ld)", FFT_slide, FFT_N/2);
+  //  Guarantee(FFT_slide >= FFT_N/2, "FFT_slide(%ld) > FFT_N/2(%ld)", FFT_slide, FFT_N/2);
 
   _DUET.use_window = 1;
     
@@ -1053,7 +1053,7 @@ int main(int argc, char **argv)
 
 	  if (! cc.value() && time_block >= N_accum) // Process the set of N_accumulation frames
 	    {
-	      if (DUET.use_smoothing && ! STATIC_REBUILD)
+	      if (DUET.use_smoothing)
 		{
 
 		  chist_alpha.kernel_convolution(conv_kernel_alpha, conv_hist_alpha);
@@ -1109,13 +1109,21 @@ int main(int argc, char **argv)
 		{
 		  static Gnuplot px1;
 		  px1.replot(x1(),FFT_N,"x1*W");
-		  palpha.plot(alpha_range(), (*hist_alpha.raw())(),hist_alpha.bins(), "alpha");
-		  pdelta.plot(delta_range(), (*hist_delta.raw())(),hist_delta.bins(), "delta");	  
+		  palpha.plot(alpha_range(), (*chist_alpha.raw())(),hist_alpha.bins(), "alpha");
+		  pdelta.plot(delta_range(), (*chist_delta.raw())(),hist_delta.bins(), "delta");	  
 	  
 		  if (o.i("show_each_hist")>1)
 		    {
-		      hist.write_to_gnuplot_pm3d_data("hist.dat");
-		      RENDER_HIST("hist.dat", "Hist", o.i("hist_pause")); 
+		        // Write the clusters to the plot overlay
+		      std::ofstream clusters_dat;
+		      clusters_dat.open("s_duet.dat");
+		      for (idx i=0; i < N_clusters; ++i)
+			clusters_dat << clusters.values[i].x << " " << clusters.values[i].y << " 0\n\n";
+		      clusters_dat.close();
+
+
+		      chist.write_to_gnuplot_pm3d_data("chist.dat");
+		      RENDER_HIST("chist.dat", "Hist", o.i("hist_pause")); 
 		    }
 		  else
 		    if (o.i("hist_pause"))
@@ -1125,7 +1133,7 @@ int main(int argc, char **argv)
 	      if (render >= 0)
 		{
 		  std::string filepath = "hist_dats/" + itosNdigits(time_block,10) + ".dat";
-		  hist.write_to_gnuplot_pm3d_binary_data(filepath.c_str());
+		  chist.write_to_gnuplot_pm3d_binary_data(filepath.c_str());
 		  //system(("cp "+filepath+" tmp_dats/hist.dat && gen_movie.sh tmp_dats tmp_pngs 3D.gnut && feh tmp_pngs/hist.png").c_str());
 		}
 

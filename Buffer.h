@@ -24,6 +24,8 @@ be accepted.
 #include <iosfwd> // You must still include iostream afterwards.
 #include <string.h> // memcpy
 
+#include <stdlib.h>
+
 #include "custom_assert.h"
 
 

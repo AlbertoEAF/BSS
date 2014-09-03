@@ -1,6 +1,9 @@
 #include "duet.h"
 
-int merged_streams = 0; // Just for debug / printing (seems something's wrong: more merges than streams)
+// Stream stats. 
+int ACQUIRED_STREAMS = 0;  // How many streams were acquired during the whole program execution.
+int HIGHEST_STREAM_ID = 0; // The highest stream id ever achieved.
+int MERGED_STREAMS = 0;    // How many streams were merged (permanently deleted and whole information cleared -- this leaves wholes behind but stats will give nan values for the holes if left unfilled)
 
 //#define OLD_MASK_BUILD
 //#define OLD_PEAK_ASSIGN
@@ -588,7 +591,7 @@ void LDMB2C(StreamSet &Streams, IdList &active_streams, Buffers<real> *new_buffe
 		}
 	    }
 
-	  ++merged_streams;
+	  ++MERGED_STREAMS;
 
 		  
 	  // PERFORMANCE: This can be implemented more efficiently by adding only the active portion.
@@ -611,6 +614,10 @@ void LDMB2C(StreamSet &Streams, IdList &active_streams, Buffers<real> *new_buffe
 	  int id = Streams.acquire_id();
 	  active_streams.add(id);
 	  
+	  if (id > HIGHEST_STREAM_ID)
+	    HIGHEST_STREAM_ID = id;
+	  ++ACQUIRED_STREAMS;
+
 	  C[j] = id;
 
 	  printf("%d ", id);
@@ -1167,26 +1174,6 @@ int main(int argc, char **argv)
 
   N_clusters = cumulative_clusters.eff_size(DUET.noise_threshold);
 
-  std::ofstream hist_cfg;
-  hist_cfg.open("h.cfg");
-  hist_cfg << hist.ybins();
-  hist_cfg.close();
-
-
-  // Write the clusters to the plot overlay
-  std::ofstream clusters_dat;
-  clusters_dat.open("s_duet.dat");
-  for (idx i=0; i < N_clusters; ++i)
-    clusters_dat << cumulative_clusters.values[i].x << " " << cumulative_clusters.values[i].y << " 0\n\n";
-  clusters_dat.close();
-
-  // Plot the 3D histogram with gnuplot and the simulation and DUET overlays
-  // Since the "" must be passed with quotes inside the gnuplot command a triple \ is needed and  a single \ is needed for the outer command.
-  RENDER_HIST("cumulative_hist.dat", "Cumulative hist", o.i("hist_pause"));
-  
-  static Gnuplot pM1hist;
-  pM1hist.plot((*M1hist.raw())(),FFT_pN/2,"M1 histogram");      
-
 
 
   if (STATIC_REBUILD)
@@ -1210,26 +1197,19 @@ int main(int argc, char **argv)
 
   int wav_N = ( STATIC_REBUILD ? N_clusters : N_max );
 
-  for (uint source = 0; source < wav_N; ++source)
+  if (STATIC_REBUILD)
     {
-      std::string wav_filepath("x"+itos(source)+"_rebuilt.wav");
-      printf("%s...", wav_filepath.c_str());
-      fflush(stdout);
-      print_status( wav::write_mono(wav_filepath, wav_out.raw(source), samples, sample_rate_Hz) );
+      for (uint source = 0; source < wav_N; ++source)
+	{
+	  std::string wav_filepath("x"+itos(source)+"_rebuilt.wav");
+	  printf("%s...", wav_filepath.c_str());
+	  fflush(stdout);
+	  print_status( wav::write_mono(wav_filepath, wav_out.raw(source), samples, sample_rate_Hz) );
+	}
     }
-	
-  separation_stats(wav_out, original_waves_x1, N, samples);
-
-
-  ///// End of Static Heuristic Rebuilding! ///////////////////////////////////////////////////////////////////
-
-  fftw_destroy_plan(xX1_plan); 
-  fftw_destroy_plan(xX2_plan);
-  fftw_destroy_plan(Xxo_plan);
-
-  if (! STATIC_REBUILD)
+  else
     {
-      // Look for the normalization
+      // Look for the global stream normalization factor
       real streams_max_abs = 0;
       for (unsigned int stream_id=1; stream_id<=Streams.latest_id();++stream_id)
 	{
@@ -1239,20 +1219,42 @@ int main(int argc, char **argv)
 	    streams_max_abs = maxabs;
 	}
 
-      puts("(active_blocks) stream [DONE/FAIL]");
       for (unsigned int stream_id = 1; stream_id <= Streams.latest_id(); ++stream_id)
 	{
 	  if (!Streams.active_blocks(stream_id))
 	    continue;
 
 	  std::string wav_filepath("xstream"+itos(stream_id)+"_rebuilt.wav");
-	  printf("(%u) %s ...", Streams.active_blocks(stream_id), wav_filepath.c_str());
+	  printf("(active_blocks=%u) %s...", Streams.active_blocks(stream_id), wav_filepath.c_str());
 	  fflush(stdout);
 	  print_status( wav::write_mono(wav_filepath, (*Streams.stream(stream_id))(), samples, sample_rate_Hz,streams_max_abs) );
 	}
     }
 
-  printf(GREEN "%u streams - %d merged streams in %lu time blocks.\n" NOCOLOR, Streams.latest_id(), merged_streams, time_blocks);
+	
+  // STATIC SEPARATION STATS //
+  if (STATIC_REBUILD)
+    {
+      puts("\nStatic Separation:");
+      separation_stats(wav_out, original_waves_x1, N, samples);
+    }
+  else
+    {
+      puts("\nDynamic separation:");
+      // Even if there are streams that were merged and none took their place the "holes" will hopefully give nan stats.
+      Buffers<real> streams_out(HIGHEST_STREAM_ID, samples, fftw_malloc, fftw_free);
+      for (int s_id=1; s_id <= HIGHEST_STREAM_ID; ++s_id)
+	(*streams_out(s_id-1)).copy(*Streams.stream(s_id), samples);
+      separation_stats(streams_out, original_waves_x1, HIGHEST_STREAM_ID, samples);
+    }
+  
+
+  fftw_destroy_plan(xX1_plan); 
+  fftw_destroy_plan(xX2_plan);
+  fftw_destroy_plan(Xxo_plan);
+
+
+  printf(GREEN "%u streams - %d merged streams in %lu time blocks.\n" NOCOLOR, ACQUIRED_STREAMS, MERGED_STREAMS, time_blocks);
 
 
   Streams.release_ids();
@@ -1264,9 +1266,33 @@ int main(int argc, char **argv)
   system("cat s.dat");
   puts("\nSuccess!");
 
+  // Final 2D Histogram with overlays.
 
+  static Gnuplot pM1hist;
+  pM1hist.plot((*M1hist.raw())(),FFT_pN/2,"M1 histogram");      
+  
+  std::ofstream hist_cfg;
+  hist_cfg.open("h.cfg");
+  hist_cfg << hist.ybins();
+  hist_cfg.close();
+
+  // Write the clusters to the plot overlay
+  std::ofstream clusters_dat;
+  clusters_dat.open("s_duet.dat");
+  for (idx i=0; i < N_clusters; ++i)
+    clusters_dat << cumulative_clusters.values[i].x << " " << cumulative_clusters.values[i].y << " 0\n\n";
+  clusters_dat.close();
+
+  // Plot the 3D histogram with gnuplot and the simulation and DUET overlays
+  // Since the "" must be passed with quotes inside the gnuplot command a triple \ is needed and  a single \ is needed for the outer command.
+  RENDER_HIST("cumulative_hist.dat", "Cumulative hist", o.i("hist_pause"));
+  
+
+
+  /*
   if (WAIT)
     wait();
+  */
 
   return 0;
 }

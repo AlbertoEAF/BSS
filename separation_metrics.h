@@ -3,6 +3,7 @@
 
 #include "types.h"
 #include "Buffer.h" // Already includes <cmath>
+#include "IdList.h"
 
 bool in (int val, Buffer<int> &list)
 {
@@ -34,7 +35,6 @@ real Dtotal(const real *e,  const real *o, idx samples)
 
   return D;
 }
-
 
 
 real SNR(const real *e, const real *o, idx samples)
@@ -85,47 +85,57 @@ real Energy_ratio(const real *e, const real *o, idx samples)
 void separation_stats(Buffers<real> &s, Buffers<real> &o, int N, idx samples)
 {
   real dtotal;
-  static Buffer<real> dtotals(N); // Store the results to find the minimum
-  static Buffer<int> matches(N); // Indices of the estimated mixtures that already have the minimum distortion measure (match found)
+  Buffer<real> dtotals(std::max<unsigned int>(N,o.buffers()), FLT_MAX); // Store the temporary Dtotal results to find the minimum (best candidate)
+  IdList o2s(o.buffers()), s2o(N); // Indices of the estimated mixtures that already have the minimum distortion measure (match found) (maps)
 
-
-  matches.clear();
-  for (int i = 0; i < N; ++i)
+  dtotals.clear();
+  int unmixed_results = 0;
+  for (int i_o = 0; i_o < o.buffers(); ++i_o)
     {
-      // Compare the score against all the signals and choose the smallest.
-      // Notice that the larger peak in the histogram should get the clearest reseults so we start with it since this is already sorted by score.
-      // Notice that two signals can't be compared against the same original.
-      for (int i_original = 0; i_original < N; ++i_original)
-	{/*
-	 // UNCOMMENT THIS PART IF THE GUARANTEE IS REMOVED! (***)
-	 if (in(i_original+1, matches)) // 0's can't be used thus +1 is applied
-	 dtotals[i_original] = FLT_MAX;
-	 else*/
-	  // The original signal wasn't matched yet.
-	  dtotals[i_original] = Dtotal(s.raw(i), o.raw(i_original), samples);	  
-	}
+      for (int i_s = 0; i_s < N; ++i_s)      
+	dtotals[i_s] = Dtotal(s.raw(i_s), o.raw(i_o), samples);	  
+	
+      int s_match = dtotals.min_index();
 
-      //cout << "dtotals:" << dtotals;
+      if (o2s.has(s_match))
+	++unmixed_results;
 
-      
-
-      // Find the matching index and add it to the exlusion list for the next signals.
-      size_t match_index = array_ops::min_index(dtotals(), N);
-
-      // IF YOU REMOVE THIS GUARANTEE ADD THE REGION WITH THE COMMENT (***)
-      //Guarantee0(in(match_index+1, matches), "Dtotal was minimal for two sources: Probably signals are mixed!");
-      if (in(match_index+1, matches))
-	printf(RED "Dtotal was minimal for two sources (match=%lu): Probably signals weren't unmixed successfuly!\n" NOCOLOR, match_index);
-
-      matches[i] = match_index+1; // 0's cant be used
-      dtotal = dtotals[match_index];
+      o2s.add(s_match); 
+      dtotal = dtotals[s_match];
 
       // Other stats
-      real E_r = Energy_ratio(s.raw(i), o.raw(match_index), samples);
-      real snr = SNR(s.raw(i), o.raw(match_index), samples);
+      real E_r = Energy_ratio(s.raw(s_match), o.raw(i_o), samples);
+      real snr = SNR(s.raw(s_match), o.raw(i_o), samples);
     
-      printf(BLUE "s%d : Dtotal=%g (%g/sample) SNR=%gdB E_r=%g\n" NOCOLOR, i, dtotal, dtotal/(real)samples, snr, E_r);     
+      printf(BLUE "o%d->s%d : Dtotal=%g (%g/sample) SNR=%gdB E_r=%g\n" NOCOLOR, i_o, s_match, dtotal, dtotal/(real)samples, snr, E_r);     
     }
+  if (unmixed_results) 
+    printf(RED "%d Unmixed outputs.\n" NOCOLOR, unmixed_results);
+
+
+  dtotals.clear();
+  unmixed_results = 0;
+  for (int i_s = 0; i_s < N; ++i_s)
+    {
+      for (int i_o = 0; i_o < o.buffers(); ++i_o)
+	dtotals[i_o] = Dtotal(s.raw(i_s), o.raw(i_o), samples);	  
+
+      int o_match = dtotals.min_index();
+
+      if (s2o.has(o_match))
+	++unmixed_results;
+	
+      s2o.add(o_match);
+      dtotal = dtotals[o_match];
+
+      // Other stats
+      real E_r = Energy_ratio(s.raw(i_s), o.raw(o_match), samples);
+      real snr = SNR(s.raw(i_s), o.raw(o_match), samples);
+      printf(CYAN "s%d->o%d : Dtotal=%g (%g/sample) SNR=%gdB E_r=%g\n" NOCOLOR, i_s, o_match, dtotal, dtotal/(real)samples, snr, E_r);     
+    }
+  if (unmixed_results) 
+    printf(RED "%d Unmixed outputs.\n" NOCOLOR, unmixed_results);
+
 }
 
 

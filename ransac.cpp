@@ -488,7 +488,7 @@ void LDMB2C(StreamSet &Streams, IdList &active_streams, Buffers<real> *new_buffe
   if (active_streams.N() && N_clusters)
     {
       // Life Stage 1 : global A0 > A0MIN assignment
-      printf(GREEN "Streams that live by A0: ");
+      printf(GREEN "Streams that live by A0 (stream@cluster): ");
       while( 1 )
 	{
 	  static size_t s, j; // no need to init at 0 every turn.
@@ -506,10 +506,17 @@ void LDMB2C(StreamSet &Streams, IdList &active_streams, Buffers<real> *new_buffe
 
 	      /* Remove entries that are no longer candidates for assignment from lookup
 		 (stream id=active_streams[s] and cluster j). */
-	      A0.fill_row_with(s, -FLT_MAX);
+
+	      // Eliminate the already processed stream s from lookup.
+	      if (! DUET.multiple_assign)
+		{
+		  A0.fill_row_with(s, -FLT_MAX);
+		  D .fill_row_with(s,  FLT_MAX);
+		}
+
+	      // Eliminate the already processed cluster j from lookup.
 	      A0.fill_col_with(j, -FLT_MAX);
-	      D.fill_row_with(s, FLT_MAX);
-	      D.fill_col_with(j, FLT_MAX);
+	      D .fill_col_with(j,  FLT_MAX);
 
 	      printf("%d@%lu ", id, j);
 	    }
@@ -518,7 +525,7 @@ void LDMB2C(StreamSet &Streams, IdList &active_streams, Buffers<real> *new_buffe
 	}
       puts("\n" NOCOLOR);
       // Life Stage 2 : global pos assignment (Lambda_distance < threshold) 
-      printf(GREEN "Streams that live by pos: ");
+      printf(GREEN "Streams that live by pos (stream@cluster): ");
       while( 1 )
 	{	      
 	  static size_t s, j; // no need to init at 0 every turn.
@@ -534,12 +541,16 @@ void LDMB2C(StreamSet &Streams, IdList &active_streams, Buffers<real> *new_buffe
 
 	      assigned_clusters.add(j);		  
 
-	      /* Remove entries that are no longer candidates for assignment from lookup 
-		 (stream id=active_streams[s] and cluster j). */
-	      A0.fill_row_with(s, -FLT_MAX);
+	      // Eliminate the already processed stream s from lookup.
+	      if (! DUET.multiple_assign)
+		{
+		  A0.fill_row_with(s, -FLT_MAX);
+		  D .fill_row_with(s,  FLT_MAX);
+		}
+
+	      // Eliminate the already processed cluster j from lookup.
 	      A0.fill_col_with(j, -FLT_MAX);
-	      D.fill_row_with(s, FLT_MAX);
-	      D.fill_col_with(j, FLT_MAX);
+	      D .fill_col_with(j,  FLT_MAX);
 
 	      printf("%d@%lu ", id, j);
 	    }
@@ -664,6 +675,8 @@ int main(int argc, char **argv)
   _DUET.min_active_blocks   = MIN_ACTIVE_BLOCKS;
   _DUET.a0min               = A0MIN;
   _DUET.max_Lambda_distance = o.f("max_Lambda_distance");
+
+  _DUET.multiple_assign = o.i("multicluster_assign");
 
   int N_accum = o.i("N_accum_frames"); // how many frames should be accumulated.
 
@@ -1240,7 +1253,7 @@ int main(int argc, char **argv)
   if (STATIC_REBUILD)
     {
       puts("\nStatic Separation:");
-      separation_stats(wav_out, original_waves_x1, N, samples);
+      separation_stats(wav_out, original_waves_x1, wav_N, samples);
     }
   else
     {

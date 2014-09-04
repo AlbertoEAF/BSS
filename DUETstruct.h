@@ -44,6 +44,7 @@ struct DUETcfg
   real a0min;
   int max_clusters;
   int max_active_streams;
+  bool multiple_assign;
 };
 
 #endif // DUETstruct

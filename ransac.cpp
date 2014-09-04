@@ -665,7 +665,7 @@ int main(int argc, char **argv)
   _DUET.a0min               = A0MIN;
   _DUET.max_Lambda_distance = o.f("max_Lambda_distance");
 
-  const int N_accum = o.i("N_accum_frames"); // how many frames should be accumulated.
+  int N_accum = o.i("N_accum_frames"); // how many frames should be accumulated.
 
   int WAIT = o.i("wait");
 
@@ -953,7 +953,7 @@ int main(int argc, char **argv)
       
 
       evenHC2magnitude(FFT_pN, X1(),M1());
-      if (o.i("show_each_hist"))      
+      if (o.i("show_each_hist") && o.i("show_M1"))      
 	pM1.replot(f_axis(),M1(),FFT_pN/2,"M1");
       for (idx f=0; f < FFT_pN/2; ++f)
 	M1hist(f) += M1[f];
@@ -997,7 +997,7 @@ int main(int argc, char **argv)
 	    }
 	}
 
-      if (DUET.use_smoothing && ! STATIC_REBUILD && ! N_accum)
+      if (DUET.use_smoothing && ! STATIC_REBUILD && N_accum < 2)
 	{
 	  hist_alpha.kernel_convolution(conv_kernel_alpha, conv_hist_alpha);
 	  hist_delta.kernel_convolution(conv_kernel_delta, conv_hist_delta);
@@ -1056,7 +1056,8 @@ int main(int argc, char **argv)
 	  chist_alpha += hist_alpha;
 	  chist_delta += hist_delta;
 
-	  if (! cc.value() && time_block >= N_accum) // Process the set of N_accumulation frames
+	  // Process the set of N_accumulation frames
+	  if ((! cc.value() && time_block >= N_accum) || (time_block == time_blocks-1)) 
 	    {
 	      printf(GREEN "\t\t time_block (%lu+1)/%lu\n" NOCOLOR, time_block, time_blocks);
 
@@ -1078,13 +1079,16 @@ int main(int argc, char **argv)
 	      
 	      N_clusters = clusters.eff_size(DUET.noise_threshold); 
 	      
+	      // In the file ending we might not be able to accumulate as much as N_accum blocks.
+	      if (time_block == time_blocks-1)
+		N_accum = cc.value();
 
 	      // First of the accumulated time blocks for this accumulation set.
 	      unsigned int tb0 = time_block-N_accum+1; 
 	      // Process all the time frames inside the current accumulated frames region.
 	      for (unsigned int tr = N_accum; tr > 0; --tr)
 		{
-		  unsigned int tb = time_block-tr+1;
+		  unsigned int tb = time_block-(tr-1);
 		  
 		  old_buffers = bufs.read();
 		  new_buffers = bufs.next();
@@ -1110,11 +1114,11 @@ int main(int argc, char **argv)
 		    }
   		}
 
-
 	      if (o.i("show_each_hist"))
 		{
 		  static Gnuplot px1;
-		  px1.replot(x1(),FFT_N,"x1*W");
+		  if (o.i("show_x1W"))
+		    px1.replot(x1(),FFT_N,"x1*W");
 		  palpha.plot(alpha_range(), (*chist_alpha.raw())(),hist_alpha.bins(), "alpha");
 		  pdelta.plot(delta_range(), (*chist_delta.raw())(),hist_delta.bins(), "delta");	  
 	  

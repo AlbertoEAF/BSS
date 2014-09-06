@@ -36,9 +36,12 @@ class Histogram
  public:
   // (dx,dy) might undergo small changes so that the Histogram bins fit the area perfectly
   Histogram(double bin_dx, double x_min, double x_max, HistogramBounds::Type bounds_type);
-  //  Histogram(size_t bins_x, size_t bins_y, double x_min, double x_max, double y_min, double y_max, HistogramBounds::Type bounds_type);
+  // Fixed number of bins (no small change is done)
+  Histogram(size_t bins, HistogramBounds::Type bounds_type);
   Histogram(const Histogram<T> &copy);
   ~Histogram() { delete _m; }
+
+  void stretch(double min, double max);
 
   inline T & bin(size_t ibin); // Access to bin directly by bin coordinates (faster than Histogram::(x,y))
   inline T & guarantee_bin (size_t ibinx); // Makes sure a bin is found (runtime assert)
@@ -66,13 +69,18 @@ class Histogram
 
   void print_format() { printf(YELLOW "Histogram(%lu) : x=[%g] y=[%g] (dx)=(%g)\n" NOCOLOR,_bins,_min,_max,_dx); }
 
-  void plot(Gnuplot &p, const char * title);
+  void plot  (Gnuplot &p, const char * title);
+  void replot(Gnuplot &p, const char * title);
 
   void smooth_add(T value, double x, double smooth_dx);
 
-  Buffer<T> gen_gaussian_kernel(T stddev);
+  // If success==0 smoothing_size < bin: no point in smoothing.
+  Buffer<T> gen_gaussian_kernel(T stddev, bool *success = NULL); 
 
   void kernel_convolution(Buffer<T> &kernel, Buffer<T> &m);
+
+  T min_value() { return _m->min(); }
+  T max_value() { return _m->max(); }
 
  private:
   Buffer<T> *_m;
@@ -93,15 +101,18 @@ Histogram<T>::Histogram(double bin_dx, double x_min, double x_max, HistogramBoun
 }
 
 
-/*
+
 // Needs to have a  different signature from the other constructor
-template <class T>
-Histogram<T>::Histogram(size_t bins_x, size_t bins_y, double x_min, double x_max, double y_min, double y_max, HistogramBounds::Type bounds_type)
+template <class T> Histogram<T>::Histogram(size_t bins, HistogramBounds::Type bounds_type)
 : _m(NULL)
 {
-  reshape(bins_x, bins_y, x_min, x_max, y_min, y_max, bounds_type);
+  _m = new Buffer<T>(bins);
+  _bins = bins;
+  _min = 0;
+  _max = 1;
+  _dx = 1/(double)bins;
 }
-*/
+
 
 template <class T>
 Histogram<T>::Histogram(const Histogram &cpy)
@@ -142,6 +153,19 @@ void Histogram<T>::reshape(size_t bins, double min, double max, HistogramBounds:
   _m = new Buffer<T>(bins);
 }
 
+/// Stretches the histogram area from min to max, resizing the bins. Clears the histogram.
+template <class T> void Histogram<T>::stretch(double min, double max)
+{
+  Assert (max > min, "Histogram limits are reversed!");
+
+  _min = min;
+  _max = max;
+
+  _dx = (_max-_min) / (T) _bins;
+
+  _m->clear();
+}
+
 
 /// Get read-write access to a bin directly by its coordinates
 template <class T>
@@ -164,7 +188,7 @@ inline T & Histogram<T>::bin(size_t ibin)
 template <class T>
 bool Histogram<T>::get_bin_index(double x, size_t &ibin)
 {
-  Assert ( ! std::isnan(x), "NaN coordinate given (%f) to Histogram(%lu)!", x, _bins);
+  Assert ( ! std::isnan(x), "NaN coordinate given to Histogram(%lu)!", _bins);
 
   // add to the boundary bins if the coordinate goes beyond
       if (x < _min)
@@ -304,12 +328,26 @@ void Histogram<T>::plot(Gnuplot &p, const char * title)
      It will require including gnuplot_ipp.h before Histogram.h though. */
 
 #ifdef GNUPLOT_IPP_H__
-  p.plot_y((*_m)(),_bins, title);
-  p.cmd("set pm3d; unset surface");
+  p.plot((*_m)(),_bins, title);
 #else
   Guarantee(0, "Add gnuplot_ipp to the compilation chain and include gnuplot_ipp.h before Histogram.h.");
 #endif
 }
+
+template <class T>
+void Histogram<T>::replot(Gnuplot &p, const char * title)
+{
+  /* This function cannot blow up the compilation as it is optional 
+     so it will be guaranteed at runtime without performance penalties. 
+     It will require including gnuplot_ipp.h before Histogram.h though. */
+
+#ifdef GNUPLOT_IPP_H__
+  p.replot((*_m)(),_bins, title);
+#else
+  Guarantee(0, "Add gnuplot_ipp to the compilation chain and include gnuplot_ipp.h before Histogram.h.");
+#endif
+}
+
 
 template <class T>
 void Histogram<T>::smooth_add(T value, double x, double smooth_dx)
@@ -343,7 +381,7 @@ void Histogram<T>::smooth_add(T value, double x, double smooth_dx)
 /** Creates an odd-sized (centered) buffer kernel that spans 3 times the FWHM (enough precision).
     @warn Not realtime-safe! (allocates memory) */
 template <class T>
-Buffer<T> Histogram<T>::gen_gaussian_kernel(T stddev)
+Buffer<T> Histogram<T>::gen_gaussian_kernel(T stddev, bool *success)
 {
   // Full Width at Half Maximum: FWHM = 2sqrt(2ln2) stddev ~= 2.35482 stddev
   T FWHM = 2.35482 * stddev;
@@ -351,20 +389,30 @@ Buffer<T> Histogram<T>::gen_gaussian_kernel(T stddev)
   T length = 3*FWHM; 
   // Enforce odd-size kernel
   size_t size = length / _dx;
-  size -= (size % 2 == 0); 
 
-  Buffer<T> kernel(size);
-
-  size_t center = size/2;
-  
-  T norm_factor = 1 / (stddev * std::sqrt(2*M_PI));
-  for (size_t i=0; i < center; ++i)
+  if (size > 1)
     {
-      T arg = (i*_dx) / stddev;
-      kernel[center-i] = kernel[center+i] = std::exp(-0.5 * arg*arg) / norm_factor;
-    }
+      size -= (size % 2 == 0); 
 
-  return kernel;
+      Buffer<T> kernel(size);
+
+      size_t center = size/2;
+  
+      T norm_factor = 1 / (stddev * std::sqrt(2*M_PI));
+      for (size_t i=0; i < center; ++i)
+	{
+	  T arg = (i*_dx) / stddev;
+	  kernel[center-i] = kernel[center+i] = std::exp(-0.5 * arg*arg) / norm_factor;
+	}
+
+      *success = true;
+      return kernel;
+    }
+  else
+    {
+      *success = false;
+      return Buffer<T>(1,1); // kernel
+    }
 }
 
 /** Requires a Buffer of the same size as the internal storage buffer _m to perform the computations.

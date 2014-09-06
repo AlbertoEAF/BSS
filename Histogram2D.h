@@ -104,7 +104,8 @@ class Histogram2D
 
   void smooth_add(T value, double x, double y, double smooth_dx, double smooth_dy);
 
-  Matrix<T> gen_gaussian_kernel(T stddev_x, T stddev_y);
+  // If success==0 smoothing_size < bin: no point in smoothing.
+  Matrix<T> gen_gaussian_kernel(T stddev_x, T stddev_y, bool *success); 
 
   void kernel_convolution(Matrix<T> &kernel, Matrix<T> &m);
 
@@ -621,7 +622,7 @@ void Histogram2D<T>::fill_marginal_y(Histogram<T> &marginal)
 
 
 template <class T>
-Matrix<T> Histogram2D<T>::gen_gaussian_kernel(T stddev_x, T stddev_y)
+Matrix<T> Histogram2D<T>::gen_gaussian_kernel(T stddev_x, T stddev_y, bool *success)
 {
     // Full Width at Half Maximum: FWHM = 2sqrt(2ln2) stddev ~= 2.35482 stddev
   T FWHM_x = 2.35482 * stddev_x;
@@ -633,28 +634,44 @@ Matrix<T> Histogram2D<T>::gen_gaussian_kernel(T stddev_x, T stddev_y)
   // Enforce odd-size kernel (perfect centering)
   size_t size_x = length_x / _dx;
   size_t size_y = length_y / _dy;
-  size_x -= (size_x % 2 == 0); 
-  size_y -= (size_y % 2 == 0);
 
-  Matrix<T> kernel(size_x, size_y);
+  if (size_x > 1 || size_y > 1)
+    {
+      if (size_x > 1)
+	size_x -= (size_x % 2 == 0); 
+      else
+	size_x = 1;
+      if (size_y > 1)
+	size_y -= (size_y % 2 == 0);
+      else
+	size_y = 1;
 
-  size_t center_x = size_x/2;
-  size_t center_y = size_y/2;
+      Matrix<T> kernel(size_x, size_y);
+
+      size_t center_x = size_x/2;
+      size_t center_y = size_y/2;
   
-  T norm_factor = 1 / (2*M_PI * stddev_x * stddev_y);
-  for (size_t i=0; i < center_x; ++i)
-    for (size_t j=0; j < center_y; ++j)
-      {
-	T X = (i*_dx) / stddev_x;
-	T Y = (j*_dy) / stddev_y;
+      T norm_factor = 1 / (2*M_PI * stddev_x * stddev_y);
+      for (size_t i=0; i < center_x; ++i)
+	for (size_t j=0; j < center_y; ++j)
+	  {
+	    T X = (i*_dx) / stddev_x;
+	    T Y = (j*_dy) / stddev_y;
 
-	kernel(center_x-i,center_y-j)   = 
-	  kernel(center_x+i,center_y-j) = 
-	  kernel(center_x+i,center_y+j) = 
-	  kernel(center_x-i,center_y+j) = std::exp(-0.5 * (X*X + Y*Y)) / norm_factor;
-      }
+	    kernel(center_x-i,center_y-j)   = 
+	      kernel(center_x+i,center_y-j) = 
+	      kernel(center_x+i,center_y+j) = 
+	      kernel(center_x-i,center_y+j) = std::exp(-0.5 * (X*X + Y*Y)) / norm_factor;
+	  }
   
-  return kernel;
+      *success = true;
+      return kernel;
+    }
+  else
+    {
+      *success = false;
+      return Matrix<T>(1,1,1);
+    }
 }
 
 

@@ -7,6 +7,7 @@
 #include <limits.h>
 #include <float.h> // float and double limits
 #include <string.h> // memcpy
+#include <algorithm> // sort
 
 #include <fftw3.h>
 

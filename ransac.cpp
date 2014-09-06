@@ -303,12 +303,12 @@ real alpha2a (real alpha)
 /// Fills a buffer of size FFT_N/2 // To each bin will be assigned the number of the source. values < 0 indicate that the bin won't be assigned a source (noise or intentional algorithm rejection/discard). 
 /// Thus, a single buffer is required to hold all the masks
 /// tmp must have size = max(N_clusters)
-void build_masks(Buffer<int> &masks, real *alpha, real *delta, real *X1, real *X2, Buffer<Point2D<real> > &clusters, int N_clusters, idx FFT_N, idx FFT_half_N, real FFT_df, Buffer<real> &tmp)
+void build_masks(Buffer<int> &masks, real *alpha, real *delta, real *X1, real *X2, Buffer<Point2D<real> > &clusters, int N_clusters, idx FFT_N, idx FFT_half_N, real FFT_df, Buffer<real> &tmp, const DUETcfg &DUET)
 {
   Buffer<int> old_masks(masks);
   idx masks_diffs = 0;
 
-  for (idx f = 0; f < FFT_half_N; ++f)
+  for (idx f = DUET.Fmin; f < DUET.Fmax; ++f)
     {
       real omega = _2Pi * f * FFT_df;
       idx f_im = FFT_N - f;
@@ -334,30 +334,8 @@ void build_masks(Buffer<int> &masks, real *alpha, real *delta, real *X1, real *X
   //  cout << RED << masks_diffs << NOCOLOR << endl;
 }
 
-void apply_masks(Buffers<real> &buffers, real *alpha, real *X1, real *X2, Buffer<int> &masks, Buffer<Point2D<real> > &clusters, uint active_sources, idx FFT_N, idx FFT_half_N, real FFT_df, fftw_plan &FFTi_plan, Buffer<real> &Xo)
+void apply_masks(Buffers<real> &buffers, real *alpha, real *X1, real *X2, Buffer<int> &masks, Buffer<Point2D<real> > &clusters, uint active_sources, idx FFT_N, idx FFT_half_N, real FFT_df, fftw_plan &FFTi_plan, Buffer<real> &Xo, const DUETcfg &DUET)
 {
-  /*
-    for (uint source = 0; source < active_sources; ++source)
-    {
-    Xo.clear();
-
-    if (masks[0] == source)
-    Xo[0] = X[0];
-    for (uint f = 1, f_max = FFT_N/2; f < f_max; ++f)
-    {
-    if (masks[f] == source)
-    {
-    uint f_im = FFT_N - f;
-    Xo[f   ] = X[f   ];
-    Xo[f_im] = X[f_im];
-    }
-    }
-    fftw_execute_r2r(FFTi_plan, Xo(), buffers(source));
-    }
-
-    buffers /= (real)FFT_N;
-  */
-
   buffers.clear();
 
   // Rebuild one source per iteration to reuse the FFT plan (only 1 needed).
@@ -374,7 +352,7 @@ void apply_masks(Buffers<real> &buffers, real *alpha, real *X1, real *X2, Buffer
 	}
       
       real maxXabs=0;
-      for (uint f = 1, f_max = FFT_N/2; f < f_max; ++f)
+      for (uint f = DUET.Fmin; f < DUET.Fmax; ++f)
 	{
 	  if (masks[f] == source)
 	    {
@@ -399,7 +377,7 @@ void apply_masks(Buffers<real> &buffers, real *alpha, real *X1, real *X2, Buffer
 	    }
 	}
       /*
-	// Tried to filter weak components but degrades the signal until musical noise is generated.
+	// Tried to filter weak components for the .5s windows but degrades the signal until musical noise is generated.
       for (int f = 1, fmax = FFT_N/2; f < fmax; ++f)
 	{
 	  real fabs2 = abs2(Xo[f],Xo[FFT_N-f]);
@@ -637,8 +615,41 @@ void LDMB2C(StreamSet &Streams, IdList &active_streams, Buffers<real> *new_buffe
   puts("\n" NOCOLOR);
 } // End of LDMB
 
+
+
     
 
+// Calculated to 4sigma (3 would suffice, as the generated gaussian kernels).
+// WARN: it sorts the peaks.
+real confidence(Histogram<real> &H, Buffer<real> &peaks_k, int K, real sigma)
+{
+  Buffer<real> *h = H.raw();
+
+  // Sort the peaks to process partial peak overlap integration gracefully.
+  std::sort(peaks_k(), peaks_k()+peaks_k.size());
+
+  // Not multiplying by H.dx() since the quotient will erase it.
+  real H_integral = h->sum(), peaks_integral=0; 
+
+  size_t prev_k_max_bin=0, bin=0, max_k_bin=0;
+  for (int k=0; k < K; ++k)
+    {
+      // Get the minimum and maximum bins for peak_k for integration (integration limits)
+      Guarantee(H.get_bin_index(peaks_k[k]-4.0*sigma, bin      ), "min_bin");
+      Guarantee(H.get_bin_index(peaks_k[k]+4.0*sigma, max_k_bin), "max_bin");
+
+      // If peak integration regions overlap do not integrate twice. Resume where we left peak k-1.
+      if (bin <= prev_k_max_bin)
+	bin = prev_k_max_bin+1;
+
+      for (; bin <= max_k_bin; ++bin)
+	peaks_integral += (*h)[bin];
+
+      prev_k_max_bin = max_k_bin;
+    }
+  
+  return peaks_integral / H_integral;
+}
 
 
 
@@ -895,16 +906,19 @@ int main(int argc, char **argv)
   _DUET.noise_threshold = o.d("DUET.noise_threshold");
 
   const DUETcfg DUET = _DUET; // Make every parameter constant to avoid mistakes
-
   // For the histogram smoothing.
+  puts("Gen kernels");
+  bool smooth_alpha, smooth_delta, smooth; // If smoothing is not possible they are 0.
   static Buffer<real> 
-    conv_kernel_alpha(hist_alpha.gen_gaussian_kernel(DUET.sigma_alpha)),
-    conv_kernel_delta(hist_delta.gen_gaussian_kernel(DUET.sigma_delta)),
+    conv_kernel_alpha(hist_alpha.gen_gaussian_kernel(DUET.sigma_alpha, &smooth_alpha)),
+    conv_kernel_delta(hist_delta.gen_gaussian_kernel(DUET.sigma_delta, &smooth_delta)),
     conv_hist_alpha  (hist_alpha.bins()), 
     conv_hist_delta  (hist_delta.bins());
   static Matrix<real> 
-    conv_kernel(hist.gen_gaussian_kernel(DUET.sigma_alpha, DUET.sigma_delta)),
+    conv_kernel(hist.gen_gaussian_kernel(DUET.sigma_alpha, DUET.sigma_delta, &smooth)),
     conv_hist  (hist.xbins(),hist.ybins());
+  puts("...DONE.");
+  
 
 
   int N_clusters = 0;
@@ -1091,7 +1105,44 @@ int main(int argc, char **argv)
 	      cout << YELLOW << clusters << NOCOLOR;
 	      
 	      N_clusters = clusters.eff_size(DUET.noise_threshold); 
-	      
+
+	      static Histogram<real> alpha_level_pdf(100, HistogramBounds::Bounded);
+	      static Histogram<real> delta_level_pdf(100, HistogramBounds::Bounded);
+
+	      alpha_level_pdf.stretch(0, chist_alpha.max_value());
+	      delta_level_pdf.stretch(0, chist_delta.max_value());
+
+	      for (int bin_alpha=0; bin_alpha < chist_alpha.bins(); ++bin_alpha)
+		alpha_level_pdf( chist_alpha.bin(bin_alpha) ) += 1/(real)chist_alpha.bins();
+	      for (int bin_delta=0; bin_delta < chist_delta.bins(); ++bin_delta)
+		delta_level_pdf( chist_delta.bin(bin_delta) ) += 1/(real)chist_delta.bins();
+
+	      /*	      
+	      static Gnuplot pLa, pLd;
+	      pLa.set_labels("Relative Energy level (%)", "Fraction");
+	      pLd.set_labels("Relative Energy level (%)", "Fraction");
+	      alpha_level_pdf.replot(pLa,  "|alpha| pdf");
+	      delta_level_pdf.replot(pLd,  "|delta| pdf");
+	      */
+
+	      printf(GREEN "Confidences 50%%AC: %f %f\n" NOCOLOR, 
+		     1-array_ops::sum(&(*alpha_level_pdf.raw())[1], 50),
+		     1-array_ops::sum(&(*delta_level_pdf.raw())[1], 50));
+		     
+
+	      // Calculate the confidence for test purposes for the current histogram
+	      // Notice that the peak positions are sorted inside the function!
+	      static Buffer<real> peaks_alpha(MAX_CLUSTERS), peaks_delta(MAX_CLUSTERS);
+	      for (int n=0; n < N_clusters; ++n)
+		{
+		  peaks_alpha[n] = clusters.values[n].x;
+		  peaks_delta[n] = clusters.values[n].y;
+		}
+	      printf(GREEN "Confidences: %g  %g\n" NOCOLOR, 
+		     confidence(chist_alpha,peaks_alpha,N_clusters,DUET.sigma_alpha),
+		     confidence(chist_delta,peaks_delta,N_clusters,DUET.sigma_delta));
+
+
 	      // In the file ending we might not be able to accumulate as much as N_accum blocks.
 	      if (time_block == time_blocks-1)
 		N_accum = cc.value();
@@ -1106,8 +1157,8 @@ int main(int argc, char **argv)
 		  old_buffers = bufs.read();
 		  new_buffers = bufs.next();
 
-		  build_masks(masks, alpha(tb), delta(tb), X1_history(tb), X2_history(tb), clusters.values, N_clusters, FFT_pN, FFT_pN/2, FFT_df, tmp_real_buffer_N_max);
-		  apply_masks(*new_buffers, alpha(tb), X1_history(tb), X2_history(tb), masks, clusters.values, N_clusters, FFT_pN, FFT_pN/2, FFT_df, Xxo_plan, Xo);
+		  build_masks(masks, alpha(tb), delta(tb), X1_history(tb), X2_history(tb), clusters.values, N_clusters, FFT_pN, FFT_pN/2, FFT_df, tmp_real_buffer_N_max, DUET);
+		  apply_masks(*new_buffers, alpha(tb), X1_history(tb), X2_history(tb), masks, clusters.values, N_clusters, FFT_pN, FFT_pN/2, FFT_df, Xxo_plan, Xo, DUET);
 
 		  if (tb == tb0) // This generates the class assignments C.
 		    LDMB2C (Streams, active_streams, new_buffers, 
@@ -1132,6 +1183,11 @@ int main(int argc, char **argv)
 		  static Gnuplot px1;
 		  if (o.i("show_x1W"))
 		    px1.replot(x1(),FFT_N,"x1*W");
+		  if (o.i("reset_plots"))
+		    {
+		      palpha.reset();
+		      pdelta.reset();
+		    }
 		  palpha.plot(alpha_range(), (*chist_alpha.raw())(),hist_alpha.bins(), "alpha");
 		  pdelta.plot(delta_range(), (*chist_delta.raw())(),hist_delta.bins(), "delta");	  
 	  
@@ -1199,9 +1255,9 @@ int main(int argc, char **argv)
 	{
 	  old_buffers = bufs.read();
 	  new_buffers = bufs.next();
-	  build_masks(masks, alpha(t_block), delta(t_block), X1_history(t_block), X2_history(t_block), cumulative_clusters.values, N_clusters, FFT_pN, FFT_pN/2, FFT_df, tmp_real_buffer_N_max);
+	  build_masks(masks, alpha(t_block), delta(t_block), X1_history(t_block), X2_history(t_block), cumulative_clusters.values, N_clusters, FFT_pN, FFT_pN/2, FFT_df, tmp_real_buffer_N_max, DUET);
       
-	  apply_masks(*new_buffers, alpha(t_block), X1_history(t_block), X2_history(t_block), masks, cumulative_clusters.values, N_clusters, FFT_pN, FFT_pN/2, FFT_df, Xxo_plan, Xo);
+	  apply_masks(*new_buffers, alpha(t_block), X1_history(t_block), X2_history(t_block), masks, cumulative_clusters.values, N_clusters, FFT_pN, FFT_pN/2, FFT_df, Xxo_plan, Xo, DUET);
 
 	  write_data(wav_out, new_buffers, FFT_N, FFT_slide);	  // Explicitly use the initial region FFT_N and exclude the padding FFT_pN.
 	  //      swap(bufs_ptr, bufs_ptr2);

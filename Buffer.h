@@ -116,7 +116,7 @@ Buffer<T>::Buffer (size_t size, T default_value, void *(*custom_malloc)(size_t),
 
   //m = (T*)safe_malloc(size*sizeof(T)); 
   m = (T*) (*_custom_malloc)(size*sizeof(T));
-  Guarantee(m, "Couldn't allocate memory!"); // Better to check explicitly in case the user provides a custom allocator
+  Guarantee(m, "Couldn't allocate memory with %lu entries!", size); // Better to check explicitly in case the user provides a custom allocator
 
   for (size_t i = 0; i < size; ++i)
     m[i] = default_value;

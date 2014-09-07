@@ -9,7 +9,7 @@ enum class Status : std::int8_t { Unitialized, Active, Inactive, Dead }; // Can 
 class StreamSet // Non-thread-safe.
 {
  public:
- StreamSet(unsigned int streams, size_t data_len, size_t spectrum_magnitude_size) : _streams(streams), _data(streams, data_len, fftw_malloc, fftw_free), _spectrum(streams, spectrum_magnitude_size), _pos(streams,Point2D<real>()), _last_buf(streams), _last_cluster(streams), _first_active_time_block(streams), _last_active_time_block(streams), _active_blocks(streams), _status(streams, Status::Unitialized), _latest_id(streams) {};
+  StreamSet(unsigned int streams, size_t data_len, size_t spectrum_magnitude_size, unsigned int blocks);
 
   unsigned int streams() { return _streams; }
 
@@ -31,6 +31,7 @@ class StreamSet // Non-thread-safe.
   inline int           & last_cluster           (unsigned int id) { Assert(id, "Id=0"); return            _last_cluster[id-1]; }
   inline Point2D<real> & pos                    (unsigned int id) { Assert(id, "Id=0"); return                     _pos[id-1]; }
 
+  inline Buffer<Point2D<real> > *  trajectory(unsigned int id)     { Assert(id, "Id=0"); return _trajectory(id-1); }
 
   void add_buffer_at(unsigned int id, int cluster, Buffer<real> &buf, Buffer<real> &magnitude, unsigned int block, unsigned int block_size, Point2D<real> &cluster_pos);
 
@@ -50,9 +51,15 @@ class StreamSet // Non-thread-safe.
   Buffer <unsigned int>  _first_active_time_block, _last_active_time_block, _active_blocks;
   Buffer<Status>         _status;
 
+  Buffers<Point2D<real> > _trajectory;
+
  private:
   unsigned int _latest_id;
 };
+
+StreamSet::StreamSet(unsigned int streams, size_t data_len, size_t spectrum_magnitude_size, unsigned int blocks)
+: _streams(streams), _data(streams, data_len, fftw_malloc, fftw_free), _spectrum(streams, spectrum_magnitude_size), _pos(streams,Point2D<real>()), _last_buf(streams), _last_cluster(streams), _first_active_time_block(streams), _last_active_time_block(streams), _active_blocks(streams), _status(streams, Status::Unitialized), _trajectory(streams, blocks, Point2D<real>()), _latest_id(streams) 
+{}
 
 void StreamSet::clear(unsigned int id)
 {
@@ -64,6 +71,7 @@ void StreamSet::clear(unsigned int id)
   first_active_time_block(id) = 0; 
   last_active_time_block(id) = 0;
   active_blocks(id) = 0;
+  
 }
 
 void StreamSet::add_buffer_at(unsigned int id, int cluster, Buffer<real> &buf, Buffer<real> &magnitude, unsigned int block, unsigned int block_size, Point2D<real> &cluster_pos)
@@ -79,6 +87,8 @@ void StreamSet::add_buffer_at(unsigned int id, int cluster, Buffer<real> &buf, B
   active_blocks(id) += 1;
 
   pos(id) = cluster_pos;
+
+  (*trajectory(id))[block] = cluster_pos;
 };
 
 

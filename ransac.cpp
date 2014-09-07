@@ -635,8 +635,8 @@ real confidence(Histogram<real> &H, Buffer<real> &peaks_k, int K, real sigma)
   for (int k=0; k < K; ++k)
     {
       // Get the minimum and maximum bins for peak_k for integration (integration limits)
-      Guarantee(H.get_bin_index(peaks_k[k]-4.0*sigma, bin      ), "min_bin");
-      Guarantee(H.get_bin_index(peaks_k[k]+4.0*sigma, max_k_bin), "max_bin");
+      H.get_bin_index(peaks_k[k]-4.0*sigma, bin      );
+      H.get_bin_index(peaks_k[k]+4.0*sigma, max_k_bin);
 
       // If peak integration regions overlap do not integrate twice. Resume where we left peak k-1.
       if (bin <= prev_k_max_bin)
@@ -651,7 +651,47 @@ real confidence(Histogram<real> &H, Buffer<real> &peaks_k, int K, real sigma)
   return peaks_integral / H_integral;
 }
 
+void draw_trajectories(StreamSet &streams, unsigned int time_blocks, real slide_time, Gnuplot &pTalpha, Gnuplot &pTdelta, Gnuplot &pT)
+{
+  pTalpha.reset(); pTdelta.reset(); pT.reset();
 
+  pTalpha.set_labels("Localization step", "alpha");
+  pTdelta.set_labels("Localization step", "delta (s)");
+  pT     .set_labels("alpha"     , "delta");
+
+  Buffer<real> times(time_blocks), alphas(time_blocks), deltas(time_blocks);
+  times.fill_range(0, slide_time*(time_blocks-1));
+
+  for (int id=1; id <= HIGHEST_STREAM_ID; ++id)
+    {
+      unsigned int start  = streams.first_active_time_block(id);
+      unsigned int stop   = streams.last_active_time_block(id);
+      unsigned int blocks = stop - start;
+
+      if (blocks)
+	{
+	  Buffer<Point2D<real> > &path = *streams.trajectory(id);
+
+	  for (unsigned int tb = start; tb < stop; ++tb)
+	    {
+	      alphas[tb] = path[tb].x;
+	      deltas[tb] = path[tb].y;
+	    }
+  
+	  std::string title = std::to_string(id);
+
+	  pTalpha.plot(&times [start], &alphas[start], blocks, title.c_str());
+	  pTdelta.plot(&times [start], &deltas[start], blocks, title.c_str());
+	  pT     .plot(&alphas[start], &deltas[start], blocks, title.c_str());
+
+	  printf("Stream %d: alpha=[%g,%g] delta=[%g,%g]\n", id, 
+		 array_ops::min(&alphas[start],blocks),
+		 array_ops::max(&alphas[start],blocks),
+		 array_ops::min(&deltas[start],blocks),
+		 array_ops::max(&deltas[start],blocks));
+	}
+    }
+}
 
 /**
    Arguments: prgm [FFT_N] [x1_wav] [x2_wav]
@@ -691,7 +731,7 @@ int main(int argc, char **argv)
 
   int N_accum = o.i("N_accum_frames"); // how many frames should be accumulated.
 
-  int WAIT = o.i("wait");
+  //  int WAIT = o.i("wait");
 
   fftw_plan xX1_plan, xX2_plan, Xxo_plan;
   int FFT_flags;
@@ -818,7 +858,7 @@ int main(int argc, char **argv)
   DoubleLinkedList<Buffers<real>*> bufs;
   bufs.append(&bufs1); bufs.append(&bufs2); bufs.append(&bufs3);
   
-  StreamSet Streams(o.i("streams"), time_blocks*FFT_slide+(FFT_N-FFT_slide), FFT_pN/2);
+  StreamSet Streams(o.i("streams"), time_blocks*FFT_slide+(FFT_N-FFT_slide), FFT_pN/2, time_blocks);
   
 
 
@@ -951,28 +991,14 @@ int main(int argc, char **argv)
 
 	  if (offset_i < samples)
 	    {
-	      if (DUET.use_window)
-		{
-		  x1[i] = x1_wav[offset_i] * W[i];
-		  x2[i] = x2_wav[offset_i] * W[i]; 	
-		}
-	      else
-		{
-		  x1[i] = x1_wav[offset_i];
-		  x2[i] = x2_wav[offset_i];
-		}
+	      x1[i] = x1_wav[offset_i] * W[i];
+	      x2[i] = x2_wav[offset_i] * W[i]; 	
 	    }
 	  else // end of file: fill with zeros
 	    {
 	      x1[i] = 0;
 	      x2[i] = 0;
 	    }
-	}
-      for (idx i=FFT_N; i < FFT_pN; ++i)
-	{
-	  // Just to make sure the padding region is clean but should only need to be done once.
-	  x1[i] = 0;
-	  x2[i] = 0;
 	}
 
       fftw_execute(xX1_plan);
@@ -1084,7 +1110,8 @@ int main(int argc, char **argv)
 	  chist_delta += hist_delta;
 
 	  // Process the set of N_accumulation frames
-	  if ((! cc.value() && time_block >= N_accum) || (time_block == time_blocks-1)) 
+	  if ((! cc.value() && (time_block >= N_accum /*|| N_accum==1*/)) ||
+	      (time_block == time_blocks-1)) 
 	    {
 	      printf(GREEN "\t\t time_block (%lu+1)/%lu\n" NOCOLOR, time_block, time_blocks);
 
@@ -1193,7 +1220,7 @@ int main(int argc, char **argv)
 	  
 		  if (o.i("show_each_hist")>1)
 		    {
-		        // Write the clusters to the plot overlay
+		      // Write the clusters to the plot overlay
 		      std::ofstream clusters_dat;
 		      clusters_dat.open("s_duet.dat");
 		      for (idx i=0; i < N_clusters; ++i)
@@ -1343,7 +1370,13 @@ int main(int argc, char **argv)
 
   static Gnuplot pM1hist;
   pM1hist.plot((*M1hist.raw())(),FFT_pN/2,"M1 histogram");      
-  
+
+  if (! STATIC_REBUILD)
+    {
+      static Gnuplot pTalpha, pTdelta, pT;
+      draw_trajectories (Streams, time_blocks, Ts*FFT_slide, pTalpha, pTdelta, pT);
+    }
+
   std::ofstream hist_cfg;
   hist_cfg.open("h.cfg");
   hist_cfg << hist.ybins();

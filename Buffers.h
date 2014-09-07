@@ -11,6 +11,7 @@ class Buffers
 {
 public:
   Buffers(unsigned int buffers, size_t buffer_size, void * (*custom_alloc)(size_t) = malloc, void (*custom_free)(void *) = free);
+  Buffers(unsigned int buffers, size_t buffer_size, T init_value, void * (*custom_alloc)(size_t) = malloc, void (*custom_free)(void *) = free);
   Buffers(const Buffers<T> & copy);
   
   ~Buffers();
@@ -39,6 +40,7 @@ private:
   void  (*_custom_free)  (void *p);
 };
 
+
 template <class T> Buffers<T>::Buffers (unsigned int buffers, size_t buffer_size, void * (*custom_malloc)(size_t), void (*custom_free)(void *))
 : _pool_size(buffers), _buffer_size(buffer_size), _custom_malloc(custom_malloc), _custom_free(custom_free) 
 {
@@ -47,6 +49,17 @@ template <class T> Buffers<T>::Buffers (unsigned int buffers, size_t buffer_size
   for (unsigned int i = 0; i < _pool_size; ++i)
     _bufs[i] = new Buffer<T>(buffer_size, 0, custom_malloc, custom_free);
 }
+
+
+template <class T> Buffers<T>::Buffers (unsigned int buffers, size_t buffer_size, T init_value, void * (*custom_malloc)(size_t), void (*custom_free)(void *))
+: _pool_size(buffers), _buffer_size(buffer_size), _custom_malloc(custom_malloc), _custom_free(custom_free) 
+{
+  _bufs = (Buffer<T>**) malloc(sizeof(Buffer<T>*) * _pool_size);
+
+  for (unsigned int i = 0; i < _pool_size; ++i)
+    _bufs[i] = new Buffer<T>(buffer_size, init_value, custom_malloc, custom_free);
+}
+
 
 template <class T> Buffers<T>::Buffers (const Buffers<T> &copy)
 : _pool_size(copy._pool_size), _buffer_size(copy._buffer_size), _custom_malloc(copy._custom_malloc), _custom_free(copy._custom_free) 

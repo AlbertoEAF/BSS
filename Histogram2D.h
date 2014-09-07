@@ -209,14 +209,14 @@ int Histogram2D<T>::get_bin_index(T x, T y, size_t &bin_x_index, size_t &bin_y_i
   // add to the boundary bins if the coordinate goes beyond
       if (x < _xmin)
 	bin_x_index = 0;
-      else if (x > _xmax)
+      else if (x >= _xmax)
 	bin_x_index = _xbins-1;
       else
 	bin_x_index = (x - _xmin)/_dx;
 
       if (y < _ymin)
 	bin_y_index = 0;
-      else if (y > _ymax)
+      else if (y >= _ymax)
 	bin_y_index = _ybins-1;
       else
 	bin_y_index = (y - _ymin)/_dy;
@@ -225,7 +225,7 @@ int Histogram2D<T>::get_bin_index(T x, T y, size_t &bin_x_index, size_t &bin_y_i
     return 1;
   else
     {
-      if (x < _xmin || x > _xmax || y < _ymin || y > _ymax)
+      if (x < _xmin || x >= _xmax || y < _ymin || y >= _ymax)
 	{
 	  if (_bound_type == HistogramBounds::DiscardBeyondBound)
 	    return 0;

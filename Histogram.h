@@ -193,7 +193,7 @@ bool Histogram<T>::get_bin_index(double x, size_t &ibin)
   // add to the boundary bins if the coordinate goes beyond
       if (x < _min)
 	ibin = 0;
-      else if (x > _max)
+      else if (x >= _max)
 	ibin = _bins-1;
       else
 	ibin = (x - _min)/_dx;
@@ -202,7 +202,7 @@ bool Histogram<T>::get_bin_index(double x, size_t &ibin)
     return true;
   else
     {
-      if (x < _min || x > _max)
+      if (x < _min || x >= _max)
 	{
 	  if (_bound_type == HistogramBounds::DiscardBeyondBound)
 	    return false;

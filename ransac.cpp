@@ -693,6 +693,47 @@ void draw_trajectories(StreamSet &streams, unsigned int time_blocks, real slide_
     }
 }
 
+real local_confidence(Histogram2D<real> &H, Matrix<real> &kernel, Point2D<real> &pos)
+{
+  // Calculate the error from the Gaussian profile to the local histogram profile
+  real error = 0;
+  
+  size_t kx_bins = kernel.rows();
+  size_t ky_bins = kernel.cols();
+  size_t kcx_bin = kx_bins/2;
+  size_t kcy_bin = ky_bins/2;
+
+  size_t Hcx_bin, Hcy_bin;
+  H.get_bin_index(pos.x, pos.y, Hcx_bin, Hcy_bin);
+
+  real factor = H(pos.x, pos.y) / kernel(kcx_bin, kcy_bin);
+
+  // No need to sum the central bin as it has beem scaled to have 0 error.
+  for (size_t i=1; i <= kcx_bin; ++i)
+    for (size_t j=1; j <= kcy_bin; ++j)
+      {
+	real e1=0, e2=0, e3=0, e4=0;
+
+	// PERFORMANCE: TESTS CAN BE MERGED 
+
+	if (i<=Hcx_bin && j<= Hcy_bin)
+	  e1 = (H.bin(Hcx_bin-i,Hcy_bin-j) - factor * kernel(kcx_bin-i, kcy_bin-j)); // / (factor*kernel(kcx_bin-i,kcy_bin-j));
+
+	if (Hcx_bin+i<H.xbins())
+	  e2 = (H.bin(Hcx_bin+i,Hcy_bin-j) - factor * kernel(kcx_bin+i, kcy_bin-j));// / (factor*kernel(kcx_bin+i,kcy_bin-j));
+
+	if (i<=Hcx_bin && Hcy_bin+j<H.ybins())
+	  e3 = (H.bin(Hcx_bin-i,Hcy_bin+j) - factor * kernel(kcx_bin-i, kcy_bin+j));// / (factor*kernel(kcx_bin-i,kcy_bin+j));
+
+	if (Hcx_bin+i<H.xbins() && Hcy_bin+j<=H.ybins())
+	  e4 = (H.bin(Hcx_bin+i,Hcy_bin+j) - factor * kernel(kcx_bin+i, kcy_bin+j));// / (factor*kernel(kcx_bin+i,kcy_bin+j));
+
+	error += e1*e1 + e2*e2 + e3*e3 + e4*e4;
+      }
+
+  return 1/error;
+}
+
 /**
    Arguments: prgm [FFT_N] [x1_wav] [x2_wav]
 */
@@ -708,8 +749,8 @@ int main(int argc, char **argv)
      and capital letters for the frequency domain
   */	
 
-  Options _o("presets.cfg", Quit, 1); // Choose the preset file.
-  Options o (_o("preset").c_str(), Quit, 1); // True configuration file (preset)
+  Options _o("presets.cfg", Quit, 1);        // Choose the preset file.
+  Options o (_o("preset").c_str(), Quit, 1); // True configuration file (preset).
 
   DUETcfg _DUET; // Just to initialize, then a const DUET is initialized from this one.
 
@@ -1132,6 +1173,10 @@ int main(int argc, char **argv)
 	      cout << YELLOW << clusters << NOCOLOR;
 	      
 	      N_clusters = clusters.eff_size(DUET.noise_threshold); 
+
+	      puts(MAGENTA "Local confidences" NOCOLOR);
+	      for (int n=0; n < N_clusters; ++n)
+		printf(MAGENTA "%g\n" NOCOLOR, local_confidence(chist,conv_kernel,clusters.values[n]));
 
 	      static Histogram<real> alpha_level_pdf(100, HistogramBounds::Bounded);
 	      static Histogram<real> delta_level_pdf(100, HistogramBounds::Bounded);

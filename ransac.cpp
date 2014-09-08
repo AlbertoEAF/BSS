@@ -88,22 +88,6 @@ void DUET_hist_add_score(Histogram2D<real> &hist, Histogram<real> &hist_alpha, H
 
   real score = DUEThist_score(X1_re,X1_im, X2_re, X2_im, omega, DUET.p, DUET.q);
 	
-  /*
-    if (DUET.use_smoothing)
-    {
-    hist.smooth_add(score, alpha, delta, DUET.smoothing_Delta_alpha, DUET.smoothing_Delta_delta);
-
-    hist_alpha.smooth_add(score, alpha, DUET.smoothing_Delta_alpha);
-    hist_delta.smooth_add(score, delta, DUET.smoothing_Delta_delta);
-    }
-    else
-    {
-    hist(alpha, delta) += score;     
-
-    hist_alpha(alpha) += score;
-    hist_delta(delta) += score;
-    }
-  */
   hist(alpha, delta) += score;     
   hist_alpha(alpha)  += score;
   hist_delta(delta)  += score;
@@ -717,16 +701,16 @@ real local_confidence(Histogram2D<real> &H, Matrix<real> &kernel, Point2D<real> 
 	// PERFORMANCE: TESTS CAN BE MERGED 
 
 	if (i<=Hcx_bin && j<= Hcy_bin)
-	  e1 = (H.bin(Hcx_bin-i,Hcy_bin-j) - factor * kernel(kcx_bin-i, kcy_bin-j)); // / (factor*kernel(kcx_bin-i,kcy_bin-j));
+	  e1 = (H.bin(Hcx_bin-i,Hcy_bin-j) - factor * kernel(kcx_bin-i, kcy_bin-j));
 
 	if (Hcx_bin+i<H.xbins())
-	  e2 = (H.bin(Hcx_bin+i,Hcy_bin-j) - factor * kernel(kcx_bin+i, kcy_bin-j));// / (factor*kernel(kcx_bin+i,kcy_bin-j));
+	  e2 = (H.bin(Hcx_bin+i,Hcy_bin-j) - factor * kernel(kcx_bin+i, kcy_bin-j));
 
 	if (i<=Hcx_bin && Hcy_bin+j<H.ybins())
-	  e3 = (H.bin(Hcx_bin-i,Hcy_bin+j) - factor * kernel(kcx_bin-i, kcy_bin+j));// / (factor*kernel(kcx_bin-i,kcy_bin+j));
+	  e3 = (H.bin(Hcx_bin-i,Hcy_bin+j) - factor * kernel(kcx_bin-i, kcy_bin+j));
 
 	if (Hcx_bin+i<H.xbins() && Hcy_bin+j<=H.ybins())
-	  e4 = (H.bin(Hcx_bin+i,Hcy_bin+j) - factor * kernel(kcx_bin+i, kcy_bin+j));// / (factor*kernel(kcx_bin+i,kcy_bin+j));
+	  e4 = (H.bin(Hcx_bin+i,Hcy_bin+j) - factor * kernel(kcx_bin+i, kcy_bin+j));
 
 	error += e1*e1 + e2*e2 + e3*e3 + e4*e4;
       }

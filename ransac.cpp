@@ -718,6 +718,58 @@ real local_confidence(Histogram2D<real> &H, Matrix<real> &kernel, Point2D<real> 
   return 1/error;
 }
 
+void excess_kurtosis(real &kurtosis_x, real &kurtosis_y, Histogram2D<real> &H, Matrix<real> &kernel, real pos_x, real pos_y, const DUETcfg &DUET)
+{
+  int kcxbin = kernel.rows()/2;
+  int kcybin = kernel.cols()/2;
+
+  size_t cxbin, cybin;
+  H.get_bin_index(pos_x,pos_y, cxbin, cybin);
+
+  real mu4x=0, mu4y=0, mu2x=0, mu2y=0;
+
+  const real dx = H.dx(), dy = H.dy();
+  
+  // Add the centrum which is not added up in the loops.
+  real normalizationHx(H.bin(cxbin,cybin)), normalizationHy(normalizationHx);
+
+  // The center bin won't be summed. 
+  // Since the kernel is symmetric we run left (r) and right (r) terms inside the same loop iteration.
+  // Starts at the smoothing kernel edges. i= distance to centre of the smoothing kernel from the left
+  for (size_t i=kcxbin; i; --i)
+    {
+      real D = dx*i;
+
+      real Hl = ( cxbin>=i          ? H.bin(cxbin-i, cybin) : 0 );
+      real Hr = ( cxbin+i<H.xbins() ? H.bin(cxbin+i, cybin) : 0 );
+      real Hs = Hl + Hr;
+
+      mu4x += std::pow(D, 4) * Hs;
+
+      mu2x += D*D * Hs;
+      
+      normalizationHx += Hs;
+    }
+
+  for (size_t i=kcybin; i; --i)
+    {
+      real D = dy*i;
+
+      real Hl = ( cybin>=i           ? H.bin(cxbin, cybin-i) : 0 );
+      real Hr = ( cybin+i<=H.ybins() ? H.bin(cxbin, cybin+i) : 0 );
+      real Hs = Hl + Hr;
+
+      mu4y += std::pow(D, 4) * Hs;
+
+      mu2y += D*D * Hs;
+      
+      normalizationHy += Hs;
+    }
+
+  kurtosis_x = mu4x/(mu2x*mu2x) * normalizationHx - 3.0;
+  kurtosis_y = mu4y/(mu2y*mu2y) * normalizationHy - 3.0;  
+}
+
 /**
    Arguments: prgm [FFT_N] [x1_wav] [x2_wav]
 */
@@ -1160,7 +1212,19 @@ int main(int argc, char **argv)
 
 	      puts(MAGENTA "Local confidences" NOCOLOR);
 	      for (int n=0; n < N_clusters; ++n)
-		printf(MAGENTA "%g\n" NOCOLOR, local_confidence(chist,conv_kernel,clusters.values[n]));
+		{
+		  real kurtosis_x, kurtosis_y;
+
+		  Point2D<real> &pos = clusters.values[n];
+
+		  excess_kurtosis(kurtosis_x, kurtosis_y, chist, conv_kernel, pos.x, pos.y, DUET);
+
+		  printf(MAGENTA "%g %g      (%d %d)\n" NOCOLOR, kurtosis_x, kurtosis_y,
+			 std::abs(kurtosis_x)<0.2, std::abs(kurtosis_y)<0.2);
+		  
+
+		}
+
 
 	      static Histogram<real> alpha_level_pdf(100, HistogramBounds::Bounded);
 	      static Histogram<real> delta_level_pdf(100, HistogramBounds::Bounded);

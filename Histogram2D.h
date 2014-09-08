@@ -95,8 +95,8 @@ class Histogram2D
   void marginal_x(Buffer<T> &marginal);
   void marginal_y(Buffer<T> &marginal);
 
-  void fill_marginal_x(Histogram<T> &marginal);
-  void fill_marginal_y(Histogram<T> &marginal);
+  void marginal_x(Histogram<T> &marginal);
+  void marginal_y(Histogram<T> &marginal);
 
   void print_format() { printf(YELLOW "Histogram(%lu,%lu) : x=[%g,%g] y=[%g,%g] (dx,dy)=(%g,%g)\n" NOCOLOR,_xbins,_ybins,_xmin,_xmax,_ymin,_ymax,_dx,_dy); }
 
@@ -573,7 +573,7 @@ void Histogram2D<T>::marginal_x(Buffer<T> &marginal)
 }
 
 template <class T>
-void Histogram2D<T>::fill_marginal_x(Histogram<T> &marginal)
+void Histogram2D<T>::marginal_x(Histogram<T> &marginal)
 {
   Assert(marginal.bins() == _xbins, "Marginal_x size buffer doesn't match histogram marginal size.");
 
@@ -605,7 +605,7 @@ void Histogram2D<T>::marginal_y(Buffer<T> &marginal)
 }
 
 template <class T>
-void Histogram2D<T>::fill_marginal_y(Histogram<T> &marginal)
+void Histogram2D<T>::marginal_y(Histogram<T> &marginal)
 {
   Assert(marginal.bins() == _ybins, "Marginal_y size buffer doesn't match histogram marginal size.");
 

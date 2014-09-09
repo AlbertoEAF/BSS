@@ -731,7 +731,7 @@ void excess_kurtosis(real &kurtosis_x, real &kurtosis_y, Histogram2D<real> &H, M
   const real dx = H.dx(), dy = H.dy();
   
   // Add the centrum which is not added up in the loops.
-  real normalizationHx(H.bin(cxbin,cybin)), normalizationHy(normalizationHx);
+  real Hxsum(H.bin(cxbin,cybin)), Hysum(Hxsum);
 
   // The center bin won't be summed. 
   // Since the kernel is symmetric we run left (r) and right (r) terms inside the same loop iteration.
@@ -748,7 +748,7 @@ void excess_kurtosis(real &kurtosis_x, real &kurtosis_y, Histogram2D<real> &H, M
 
       mu2x += D*D * Hs;
       
-      normalizationHx += Hs;
+      Hxsum += Hs;
     }
 
   for (size_t i=kcybin; i; --i)
@@ -763,11 +763,71 @@ void excess_kurtosis(real &kurtosis_x, real &kurtosis_y, Histogram2D<real> &H, M
 
       mu2y += D*D * Hs;
       
-      normalizationHy += Hs;
+      Hysum += Hs;
     }
 
-  kurtosis_x = mu4x/(mu2x*mu2x) * normalizationHx - 3.0;
-  kurtosis_y = mu4y/(mu2y*mu2y) * normalizationHy - 3.0;  
+  kurtosis_x = mu4x/(mu2x*mu2x) * Hxsum - 3.0;
+  kurtosis_y = mu4y/(mu2y*mu2y) * Hysum - 3.0;  
+}
+
+
+void constrained_excess_kurtosis(real &kurtosis_x, real &kurtosis_y, Histogram2D<real> &H, Matrix<real> &kernel, real pos_x, real pos_y, const DUETcfg &DUET)
+{
+  int kcxbin = kernel.rows()/2;
+  int kcybin = kernel.cols()/2;
+
+  size_t cxbin, cybin;
+  H.get_bin_index(pos_x,pos_y, cxbin, cybin);
+
+  real mu4x=0, mu4y=0, mu2x=0, mu2y=0;
+
+  const real dx = H.dx(), dy = H.dy();
+  
+  // Normalization constants
+  // Add the centrum which is not added up in the loops.
+  real Hxsum(H.bin(cxbin,cybin)), Hysum(Hxsum);
+
+  // The center bin won't be summed. 
+  // Since the kernel is symmetric we run left (r) and right (r) terms inside the same loop iteration.
+  // Starts at the smoothing kernel edges. i= distance to centre of the smoothing kernel from the left
+  for (size_t i=kcxbin; i; --i)
+    {
+      real D = dx*i;
+
+      real Hl = ( cxbin>=i          ? H.bin(cxbin-i, cybin) : 0 );
+      real Hr = ( cxbin+i<H.xbins() ? H.bin(cxbin+i, cybin) : 0 );
+      real Hs = Hl + Hr;
+
+      mu4x += std::pow(D, 4) * Hs;
+
+      mu2x += D*D * Hs;
+      
+      Hxsum += Hs;
+    }
+
+  for (size_t i=kcybin; i; --i)
+    {
+      real D = dy*i;
+
+      real Hl = ( cybin>=i           ? H.bin(cxbin, cybin-i) : 0 );
+      real Hr = ( cybin+i<=H.ybins() ? H.bin(cxbin, cybin+i) : 0 );
+      real Hs = Hl + Hr;
+
+      mu4y += std::pow(D, 4) * Hs;
+
+      mu2y += D*D * Hs;
+      
+      Hysum += Hs;
+    }
+
+  
+
+  printf(CYAN "o%g e%g reo%g     o%g e%g reo%g\n" NOCOLOR, 
+	 DUET.sigma_alpha, mu2x/Hxsum, (mu2x/Hxsum)/DUET.sigma_alpha,
+	 DUET.sigma_delta, mu2y/Hysum, (mu2y/Hysum)/DUET.sigma_delta);
+
+  kurtosis_x = mu4x/(DUET.sigma_alpha*DUET.sigma_alpha) / Hxsum - 3.0;
+  kurtosis_y = mu4y/(DUET.sigma_delta*DUET.sigma_delta) / Hysum - 3.0;  
 }
 
 /**
@@ -1217,12 +1277,14 @@ int main(int argc, char **argv)
 
 		  Point2D<real> &pos = clusters.values[n];
 
-		  excess_kurtosis(kurtosis_x, kurtosis_y, chist, conv_kernel, pos.x, pos.y, DUET);
+		  excess_kurtosis(kurtosis_x, kurtosis_y, 
+				  chist, conv_kernel, 
+				  pos.x, pos.y, DUET);
 
-		  printf(MAGENTA "%g %g      (%d %d)\n" NOCOLOR, kurtosis_x, kurtosis_y,
-			 std::abs(kurtosis_x)<0.2, std::abs(kurtosis_y)<0.2);
-		  
-
+		  printf(MAGENTA "%g %g      (%d %d)\n" NOCOLOR, 
+			 kurtosis_x, kurtosis_y,
+			 std::abs(kurtosis_x)<o.f("alpha_kurtosis"), 
+			 std::abs(kurtosis_y)<o.f("delta_kurtosis"));
 		}
 
 

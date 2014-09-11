@@ -153,6 +153,24 @@ void calc_alpha_delta(idx time_block, idx pN, idx sample_rate_Hz,
 	  DUET_hist_add_score(hist, hist_alpha, hist_delta, _alpha, _delta, X1[f],X1[fI], X2[f],X2[fI], omega, DUET);
 	}
     }
+
+  static Gnuplot pa, pd;
+  static Buffer<real> f_range(pN);
+  for (int f=0; f < pN;++f)
+    f_range[f] = f*df;
+
+  pa.replot(&f_range[DUET.Fmin],&alpha(time_block)[DUET.Fmin],DUET.Fmax-DUET.Fmin,"alpha");
+  pd.replot(&f_range[DUET.Fmin],&delta(time_block)[DUET.Fmin],DUET.Fmax-DUET.Fmin,"delta");
+  static Gnuplot pM12;
+  static Buffer<real> M1(pN/2), M2(pN/2), M12(pN/2);
+
+  evenHC2magnitude(X1,M1);
+  evenHC2magnitude(X2,M2);
+  
+  for (int i=0; i < M12.size();++i)
+    M12[i] = M1[i]*M2[i];
+
+  pM12.replot(&f_range[DUET.Fmin],&M12[DUET.Fmin],DUET.Fmax-DUET.Fmin,"M1M2");
 }
 
 void ransac_test(idx time_block, idx pN, idx sample_rate_Hz,

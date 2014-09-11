@@ -67,7 +67,7 @@ class Histogram2D
   inline void reshape (size_t bins_x, size_t bins_y, double x_min, double x_max, double y_min, double y_max, HistogramBounds::Type bounds_type);
   inline void clear () { _m->clear(); }
 
-  int  get_bin_index (T x, T y, size_t &bin_x_index, size_t &bin_y_index);
+  bool get_bin_index  (T x, T y, size_t &bin_x_index, size_t &bin_y_index);
   void get_bin_center_(size_t binx, size_t biny, T *cx, T *cy);
   Point2D<double> get_bin_center(size_t binx, size_t biny); // Get the bin (i,j)'s center (x,y) coordinates
   Point2D<double> get_bin_center(Point2D<size_t> &bin_coords);
@@ -202,7 +202,7 @@ inline T & Histogram2D<T>::bin(size_t binx, size_t biny)
 
 
 template <class T>
-int Histogram2D<T>::get_bin_index(T x, T y, size_t &bin_x_index, size_t &bin_y_index)
+bool Histogram2D<T>::get_bin_index(T x, T y, size_t &bin_x_index, size_t &bin_y_index)
 {
   Assert ( ! std::isnan(x) && ! std::isnan(y), "NaN coordinate given (%f,%f) to Histogram2D(%lu,%lu)!", x,y, _xbins,_ybins);
 
@@ -222,18 +222,18 @@ int Histogram2D<T>::get_bin_index(T x, T y, size_t &bin_x_index, size_t &bin_y_i
 	bin_y_index = (y - _ymin)/_dy;
 
   if (_bound_type == HistogramBounds::Boundless) 
-    return 1;
+    return true;
   else
     {
       if (x < _xmin || x >= _xmax || y < _ymin || y >= _ymax)
 	{
 	  if (_bound_type == HistogramBounds::DiscardBeyondBound)
-	    return 0;
+	    return false;
 	  else
 	    Guarantee(0, "Out of bounds access (x,y)=(%f,%f) on Bounded Histogram2D(%lu,%lu)!",x,y,_xbins,_ybins);
 	}
       else
-	return 1;
+	return true;
     }
 }
 

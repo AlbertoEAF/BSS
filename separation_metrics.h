@@ -84,6 +84,9 @@ real Energy_ratio(const real *e, const real *o, idx samples)
  */
 void separation_stats(Buffers<real> &s, Buffers<real> &o, int N, idx samples)
 {
+  if (N == 0)
+    return;
+
   real dtotal;
   Buffer<real> dtotals(std::max<unsigned int>(N,o.buffers()), FLT_MAX); // Store the temporary Dtotal results to find the minimum (best candidate)
   IdList o2s(o.buffers()), s2o(N); // Indices of the estimated mixtures that already have the minimum distortion measure (match found) (maps)

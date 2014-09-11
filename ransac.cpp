@@ -153,24 +153,6 @@ void calc_alpha_delta(idx time_block, idx pN, idx sample_rate_Hz,
 	  DUET_hist_add_score(hist, hist_alpha, hist_delta, _alpha, _delta, X1[f],X1[fI], X2[f],X2[fI], omega, DUET);
 	}
     }
-
-  static Gnuplot pa, pd;
-  static Buffer<real> f_range(pN);
-  for (int f=0; f < pN;++f)
-    f_range[f] = f*df;
-
-  pa.replot(&f_range[DUET.Fmin],&alpha(time_block)[DUET.Fmin],DUET.Fmax-DUET.Fmin,"alpha");
-  pd.replot(&f_range[DUET.Fmin],&delta(time_block)[DUET.Fmin],DUET.Fmax-DUET.Fmin,"delta");
-  static Gnuplot pM12;
-  static Buffer<real> M1(pN/2), M2(pN/2), M12(pN/2);
-
-  evenHC2magnitude(X1,M1);
-  evenHC2magnitude(X2,M2);
-  
-  for (int i=0; i < M12.size();++i)
-    M12[i] = M1[i]*M2[i];
-
-  pM12.replot(&f_range[DUET.Fmin],&M12[DUET.Fmin],DUET.Fmax-DUET.Fmin,"M1M2");
 }
 
 void ransac_test(idx time_block, idx pN, idx sample_rate_Hz,
@@ -1205,13 +1187,6 @@ int main(int argc, char **argv)
       fftw_execute(xX1_plan);
       fftw_execute(xX2_plan);
       
-
-      evenHC2magnitude(FFT_pN, X1(),M1());
-      if (o.i("show_each_hist") && o.i("show_M1"))      
-	pM1.replot(f_axis(),M1(),FFT_pN/2,"M1");
-      for (idx f=0; f < FFT_pN/2; ++f)
-	M1hist(f) += M1[f];
-
       // Keep the record of X1 for all time for later audio reconstruction
       for (idx f = 0; f < FFT_pN; ++f)
 	{
@@ -1439,6 +1414,34 @@ int main(int argc, char **argv)
 		  palpha.plot(alpha_range(), (*chist_alpha.raw())(),hist_alpha.bins(), "alpha");
 		  pdelta.plot(delta_range(), (*chist_delta.raw())(),hist_delta.bins(), "delta");	  
 	  
+		  evenHC2magnitude(FFT_pN, X1(),M1());
+		  if (o.i("show_each_hist") && o.i("show_M1"))      
+		    pM1.replot(f_axis(),M1(),FFT_pN/2,"M1");
+		  for (idx f=0; f < FFT_pN/2; ++f)
+		    M1hist(f) += M1[f];
+
+
+		  static Gnuplot pa, pd;
+		  static Buffer<real> f_range(FFT_pN);
+		  for (int f=0; f < FFT_pN;++f)
+		    f_range[f] = f*FFT_df;
+
+		  pa.set_labels("f (Hz)", "alpha"); pd.set_labels("f (Hz)", "delta (s)");
+		  pa.replot(&f_range[DUET.Fmin],&alpha(time_block)[DUET.Fmin],DUET.Fmax-DUET.Fmin,"alpha");
+		  pd.replot(&f_range[DUET.Fmin],&delta(time_block)[DUET.Fmin],DUET.Fmax-DUET.Fmin,"delta");
+		  static Gnuplot pM12;
+		  static Buffer<real> M1(FFT_pN/2), M2(FFT_pN/2), M12(FFT_pN/2);
+
+		  evenHC2magnitude(X1,M1);
+		  evenHC2magnitude(X2,M2);
+  
+		  for (int i=0; i < M12.size();++i)
+		    M12[i] = M1[i]*M2[i];
+
+		  pM12.set_labels("f (Hz)", "M1*M2");
+		  pM12.replot(&f_range[DUET.Fmin],&M12[DUET.Fmin],DUET.Fmax-DUET.Fmin,"M1M2");
+
+
 		  if (o.i("show_each_hist")>1)
 		    {
 		      // Write the clusters to the plot overlay
@@ -1454,7 +1457,7 @@ int main(int argc, char **argv)
 		    }
 		  else
 		    if (o.i("hist_pause"))
-		      wait();
+		      wait();    
 		}
 
 	      if (render >= 0)

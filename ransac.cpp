@@ -736,13 +736,52 @@ real local_confidence(Histogram2D<real> &H, Matrix<real> &kernel, Point2D<real> 
   return 1/error;
 }
 
-void excess_kurtosis(real &kurtosis_x, real &kurtosis_y, Histogram2D<real> &H, Matrix<real> &kernel, real pos_x, real pos_y, const DUETcfg &DUET)
+bool excess_kurtosis(real &kurtosis, Histogram<real> &H, Buffer<real> &kernel, real pos)
+{
+  const int kcbin = kernel.size()/2;
+
+  size_t cbin;
+  if ( ! H.get_bin_index(pos, cbin) )
+    return false;
+
+  real mu4=0, mu2=0;
+
+  const real dx = H.dx();
+  
+  // Add the centrum which is not added up in the loops.
+  real Hsum = H.bin(cbin);
+
+  // The center bin won't be summed. 
+  // Since the kernel is symmetric we run left (r) and right (r) terms inside the same loop iteration.
+  // Starts at the smoothing kernel edges. i= distance to centre of the smoothing kernel from the left
+  for (size_t i=kcbin; i; --i)
+    {
+      real D = dx*i;
+
+      real Hl = ( cbin>=i         ? H.bin(cbin-i) : 0 );
+      real Hr = ( cbin+i<H.bins() ? H.bin(cbin+i) : 0 );
+      real Hs = Hl + Hr;
+
+      mu4 += std::pow(D, 4) * Hs;
+
+      mu2 += D*D * Hs;
+      
+      Hsum += Hs;
+    }
+
+  kurtosis = mu4/(mu2*mu2) * Hsum - 3.0;
+
+  return true;
+}
+
+bool excess_kurtosis(real &kurtosis_x, real &kurtosis_y, Histogram2D<real> &H, Matrix<real> &kernel, real pos_x, real pos_y, const DUETcfg &DUET)
 {
   int kcxbin = kernel.rows()/2;
   int kcybin = kernel.cols()/2;
 
   size_t cxbin, cybin;
-  H.get_bin_index(pos_x,pos_y, cxbin, cybin);
+  if ( ! H.get_bin_index(pos_x,pos_y, cxbin, cybin) )
+    return false;
 
   real mu4x=0, mu4y=0, mu2x=0, mu2y=0;
 
@@ -772,9 +811,9 @@ void excess_kurtosis(real &kurtosis_x, real &kurtosis_y, Histogram2D<real> &H, M
   for (size_t i=kcybin; i; --i)
     {
       real D = dy*i;
-
+      
       real Hl = ( cybin>=i           ? H.bin(cxbin, cybin-i) : 0 );
-      real Hr = ( cybin+i<=H.ybins() ? H.bin(cxbin, cybin+i) : 0 );
+      real Hr = ( cybin+i<H.ybins() ? H.bin(cxbin, cybin+i) : 0 );
       real Hs = Hl + Hr;
 
       mu4y += std::pow(D, 4) * Hs;
@@ -786,6 +825,8 @@ void excess_kurtosis(real &kurtosis_x, real &kurtosis_y, Histogram2D<real> &H, M
 
   kurtosis_x = mu4x/(mu2x*mu2x) * Hxsum - 3.0;
   kurtosis_y = mu4y/(mu2y*mu2y) * Hysum - 3.0;  
+
+  return true;
 }
 
 
@@ -1115,6 +1156,11 @@ int main(int argc, char **argv)
   puts("...DONE.");
   
 
+  if ( ! (smooth_alpha && smooth_delta) )
+    {
+      printf(RED "Smoothing too small for histogram size. ABORTING\n" NOCOLOR);
+      return 1;
+    }
 
   int N_clusters = 0;
 
@@ -1270,7 +1316,6 @@ int main(int argc, char **argv)
 		    chist.kernel_convolution(conv_kernel, conv_hist);
 		}
 
-
 	      heuristic_clustering2D(chist, clusters, DUET);
 	      heuristic_clustering(chist_alpha, alpha_clusters, DUET, DUET.min_peak_dalpha);
 	      heuristic_clustering(chist_delta, delta_clusters, DUET, DUET.min_peak_ddelta);
@@ -1286,6 +1331,7 @@ int main(int argc, char **argv)
 
 		  Point2D<real> &pos = clusters.values[n];
 
+		  // 1D kurtosis from 2D histogram.
 		  excess_kurtosis(kurtosis_x, kurtosis_y, 
 				  chist, conv_kernel, 
 				  pos.x, pos.y, DUET);
@@ -1294,6 +1340,17 @@ int main(int argc, char **argv)
 			 kurtosis_x, kurtosis_y,
 			 std::abs(kurtosis_x)<o.f("alpha_kurtosis"), 
 			 std::abs(kurtosis_y)<o.f("delta_kurtosis"));
+
+		  /*
+		  // 1D kurtosis from 1D histograms.
+		  excess_kurtosis(kurtosis_x, chist_alpha, conv_kernel_alpha, pos.x);
+		  excess_kurtosis(kurtosis_y, chist_delta, conv_kernel_delta, pos.y);
+
+		  printf(CYAN "%g %g      (%d %d)\n" NOCOLOR, 
+			 kurtosis_x, kurtosis_y,
+			 std::abs(kurtosis_x)<o.f("alpha_kurtosis"), 
+			 std::abs(kurtosis_y)<o.f("delta_kurtosis"));		  
+		  */
 		}
 
 

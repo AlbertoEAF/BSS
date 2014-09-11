@@ -1177,7 +1177,7 @@ int main(int argc, char **argv)
       hist_alpha.clear();
       hist_delta.clear();
       calc_alpha_delta(time_block, FFT_pN, sample_rate_Hz, X1, X2, alpha, delta, hist, hist_alpha, hist_delta, DUET);
-      
+
       //////////////////// MANUAL PEAK TESTING MODE //////////////////////
       if (o.i("test_peak_tracking"))
 	{
@@ -1205,17 +1205,7 @@ int main(int argc, char **argv)
 	    }
 	}
 
-      if (DUET.use_smoothing && ! STATIC_REBUILD && N_accum < 2)
-	{
-	  hist_alpha.kernel_convolution(conv_kernel_alpha, conv_hist_alpha);
-	  hist_delta.kernel_convolution(conv_kernel_delta, conv_hist_delta);
-
-	  if (DUET.use_smoothing_2D) // WARNING: VERY SLOW OPERATION
-	    hist.kernel_convolution(conv_kernel, conv_hist);
-	}
-
-      //ransac_test(time_block, FFT_pN, sample_rate_Hz, X1, X2, alpha, delta, hist, hist_alpha, hist_delta, DUET);
-      
+                  
       /*
 	static Histogram2D<real> prod_hist(hist), diff_hist(hist);
 
@@ -1251,6 +1241,7 @@ int main(int argc, char **argv)
       //old_hist = hist;
       cumulative_hist += hist;
 
+      //ransac_test(time_block, FFT_pN, sample_rate_Hz, X1, X2, alpha, delta, hist, hist_alpha, hist_delta, DUET);
 
       ///////// Apply masks and rebuild current frame to audio and add it to the appropriate outputs
       if (! STATIC_REBUILD)

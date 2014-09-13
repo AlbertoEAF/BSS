@@ -1,4 +1,4 @@
-function [SDR,SIR,SAR,perm] = bss_eval(Sepattern, Spattern)
+function [SDR,SIR,SAR,perm, SDRe,SIRe,SARe,perme] = bss_eval(Sepattern, Spattern)
 % Calcs bss_eval for a pattern of input filenames. It is not restricted to
 % Ne=N.
 
@@ -36,8 +36,7 @@ if estimated_samples ~= samples
     return;
 end
 
-% Consolidate the .wav irregularly-sized cells into matrices !!!SLOW!!!
-% (Copies one datapoint at a time.)
+% Consolidate the .wav irregularly-sized cells into matrices ( !!!SLOW!!! Copies one datapoint at a time. -> There's surely a better way)
 s  = zeros(N , samples);
 se = zeros(Ne, samples);
 
@@ -47,13 +46,13 @@ for n = 1:N
     end
 end
 
-for n = 1:N
+for n = 1:Ne
     for sample = 1:length(cells_se{n})
         se(n,sample) = cells_se{n}(sample);
     end
 end
 
-[SDR,SIR,SAR,perm] = bss_eval_sources_multi(se,s);
+[SDR,SIR,SAR,perm, SDRe,SIRe,SARe,perme] = bss_eval_sources_multi(se,s);
 
 
 end % eof

@@ -1,10 +1,17 @@
-function [SDR,SIR,SAR,perm]=bss_eval_sources_multi(se,s)
+function [SDR,SIR,SAR,perm, SDRe,SIRe,SARe,perme]=bss_eval_sources_multi(se,s)
 
-% Last modification in September 2014 by Alberto Ferreira.
+% This function was changed vs. bss_eval_sources.m to allow an arbitrary
+% number of rebuilt sources and degenerate solutions which means the 
+% assignment criteria was changed to the maximum SIR per source 
+% instead of the maximum combined SIR of the sources permutation solution.
 
-% Only this function was changed vs. bss_eval_sources. To allow arbitrary
-% number of rebuilt sources and degenerate solutions the assignment
-% criteria was changed to the minimal SIR.
+% The search is actually done in two ways.
+% The first is to find for each true source its best reconstruction.
+% The second is to find for each estimated source the true source that it 
+% most approximates. Respectively the search results are returned in:
+%  * SDR , SIR , SAR , perm  -- same as the bss_eval_sources.
+%  * SDRe, SIRe, SARe, perme -- values for the second search.
+
 
 % BSS_EVAL_SOURCES Ordering and measurement of the separation quality for
 % estimated source signals in terms of filtered true source, interference
@@ -28,7 +35,7 @@ function [SDR,SIR,SAR,perm]=bss_eval_sources_multi(se,s)
 % true source number j)
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% Copyright 2008 Emmanuel Vincent
+% Copyright September 2014 Alberto Ferreira, based on 2008 Emmanuel Vincent
 % This software is distributed under the terms of the GNU Public License
 % version 3 (http://www.gnu.org/licenses/gpl.txt)
 % If you find it useful, please cite the following reference:
@@ -40,8 +47,8 @@ function [SDR,SIR,SAR,perm]=bss_eval_sources_multi(se,s)
 
 %%% Errors %%%
 if nargin<2, error('Not enough input arguments.'); end
+[nsrc ,samples ]=size(s );
 [nsrce,samplese]=size(se);
-[nsrc,samples]=size(s);
 if nsrce==0, error('No estimated sources.'); end
 if samplese~=samples, error('The estimated sources and reference sources must have the same duration.'); end
 
@@ -50,43 +57,44 @@ if samplese~=samples, error('The estimated sources and reference sources must ha
 SDRm    = zeros(nsrce,nsrc);
 SIRm    = zeros(nsrce,nsrc);
 SARm    = zeros(nsrce,nsrc);
-Dtotalm = zeros(nsrce,nsrc);
 for jest=1:nsrce,
     for jtrue=1:nsrc,
         [s_true,e_spat,e_interf,e_artif]=bss_decomp_mtifilt(se(jest,:),s,jtrue,512);
         [SDRm(jest,jtrue),SIRm(jest,jtrue),SARm(jest,jtrue)]=bss_source_crit(s_true,e_spat,e_interf,e_artif);
-        Dtotalm(jest,jtrue) = Dtotal(se(jest,:), s(jtrue,:));
     end
 end
 
 
-% Select the closest true source for each estimated source (possible
-% degenerate solutions)
-perm = zeros(nsrce,1);
-SDR=zeros(nsrce,1);
-SIR=zeros(nsrce,1);
-SAR=zeros(nsrce,1);
+% Select the best true-estimated matches (possible degenerate solutions)
+perm  = zeros(nsrc, 1);
+SDR   = zeros(nsrc, 1);
+SIR   = zeros(nsrc, 1);
+SAR   = zeros(nsrc, 1);
 
-fprintf('bss_eval_sources_multi.m:');
-Dtotalm
+perme = zeros(nsrce,1);
+SDRe  = zeros(nsrce,1);
+SIRe  = zeros(nsrce,1);
+SARe  = zeros(nsrce,1);
 
-% From estimated to true sources. Not very reliable.
-%for ne = 1:nsrce
-%    [~,n] = min(Dtotalm(ne,:));
-%    perm(ne) = n;
-%    SDR(ne) = SDRm(ne,n);
-%    SIR(ne) = SIRm(ne,n);
-%    SAR(ne) = SARm(ne,n);
-%end
 
-% From true sources to estimated sources. More reliable.
+% Find the best matches for the true sources in the estimated sources.
 for i = 1:nsrc
-    [~,ne] = max(SIRm(:,i));
+    [~,ne]  = max(SIRm(:,i));
     perm(i) = ne;
-    SDR(i) = SDRm(ne,i);
-    SIR(i) = SIRm(ne,i);
-    SAR(i) = SARm(ne,i);
+    SDR (i) = SDRm(ne,i);
+    SIR (i) = SIRm(ne,i);
+    SAR (i) = SARm(ne,i);
 end
+
+% Find the best matches for the estimated sources in the true sources.
+for ne = 1:nsrce
+    [~,n]     = max(SIRm(ne,:));
+    perme(ne) = n;
+    SDRe (ne) = SDRm(ne,n);
+    SIRe (ne) = SIRm(ne,n);
+    SARe (ne) = SARm(ne,n);
+end
+
 
 return;
 

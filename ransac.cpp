@@ -8,6 +8,7 @@ int MERGED_STREAMS = 0;    // How many streams were merged (permanently deleted 
 //#define OLD_MASK_BUILD
 //#define OLD_PEAK_ASSIGN
 
+const int N_EXPORT_DIGITS = 5; // Number of digits to output in the output serial number.
 
 /// Returns the score for the DUET histogram based on the parameters p and q
 real DUEThist_score(real x1re, real x1im, real x2re, real x2im, real omega, real p, real q)
@@ -1510,7 +1511,8 @@ int main(int argc, char **argv)
       
 	  apply_masks(*new_buffers, alpha(t_block), X1_history(t_block), X2_history(t_block), masks, cumulative_clusters.values, N_clusters, FFT_pN, FFT_pN/2, FFT_df, Xxo_plan, Xo, DUET);
 
-	  write_data(wav_out, new_buffers, FFT_N, FFT_slide);	  // Explicitly use the initial region FFT_N and exclude the padding FFT_pN.
+	  // Explicitly use the initial region FFT_N and exclude the padding FFT_pN.
+	  write_data(wav_out, new_buffers, FFT_N, FFT_slide);	  
 	  //      swap(bufs_ptr, bufs_ptr2);
 	}		      
     }
@@ -1524,7 +1526,7 @@ int main(int argc, char **argv)
     {
       for (uint source = 0; source < wav_N; ++source)
 	{
-	  std::string wav_filepath("x"+itos(source)+"_rebuilt.wav");
+	  std::string wav_filepath("x"+itosNdigits(source,N_EXPORT_DIGITS)+"_rebuilt.wav");
 	  printf("%s...", wav_filepath.c_str());
 	  fflush(stdout);
 	  print_status( wav::write_mono(wav_filepath, wav_out.raw(source), samples, sample_rate_Hz) );
@@ -1547,7 +1549,7 @@ int main(int argc, char **argv)
 	  if (!Streams.active_blocks(stream_id))
 	    continue;
 
-	  std::string wav_filepath("xstream"+itos(stream_id)+"_rebuilt.wav");
+	  std::string wav_filepath("xstream"+itosNdigits(stream_id,N_EXPORT_DIGITS)+"_rebuilt.wav");
 	  printf("(active_blocks=%u) %s...", Streams.active_blocks(stream_id), wav_filepath.c_str());
 	  fflush(stdout);
 	  print_status( wav::write_mono(wav_filepath, (*Streams.stream(stream_id))(), samples, sample_rate_Hz,streams_max_abs) );
@@ -1563,23 +1565,29 @@ int main(int argc, char **argv)
       separation_stats(wav_out, original_waves_x1, wav_N, samples);
 
 
-
-
-
-      /*    
+          
       // Reopen the saved *.wav to compare Dtotal : Works as well!!!
-      Buffers<real> oo(wav_N, samples);
+      Buffers<real> out(wav_N, samples);
       for (int i = 0; i < wav_N; ++i)
 	{
-	  SndfileHandle wav_file("x"+std::to_string(i)+"_rebuilt.wav");
+	  SndfileHandle wav_file("x"+itosNdigits(i,N_EXPORT_DIGITS)+"_rebuilt.wav");
 	  if (! wav::ok (wav_file))
 	    return EXIT_FAILURE;
 	    
-	  wav_file.read(oo.raw(i), samples);
+	  wav_file.read(out.raw(i), samples);
 	}
-      separation_stats(oo, original_waves_x1, wav_N, samples);
-*/
+      separation_stats(out, original_waves_x1, wav_N, samples);
 
+      for (int i=0; i < original_waves_x1.buffers(); ++i)
+	{
+	  printf("%d Es=%g\n", i, original_waves_x1(i)->energy());
+	}
+      for (int i=0; i < wav_N; ++i)
+	{
+	  real g1 = array_ops::inner_product(out.raw(i), original_waves_x1.raw(0), samples);
+	  real g2 = array_ops::inner_product(out.raw(i), original_waves_x1.raw(1), samples);
+	  printf("%d Eexportedes=%g %g %g\n", i, out(i)->energy(), g1, g2);
+	}
 
 
 
@@ -1594,11 +1602,6 @@ int main(int argc, char **argv)
       separation_stats(streams_out, original_waves_x1, HIGHEST_STREAM_ID, samples);
     }
 
-
-    
-  
-
-  
 
   fftw_destroy_plan(xX1_plan); 
   fftw_destroy_plan(xX2_plan);

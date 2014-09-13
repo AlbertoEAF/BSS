@@ -1,0 +1,8 @@
+#! /bin/bash
+
+wd=`pwd`
+
+echo "\"cd('${wd}');fprintf('${@}');exit\""
+
+
+matlab -nojvm -nodesktop -nodisplay -nosplash -r "cd('${wd}');$@;exit"

@@ -28,7 +28,7 @@ real Dtotal(const real *e,  const real *o, idx samples)
   real O2 = array_ops::energy(o, samples);
   real E2 = array_ops::energy(e, samples);
 
-  real eo = std::abs(array_ops::inner_product(e, o, samples));
+  real eo = array_ops::inner_product(e, o, samples);
   real eo2 = eo*eo;
 
   real D = (E2*O2 - eo2) / eo2; // Takes into account the modulus of both signals
@@ -91,6 +91,7 @@ void separation_stats(Buffers<real> &s, Buffers<real> &o, int N, idx samples)
   Buffer<real> dtotals(std::max<unsigned int>(N,o.buffers()), FLT_MAX); // Store the temporary Dtotal results to find the minimum (best candidate)
   IdList o2s(o.buffers()), s2o(N); // Indices of the estimated mixtures that already have the minimum distortion measure (match found) (maps)
 
+  // Look now for the pair from each true source to the closest of the estimates.
   dtotals.clear();
   int unmixed_results = 0;
   for (int i_o = 0; i_o < o.buffers(); ++i_o)
@@ -115,7 +116,7 @@ void separation_stats(Buffers<real> &s, Buffers<real> &o, int N, idx samples)
   if (unmixed_results) 
     printf(RED "%d Unmixed outputs.\n" NOCOLOR, unmixed_results);
 
-
+  // Now look the other way around, from each estimate to the closest true source to it.
   dtotals.clear();
   unmixed_results = 0;
   for (int i_s = 0; i_s < N; ++i_s)

@@ -969,7 +969,7 @@ int main(int argc, char **argv)
   Buffers<real> original_waves_x1(N, samples);
   for (int i = 0; i < N; ++i)
     {
-      SndfileHandle wav_file("sounds/"+std::to_string(i)+"x0.wav");
+      SndfileHandle wav_file("sounds/s"+std::to_string(i)+"x0.wav");
       if (! wav::ok (wav_file))
 	return EXIT_FAILURE;
 
@@ -1159,10 +1159,7 @@ int main(int argc, char **argv)
     puts("Calculating histograms...");      
     
   
-  static Gnuplot pM1;
-  pM1.set_xlabel("f (Hz)");
-  static Buffer<real> M1(FFT_pN/2);
-  static Histogram<real> M1hist(1,0,FFT_pN/2,HistogramBounds::Bounded);
+
 
   for (idx time_block = 0; time_block < time_blocks; ++time_block)
     {
@@ -1414,33 +1411,37 @@ int main(int argc, char **argv)
 		  palpha.plot(alpha_range(), (*chist_alpha.raw())(),hist_alpha.bins(), "alpha");
 		  pdelta.plot(delta_range(), (*chist_delta.raw())(),hist_delta.bins(), "delta");	  
 	  
-		  evenHC2magnitude(FFT_pN, X1(),M1());
-		  if (o.i("show_each_hist") && o.i("show_M1"))      
-		    pM1.replot(f_axis(),M1(),FFT_pN/2,"M1");
-		  for (idx f=0; f < FFT_pN/2; ++f)
-		    M1hist(f) += M1[f];
-
 
 		  static Gnuplot pa, pd;
 		  static Buffer<real> f_range(FFT_pN);
 		  for (int f=0; f < FFT_pN;++f)
 		    f_range[f] = f*FFT_df;
 
-		  pa.set_labels("f (Hz)", "alpha"); pd.set_labels("f (Hz)", "delta (s)");
-		  pa.replot(&f_range[DUET.Fmin],&alpha(time_block)[DUET.Fmin],DUET.Fmax-DUET.Fmin,"alpha");
-		  pd.replot(&f_range[DUET.Fmin],&delta(time_block)[DUET.Fmin],DUET.Fmax-DUET.Fmin,"delta");
-		  static Gnuplot pM12;
-		  static Buffer<real> M1(FFT_pN/2), M2(FFT_pN/2), M12(FFT_pN/2);
+		  if (o.i("show_alpha_delta_f"))
+		    {
+		      pa.set_labels("f (Hz)", "alpha"); pd.set_labels("f (Hz)", "delta (s)");
+		      pa.replot(&f_range[DUET.Fmin],&alpha(time_block)[DUET.Fmin],DUET.Fmax-DUET.Fmin,"alpha");
+		      pd.replot(&f_range[DUET.Fmin],&delta(time_block)[DUET.Fmin],DUET.Fmax-DUET.Fmin,"delta");
+		    }
 
-		  evenHC2magnitude(X1,M1);
-		  evenHC2magnitude(X2,M2);
-  
-		  for (int i=0; i < M12.size();++i)
-		    M12[i] = M1[i]*M2[i];
 
-		  pM12.set_labels("f (Hz)", "M1*M2");
-		  pM12.replot(&f_range[DUET.Fmin],&M12[DUET.Fmin],DUET.Fmax-DUET.Fmin,"M1M2");
+		  if (o.i("show_M"))      
+		    {
+		      static Gnuplot pM1, pM12;
+		      pM1.set_xlabel("f (Hz)");
+		      static Buffer<real> M1(FFT_pN/2), M2(FFT_pN/2), M12(FFT_pN/2);
 
+		      evenHC2magnitude(X1,M1);
+		      evenHC2magnitude(X2,M2);
+
+		      pM1.replot(f_axis(),M1(),FFT_pN/2,"M1");
+
+		      for (int i=0; i < M12.size();++i)
+			M12[i] = M1[i]*M2[i];
+
+		      pM12.set_labels("f (Hz)", "M1*M2");
+		      pM12.replot(&f_range[DUET.Fmin],&M12[DUET.Fmin],DUET.Fmax-DUET.Fmin,"M1M2");
+		    }
 
 		  if (o.i("show_each_hist")>1)
 		    {
@@ -1450,7 +1451,6 @@ int main(int argc, char **argv)
 		      for (idx i=0; i < N_clusters; ++i)
 			clusters_dat << clusters.values[i].x << " " << clusters.values[i].y << " 0\n\n";
 		      clusters_dat.close();
-
 
 		      chist.write_to_gnuplot_pm3d_data("chist.dat");
 		      RENDER_HIST("chist.dat", "Hist", o.i("hist_pause")); 
@@ -1592,8 +1592,6 @@ int main(int argc, char **argv)
 
   // Final 2D Histogram with overlays.
 
-  static Gnuplot pM1hist;
-  pM1hist.plot((*M1hist.raw())(),FFT_pN/2,"M1 histogram");      
 
   if (! STATIC_REBUILD)
     {

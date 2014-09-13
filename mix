@@ -14,8 +14,8 @@ echo $# > simulation.log
 i=0
 for file in "$@"
 do
-    sox "${input_folder}${file}" "${output_folder}/${i}x0.wav" remix 1
-    sox "${input_folder}${file}" "${output_folder}/${i}x1.wav" remix 2
+    sox "${input_folder}${file}" "${output_folder}/s${i}x0.wav" remix 1
+    sox "${input_folder}${file}" "${output_folder}/s${i}x1.wav" remix 2
     i=$((i+1))
     # Write alpha,delta per source but we don't know that yet
     echo "0 0" >> simulation.log
@@ -25,14 +25,11 @@ cd "${output_folder}"
 
 if [[ $# > 1 ]]
 then
-    sox -m `ls *x0.wav` .x0.wav
-    sox -m `ls *x1.wav` .x1.wav
-
-    mv .x0.wav x0.wav
-    mv .x1.wav x1.wav
+    sox -m `ls s*x0.wav` x0.wav
+    sox -m `ls s*x1.wav` x1.wav
 else
-    cp 0x0.wav x0.wav 
-    cp 0x1.wav x1.wav 
+    cp s0x0.wav x0.wav 
+    cp s0x1.wav x1.wav 
 fi
 
 

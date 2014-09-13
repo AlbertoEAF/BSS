@@ -295,6 +295,7 @@ int main()
    }
 */
 
+    system( ("rm -rf " + output_folder + "/*").c_str() );
 
     puts("");
     Matrix<real> out(M,samples);
@@ -311,7 +312,7 @@ int main()
 	    //            write_mono_wav (output_folder+std::to_string(n)+"x"+std::to_string(m), out(), samples, sample_rate_Hz);
         }
 
-	wav::write(output_folder+std::to_string(n)+"x", out, sample_rate_Hz,1);
+	wav::write(output_folder+"s"+std::to_string(n)+"x", out, sample_rate_Hz,1);
     }
     
 

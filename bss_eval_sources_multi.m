@@ -40,8 +40,8 @@ function [SDR,SIR,SAR,perm]=bss_eval_sources_multi(se,s)
 
 %%% Errors %%%
 if nargin<2, error('Not enough input arguments.'); end
-[nsrc,samples]=size(se);
-[nsrce,samplese]=size(s);
+[nsrce,samplese]=size(se);
+[nsrc,samples]=size(s);
 if nsrce==0, error('No estimated sources.'); end
 if samplese~=samples, error('The estimated sources and reference sources must have the same duration.'); end
 
@@ -50,10 +50,12 @@ if samplese~=samples, error('The estimated sources and reference sources must ha
 SDRm=zeros(nsrce,nsrc);
 SIRm=zeros(nsrce,nsrc);
 SARm=zeros(nsrce,nsrc);
+Dtotalm = zeros(nsrce,nsrc);
 for jest=1:nsrce,
     for jtrue=1:nsrc,
         [s_true,e_spat,e_interf,e_artif]=bss_decomp_mtifilt(se(jest,:),s,jtrue,512);
         [SDRm(jest,jtrue),SIRm(jest,jtrue),SARm(jest,jtrue)]=bss_source_crit(s_true,e_spat,e_interf,e_artif);
+        Dtotalm(jest,jtrue) = Dtotal(se(jest,:), s(jtrue,:));
     end
 end
 
@@ -65,8 +67,13 @@ SDR=zeros(nsrce,1);
 SIR=zeros(nsrce,1);
 SAR=zeros(nsrce,1);
 
+SDRm
+SIRm
+SARm
+Dtotalm
+
 for ne = 1:nsrce
-    [~,n] = max(SIRm(ne,:));
+    [~,n] = min(Dtotalm(ne,:));
     perm(ne) = n;
     SDR(ne) = SDRm(ne,n);
     SIR(ne) = SIRm(ne,n);
@@ -76,6 +83,16 @@ end
 return;
 
 
+function [dtotal] = Dtotal(e, s)
+
+Ee  = dot(e,e);
+Es  = dot(s,s);
+es  = dot(e,s);
+es2 = es*es   ;
+    
+dtotal = ( Ee*Es - es2 ) / es2;
+    
+return;
 
 function [s_true,e_spat,e_interf,e_artif]=bss_decomp_mtifilt(se,s,j,flen)
 

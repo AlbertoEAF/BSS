@@ -47,9 +47,9 @@ if samplese~=samples, error('The estimated sources and reference sources must ha
 
 %%% Performance criteria %%%
 % Computation of the criteria for all possible pair matches (Xm===X matrix)
-SDRm=zeros(nsrce,nsrc);
-SIRm=zeros(nsrce,nsrc);
-SARm=zeros(nsrce,nsrc);
+SDRm    = zeros(nsrce,nsrc);
+SIRm    = zeros(nsrce,nsrc);
+SARm    = zeros(nsrce,nsrc);
 Dtotalm = zeros(nsrce,nsrc);
 for jest=1:nsrce,
     for jtrue=1:nsrc,
@@ -67,17 +67,25 @@ SDR=zeros(nsrce,1);
 SIR=zeros(nsrce,1);
 SAR=zeros(nsrce,1);
 
-SDRm
-SIRm
-SARm
+fprintf('bss_eval_sources_multi.m:');
 Dtotalm
 
-for ne = 1:nsrce
-    [~,n] = min(Dtotalm(ne,:));
-    perm(ne) = n;
-    SDR(ne) = SDRm(ne,n);
-    SIR(ne) = SIRm(ne,n);
-    SAR(ne) = SARm(ne,n);
+% From estimated to true sources. Not very reliable.
+%for ne = 1:nsrce
+%    [~,n] = min(Dtotalm(ne,:));
+%    perm(ne) = n;
+%    SDR(ne) = SDRm(ne,n);
+%    SIR(ne) = SIRm(ne,n);
+%    SAR(ne) = SARm(ne,n);
+%end
+
+% From true sources to estimated sources. More reliable.
+for i = 1:nsrc
+    [~,ne] = max(SIRm(:,i));
+    perm(i) = ne;
+    SDR(i) = SDRm(ne,i);
+    SIR(i) = SIRm(ne,i);
+    SAR(i) = SARm(ne,i);
 end
 
 return;

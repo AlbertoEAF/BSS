@@ -1563,34 +1563,6 @@ int main(int argc, char **argv)
     {
       puts("\nStatic Separation:");
       separation_stats(wav_out, original_waves_x1, wav_N, samples);
-
-
-          
-      // Reopen the saved *.wav to compare Dtotal : Works as well!!!
-      Buffers<real> out(wav_N, samples);
-      for (int i = 0; i < wav_N; ++i)
-	{
-	  SndfileHandle wav_file("x"+itosNdigits(i,N_EXPORT_DIGITS)+"_rebuilt.wav");
-	  if (! wav::ok (wav_file))
-	    return EXIT_FAILURE;
-	    
-	  wav_file.read(out.raw(i), samples);
-	}
-      separation_stats(out, original_waves_x1, wav_N, samples);
-
-      for (int i=0; i < original_waves_x1.buffers(); ++i)
-	{
-	  printf("%d Es=%g\n", i, original_waves_x1(i)->energy());
-	}
-      for (int i=0; i < wav_N; ++i)
-	{
-	  real g1 = array_ops::inner_product(out.raw(i), original_waves_x1.raw(0), samples);
-	  real g2 = array_ops::inner_product(out.raw(i), original_waves_x1.raw(1), samples);
-	  printf("%d Eexportedes=%g %g %g\n", i, out(i)->energy(), g1, g2);
-	}
-
-
-
     }
   else
     {

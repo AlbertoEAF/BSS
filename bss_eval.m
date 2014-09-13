@@ -1,7 +1,8 @@
-function [SDR,SIR,SAR,perm, SDRe,SIRe,SARe,perme] = bss_eval(Sepattern, Spattern)
-% Calcs bss_eval for a pattern of input filenames. It is not restricted to
-% Ne=N.
+function [SDR,SIR,SAR,perm, SDRe,SIRe,SARe,perme] = bss_eval(Sepattern, Spattern, print)
+% Frontend utility to call bss_eval_source(_multi) from a pattern of
+% filepaths. Since it uses bss_eval_source_multi Ne and N needn't be equal.
 
+if nargin < 3, print = 0; end
 clc();
 
 Sfiles  = dir(Spattern);
@@ -11,7 +12,7 @@ N  = length(Sfiles);
 Ne = length(Sefiles);
 
 if (N==0 || Ne==0)
-    error('No sources or estimated sources found.');
+    error('Either true or estimated sources were not found in the filesystem.');
 end
 
 % Real all the .wav files
@@ -54,11 +55,30 @@ end
 
 [SDR,SIR,SAR,perm, SDRe,SIRe,SARe,perme] = bss_eval_sources_multi(se,s);
 
+if print
+    % Print the best match for each true source.
+    print_bss_eval_stats(SDR , SIR , SAR , perm );
+    % Print the best match for each estimated source.
+    print_bss_eval_stats(SDRe, SIRe, SARe, perme);
+end
 
 end % eof
 
 
 
+function print_bss_eval_stats(SDR,SIR,SAR,perm)
+% Prints the bss_eval results in a table ready for latex.
 
+N = length(SDR);
+
+fprintf('\ns\t&\tSDR (dB)\t&\tSIR (dB)\t&\tSAR (dB)  \\\\\n');
+for n = 1:N
+    fprintf('%d\t&\t%.3f\t\t&\t%.3f\t\t&\t%.3f\t  \\\\\n', perm(n), SDR(n), SIR(n), SAR(n));
+end
+
+
+fprintf('\n\n');
+
+end
 
 

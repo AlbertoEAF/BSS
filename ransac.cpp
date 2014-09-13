@@ -17,7 +17,8 @@ real DUEThist_score(real x1re, real x1im, real x2re, real x2im, real omega, real
 
   s_abs = abs(s_re,s_im);
 
-  return std::pow(s_abs,p)*std::pow(omega,q); // The tables of the powers of omega could be reused.
+  // PERFORMANCE: The tables of the powers of omega could be reused.
+  return std::pow(s_abs,p)*std::pow(omega,q); 
 }
 
 /** Taken from bessel.c, also distributed in this folder. Calculates the modified Bessel function I0. */
@@ -73,7 +74,6 @@ void RANSAC (Buffer<real> &theta, Buffer<real> &x, int K, int RANSAC_samples_per
 
 void DUET_hist_add_score(Histogram2D<real> &hist, Histogram<real> &hist_alpha, Histogram<real> &hist_delta, real alpha, real delta, real X1_re, real X1_im, real X2_re, real X2_im, real omega, const DUETcfg &DUET)
 {
-
   if (std::isnan(alpha))
     {
       // This test can be taken out in the final system supposedly because it won't be padded with 0's, instead there will always be noise in the signal, and whatever the noise is it will produce frequencies. The thesis on the circular duet talks about this, that the window should have at least the size of the biggest consecutive chain of 0's possible to appear in the data ( so this doesn't happen ).
@@ -1561,6 +1561,28 @@ int main(int argc, char **argv)
     {
       puts("\nStatic Separation:");
       separation_stats(wav_out, original_waves_x1, wav_N, samples);
+
+
+
+
+
+      /*    
+      // Reopen the saved *.wav to compare Dtotal : Works as well!!!
+      Buffers<real> oo(wav_N, samples);
+      for (int i = 0; i < wav_N; ++i)
+	{
+	  SndfileHandle wav_file("x"+std::to_string(i)+"_rebuilt.wav");
+	  if (! wav::ok (wav_file))
+	    return EXIT_FAILURE;
+	    
+	  wav_file.read(oo.raw(i), samples);
+	}
+      separation_stats(oo, original_waves_x1, wav_N, samples);
+*/
+
+
+
+
     }
   else
     {
@@ -1571,6 +1593,11 @@ int main(int argc, char **argv)
 	(*streams_out(s_id-1)).copy(*Streams.stream(s_id), samples);
       separation_stats(streams_out, original_waves_x1, HIGHEST_STREAM_ID, samples);
     }
+
+
+    
+  
+
   
 
   fftw_destroy_plan(xX1_plan); 

@@ -49,6 +49,21 @@ real weakerHamming(idx n, idx N)
 
   return alpha - beta*std::cos(_2Pi*n/(N-1.0));
 }
+real lowweakerHamming(idx n, idx N) 
+{ 
+  static const real alpha = 25.0/46.0 - 0.2; 
+  static const real beta  = 21.0/46.0 - 0.2;
+
+  return alpha - beta*std::cos(_2Pi*n/(N-1.0));
+}
+real midweakerHamming(idx n, idx N) 
+{ 
+  static const real alpha = 25.0/46.0 - 0.1; 
+  static const real beta  = 21.0/46.0 - 0.2;
+
+  return alpha - beta*std::cos(_2Pi*n/(N-1.0));
+}
+
 real HammingEquiripple(idx n, idx N) 
 { 
   return 0.53836 - 0.46164*std::cos(_2Pi*n/(N-1.0));
@@ -115,6 +130,12 @@ void select_window(const std::string &window, Buffer<real> &W)
 
   else if (window == "weakerHamming")
     build_window(W,weakerHamming);      
+
+  else if (window == "midweakerHamming")
+    build_window(W,midweakerHamming);      
+
+  else if (window == "lowweakerHamming")
+    build_window(W,lowweakerHamming);      
 
   else if (window == "Hamming2digits")
     build_window(W,Hamming2digits);      

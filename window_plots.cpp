@@ -52,8 +52,8 @@ int main(int argc, char **argv)
   static Gnuplot Rplot; // Ratio=Emin/Emax plot
 
 
-  Wplot.set_labels("i", "W[i]");
-  Rplot.set_labels("FFT_slide", "R (Emin/Emax)");
+  Wplot.set_labels("i (samples)", "W[i]");
+  Rplot.set_labels("FFT_slide (samples)", "R (Emin/Emax)");
   
 
   build_window(W,Hann);
@@ -81,6 +81,16 @@ int main(int argc, char **argv)
   Wplot.plot(W(),W.size(),"weakerHamming");
   calcR(W,R);
   Rplot.plot(R(),R.size(),"weakerHamming");
+
+  build_window(W,midweakerHamming);
+  Wplot.plot(W(),W.size(),"midweakerHamming");
+  calcR(W,R);
+  Rplot.plot(R(),R.size(),"midweakerHamming");
+
+  build_window(W,lowweakerHamming);
+  Wplot.plot(W(),W.size(),"lowweakerHamming");
+  calcR(W,R);
+  Rplot.plot(R(),R.size(),"lowweakerHamming");
 
   build_window(W,Hamming0);
   Wplot.plot(W(),W.size(),"Hamming0");

@@ -82,10 +82,10 @@ real Energy_ratio(const real *e, const real *o, idx samples)
 
 /** Provides the separation stats of the mixtures.   
  */
-void separation_stats(Buffers<real> &s, Buffers<real> &o, int N, idx samples)
+int separation_stats(Buffers<real> &s, Buffers<real> &o, int N, idx samples)
 {
   if (N == 0)
-    return;
+    return -1;
 
   real dtotal;
   Buffer<real> dtotals(std::max<unsigned int>(N,o.buffers()), FLT_MAX); // Store the temporary Dtotal results to find the minimum (best candidate)
@@ -140,6 +140,7 @@ void separation_stats(Buffers<real> &s, Buffers<real> &o, int N, idx samples)
   if (unmixed_results) 
     printf(RED "%d Unmixed outputs.\n" NOCOLOR, unmixed_results);
 
+  return unmixed_results;
 }
 
 

@@ -887,8 +887,23 @@ int main(int argc, char **argv)
      and capital letters for the frequency domain
   */	
 
-  Options _o("presets.cfg", Quit, 1);        // Choose the preset file.
-  Options o (_o("preset").c_str(), Quit, 1); // True configuration file (preset).
+  OptionParser *opt = new OptionParser();
+
+  opt->setFlag('l');
+  opt->setFlag("help",'h');
+  opt->setOption("x1");
+  opt->setOption("x2");
+  opt->setOption("FFT_N");
+  opt->setOption("window",'w');
+
+  int arg0 = opt->parse(argc,argv);
+  if (arg0 == argc || opt->getFlag("help"))
+    {
+      printf("Usage:\n\tPrgm [-x1 x] [-x2 x] [-FFT_N N] [-FFT_slide s] [-w/--window type] file.duet\n\n");
+      exit(1);
+    }
+ 
+  Options o(argv[arg0], Quit, 0);
 
   DUETcfg _DUET; // Just to initialize, then a const DUET is initialized from this one.
 
@@ -920,8 +935,10 @@ int main(int argc, char **argv)
   Buffer<real> tmp_real_buffer_N_max(N_max); // For calculations in sub-functions but we must allocate the space already
 
   // Choose mic input files
-  std::string x1_filepath = (argc == 4 ? argv[2] : o("x1_wav"));
-  std::string x2_filepath = (argc == 4 ? argv[3] : o("x2_wav"));
+  std::string x1_filepath = (opt->Option("x1") ? opt->getOption("x1") : o("x1_wav"));
+  std::string x2_filepath = (opt->Option("x1") ? opt->getOption("x1") : o("x2_wav"));
+
+
 
   // simulation (true) centroids 
   real true_alpha[N_max];
@@ -983,7 +1000,8 @@ int main(int argc, char **argv)
 	 "Max idx: %ld\n", INT_MAX, LONG_MAX);
   printf("Indexing usage: %.2f%%\n\n", 0.01*(float)x1_file.frames()/(float)LONG_MAX);
 	
-  const idx FFT_N = (argc > 1 ? (idx)strtol(argv[1], NULL, 10) : o.i("FFT_N"));
+  const idx FFT_N = (opt->Option("FFT_N") ? 
+		     (idx)strtol(opt->getOption("FFT_N").c_str(), NULL, 10) : o.i("FFT_N"));
   _DUET.FFT_N = FFT_N;
   Guarantee0(FFT_N % 2, "System implemented for FFTs with even size.");
  
@@ -1149,7 +1167,10 @@ int main(int argc, char **argv)
 
   
   Buffer<real> W(FFT_N);
-  select_window(o("window"), W);
+  if (opt->Option("window"))
+    select_window(opt->getOption("window"), W);
+  else
+    select_window(o("window"), W);
 
   if (render >= 0)
     {
@@ -1559,10 +1580,11 @@ int main(int argc, char **argv)
   puts("");
   for (int n=0; n < original_waves_x1.buffers(); ++n)
     printf(GREEN "o%d : SNR = %gdB\n" NOCOLOR, n,SNR(x1_wav(),original_waves_x1.raw(n),samples));
+  int degenerate_count; // How many outputs are degenerate
   if (STATIC_REBUILD)
     {
       puts("\nStatic Separation:");
-      separation_stats(wav_out, original_waves_x1, wav_N, samples);
+      degenerate_count = separation_stats(wav_out, original_waves_x1, wav_N, samples);
     }
   else
     {
@@ -1571,7 +1593,7 @@ int main(int argc, char **argv)
       Buffers<real> streams_out(HIGHEST_STREAM_ID, samples, fftw_malloc, fftw_free);
       for (int s_id=1; s_id <= HIGHEST_STREAM_ID; ++s_id)
 	(*streams_out(s_id-1)).copy(*Streams.stream(s_id), samples);
-      separation_stats(streams_out, original_waves_x1, HIGHEST_STREAM_ID, samples);
+      degenerate_count=separation_stats(streams_out, original_waves_x1, HIGHEST_STREAM_ID, samples);
     }
 
 
@@ -1624,6 +1646,7 @@ int main(int argc, char **argv)
     wait();
   */
 
-  return 0;
+  // With degeneracy return degenerate_count+1 > 1 since EXIT_FAILURE==1.
+  return (degenerate_count ? degenerate_count+1:0);
 }
 

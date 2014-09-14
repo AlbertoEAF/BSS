@@ -40,7 +40,7 @@
 #include "complex_ops.h"
 #include "clustering.h"
 
-
+#include "OptionParser.h"
 
 using std::cout;
 using std::cin;

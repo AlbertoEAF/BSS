@@ -56,6 +56,11 @@ class OptionParser
   bool getFlag(char              short_flag);
   bool getFlag(const std::string &long_flag);
 
+  bool Flag(char short_flag);
+  bool Flag(const std::string &long_flag);
+  bool Option(char short_option);
+  bool Option(const std::string &long_option);
+
   std::string getOption(char              short_option);
   std::string getOption(const std::string &long_option);
 

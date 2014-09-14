@@ -302,6 +302,28 @@ std::string OptionParser::getOption(const std::string &long_option)
   return _option_values[ _long_option_ids[long_option] ];
 }
 
+bool OptionParser::Flag(char short_flag)
+{
+  return _flag_values[ _short_flag_ids[short_flag] ];
+}
+bool OptionParser::Flag(const std::string &long_flag)
+{
+  if (long_flag.size() == 1)
+    return Flag(long_flag[0]);
+  return _flag_values[ _long_flag_ids[long_flag] ];
+}
+
+bool OptionParser::Option(char short_option)
+{
+  return _option_values[ _short_option_ids[short_option] ] != "";
+}
+bool OptionParser::Option(const std::string &long_option)
+{
+  if (long_option.size() == 1)
+    return Option(long_option[0]);
+  return _option_values[ _long_option_ids[long_option] ] != "";
+}
+
 
 
 void OptionParser::print()

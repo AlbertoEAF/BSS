@@ -22,7 +22,7 @@ LIBS_SRL = -Llibs -lSRL
 LIBS = $(FFTLIBS) $(WAVLIBS) $(MATHLIBS) $(LIBS_SRL) $(ARMADILLO_LIB)
 
 
-all: IdList duet ransac drvb
+all: IdList duet ecoduet drvb
 
 get_config_var: get_config_var.cpp
 	$(CC) -o get_config_var get_config_var.cpp $(LIBS_SRL)
@@ -42,8 +42,8 @@ duet: libs
 OptionParser.o: OptionParser.cpp OptionParser.h
 	$(CC) -c OptionParser.cpp -std=c++11
 
-ransac: libs IdList OptionParser.o
-	$(CC) $(CCFLAGS) -o r ransac.cpp gnuplot_ipp/gnuplot_ipp.o timer.o IdList.o OptionParser.o $(PRECISION) $(LIBS) 
+ecoduet: libs IdList OptionParser.o
+	$(CC) $(CCFLAGS) -o r ecoduet.cpp gnuplot_ipp/gnuplot_ipp.o timer.o IdList.o OptionParser.o $(PRECISION) $(LIBS) 
 
 
 duet.h.gch: duet.h Buffer.h Matrix.h Histogram2D.h array_ops.h types.h libs/config_parser.h wav.h gnuplot_ipp/gnuplot_ipp.h filters.h extra.h libs/timer.h RankList.h

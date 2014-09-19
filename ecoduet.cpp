@@ -10,6 +10,41 @@ int MERGED_STREAMS = 0;    // How many streams were merged (permanently deleted 
 
 const int N_EXPORT_DIGITS = 5; // Number of digits to output in the output serial number.
 
+/*
+// Indicator function for IBM mask. Ms is the magnitude of the desired source at a frequency, My, the same in respect to the mixture minus the source and x the threshold of Phi.
+bool Phi(real Ms_f, real My_f, real x)
+{
+  if (20.0*std::log10(Ms_f/My_f) >= x)
+    return true;
+  return false;
+}
+
+void build_mono_ibm_masks(Buffers<int> &masks, Buffers<real> &xoriginals, Buffer<real> &X, int FFT_N, fftw_plan &fft)
+{
+  masks.clear();
+
+  int N = xoriginals.buffers(); // True Sources.
+
+  static Buffer<real> Sn(FFT_N,0,fftw_malloc,fftw_free), Yn(Sj), Ms(FFT_N/2), My(FFT_N/2);
+
+  for(int n = 0; n < N; ++n)
+    {
+      fftw_execute_r2r(fft, x_originals->raw(n), Sn());
+      // Y = X - S
+      Yn.copy(X);
+      Yn -= Sn;
+      evenHC2magnitude(Sn, Ms);
+      evenHC2magnitude(Yn, My);
+
+      Buffer<real> &mask = *masks(n);
+      for (int k = 0; k < FFT_N/2; ++k)
+	{
+	  mask[k] = Phi(Mn[k],My[k],0) * n; // if Phi is positive assign it to the current source (n)
+	}
+    }
+}
+*/
+
 /// Returns the score for the DUET histogram based on the parameters p and q
 real DUEThist_score(real x1re, real x1im, real x2re, real x2im, real omega, real p, real q)
 {
@@ -889,7 +924,6 @@ int main(int argc, char **argv)
 
   OptionParser *opt = new OptionParser();
 
-  opt->setFlag('l');
   opt->setFlag("help",'h');
   opt->setOption("x1");
   opt->setOption("x2");
@@ -899,7 +933,7 @@ int main(int argc, char **argv)
   int arg0 = opt->parse(argc,argv);
   if (arg0 == argc || opt->getFlag("help"))
     {
-      printf("Usage:\n\tPrgm [-x1 x] [-x2 x] [-FFT_N N] [-FFT_slide s] [-w/--window type] file.duet\n\n");
+      printf("Usage:\n\tPrgm [-x1 x] [-x2 x] [-FFT_N N] [-w/--window type] file.duet\n\n");
       exit(1);
     }
  
@@ -1647,6 +1681,6 @@ int main(int argc, char **argv)
   */
 
   // With degeneracy return degenerate_count+1 > 1 since EXIT_FAILURE==1.
-  return (degenerate_count ? degenerate_count+1:0);
+  return (degenerate_count>0 ? degenerate_count+1:0);
 }
 

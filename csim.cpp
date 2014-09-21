@@ -15,8 +15,8 @@
 #include "custom_assert.h"
 
 //#include "Array.h"
-#include "Buffer.h"
-#include "Matrix.h"
+#include "BufferDeclaration.h"
+#include "MatrixDeclaration.h"
 
 #include <string>
 #include <fstream>
@@ -26,8 +26,6 @@
 #include "wav.h"
 
 #include "Vector.h"
-
-#include "array_ops.h"
 
 #include "OptionParser.h"
 

@@ -18,36 +18,41 @@ MATHLIBS= -lm
 
 #Small Random Libs
 LIBS_SRL = -Llibs -lSRL
-LIB_HISTOGRAMS = -LlibHistograms -lHistograms -IlibHistograms -I`pwd`
+LIB_HISTOGRAMS = -LlibHistograms -lHistograms -IlibHistograms
+LIB_BUFFERS =  -LlibBuffers -lBuffers -IlibBuffers -I.
+AUX_LIBS = $(LIBS_SRL) $(LIB_HISTOGRAMS) $(LIB_BUFFERS)
 
-LIBS = $(FFTLIBS) $(WAVLIBS) $(MATHLIBS) $(LIBS_SRL) $(ARMADILLO_LIB) $(LIB_HISTOGRAMS)
+LIBS = $(FFTLIBS) $(WAVLIBS) $(MATHLIBS) $(ARMADILLO_LIB) $(AUX_LIBS) 
 
 
-all: IdList.o duet ecoduet drvb
+all: aux.a ecoduet drvb
 
-aux.a: complex_ops.o IdList.o OptionParser.o clustering.o
-	ar rcs aux.a complex_ops.o IdList.o OptionParser.o clustering.o
+aux.a: complex_ops.o IdList.o OptionParser.o clustering.o StreamSet.o 
+	ar rcs aux.a complex_ops.o IdList.o OptionParser.o clustering.o StreamSet.o 
+
+StreamSet.o: StreamSet.h StreamSet.cpp
+	$(CC) $(CCFLAGS) -c StreamSet.cpp $(LIB_BUFFERS)
 
 complex_ops.o: complex_ops.cpp complex_ops.h
-	$(CC) $(CCFLAGS) -c complex_ops.cpp
+	$(CC) $(CCFLAGS) -c complex_ops.cpp $(LIB_BUFFERS)
 
 get_config_var: get_config_var.cpp
 	$(CC) -o get_config_var get_config_var.cpp $(LIBS_SRL)
 
 IdList.o: IdList.cpp IdList.h
-	$(CC) $(CCFLAGS) -c IdList.cpp
+	$(CC) $(CCFLAGS) -c IdList.cpp $(LIB_BUFFERS)
 
 drvb: libs
 	$(CC) $(CCFLAGS) -o latedereverb latedereverb.cpp gnuplot_ipp/gnuplot_ipp.o timer.o $(PRECISION) $(LIBS) 	
 
 csim: libs csim.cpp
-	$(CC) $(CCFLAGS) -o csim csim.cpp $(WAVLIBS) $(LIBS_SRL) -std=c++11 gnuplot_ipp/gnuplot_ipp.o
+	$(CC) $(CCFLAGS) -o csim csim.cpp $(LIBS) -std=c++11 gnuplot_ipp/gnuplot_ipp.o
 
-duet: libs 
-	$(CC) $(CCFLAGS) -o d duet.cpp gnuplot_ipp/gnuplot_ipp.o timer.o $(PRECISION) $(LIBS) 
+#duet: libs 
+#	$(CC) $(CCFLAGS) -o d duet.cpp gnuplot_ipp/gnuplot_ipp.o timer.o $(PRECISION) $(LIBS) 
 
 OptionParser.o: OptionParser.cpp OptionParser.h
-	$(CC) -c OptionParser.cpp -std=c++11
+	$(CC) -c OptionParser.cpp -std=c++11 
 
 clustering.o: clustering.cpp clustering.h
 	$(CC) $(CCFLAGS) -c clustering.cpp IdList.o $(PRECISION) $(LIBS) 
@@ -112,13 +117,19 @@ cleanhists:
 
 ### Libs
 
-libs: gnuplotIpp SRL timer.o
+libs: gnuplotIpp SRL timer.o Buffers Histograms
 
 gnuplotIpp: gnuplot_ipp/gnuplot_i.c gnuplot_ipp/gnuplot_i.h
 	cd gnuplot_ipp && make cpp
 
 SRL:
 	cd libs; make
+
+Histograms:
+	cd libHistograms; make
+
+Buffers:
+	cd libBuffers; make
 
 timer.o: libs/timer.cpp libs/timer.h
 	$(CC) -c libs/timer.cpp
@@ -141,3 +152,6 @@ src:
 	cp libs src
 	cp render_cfg src
 	cp Makefile src
+
+clean:
+	rm *.o

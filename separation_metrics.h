@@ -2,7 +2,7 @@
 #define SEPARATION_METRICS_HPP__
 
 #include "types.h"
-#include "Buffer.h" // Already includes <cmath>
+#include "BufferDeclaration.h" // Already includes <cmath>
 #include "IdList.h"
 
 bool in (int val, Buffer<int> &list)

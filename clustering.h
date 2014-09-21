@@ -9,7 +9,7 @@
 #include <float.h>
 
 #include "DUETstruct.h"
-#include "Histogram2D.h"
+#include "Histogram2DDeclaration.h"
 #include "RankList.h"
 
 

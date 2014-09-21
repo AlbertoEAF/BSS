@@ -22,4 +22,23 @@ typedef unsigned long int uidx;
 typedef unsigned int uint;
 
 
+/// Auxiliary class for bin indexes: Point2D 
+template <class T> class Point2D
+{
+ public:
+ Point2D(T a=0, T b=0) : x(a), y(b) {};
+
+  T x;
+  T y;
+};
+
+
+template <class T> std::ostream &operator << (std::ostream &output, Point2D<T> &p)
+{
+  output << "(" << p.x << "," << p.y << ")";
+  return output; // allows chaining
+}
+/* End of auxiliary class: Point2D */
+
+
 #endif // TYPES_H__

@@ -1,44 +1,7 @@
 // Simple collection of same-size buffers.
 // Works like a matrix or single-threaded Bufferpool with the ability to swap buffers (allows permutations without copies)
 
-#ifndef BUFFERS_H__
-#define BUFFERS_H__
-
-#include "Buffer.h"
-
-template <class T>
-class Buffers
-{
-public:
-  Buffers(unsigned int buffers, size_t buffer_size, void * (*custom_alloc)(size_t) = malloc, void (*custom_free)(void *) = free);
-  Buffers(unsigned int buffers, size_t buffer_size, T init_value, void * (*custom_alloc)(size_t) = malloc, void (*custom_free)(void *) = free);
-  Buffers(const Buffers<T> & copy);
-  
-  ~Buffers();
-
-  unsigned int buffers() { return _pool_size; }
-  size_t buffer_size() { return _buffer_size; }
-  Buffer<T> * operator() (unsigned int i);
-  void swap(unsigned int i, unsigned int j);
-
-  const Buffers & operator*= (const T factor);
-  const Buffers & operator/= (const T factor);
-
-  void clear() { for(unsigned int i=0;i<_pool_size;++i) _bufs[i]->clear(); }
-
-  T * raw (unsigned int i) { Assert(i<_pool_size, "Out of bounds %u buffer request for Buffers(%u).",i,_pool_size); return (*_bufs[i])(); }
-  T * raw (unsigned int i, size_t index_offset) { Assert(i<_pool_size, "Out of bounds %u buffer request for Buffers(%u).",i,_pool_size); return &raw(i)[index_offset]; }
-
-  T max_abs();
-
-private:
-  const unsigned int _pool_size;
-  const size_t _buffer_size;
-  Buffer<T> ** _bufs;
-
-  void *(*_custom_malloc)(size_t) ;
-  void  (*_custom_free)  (void *p);
-};
+#include "BuffersDeclaration.h"
 
 
 template <class T> Buffers<T>::Buffers (unsigned int buffers, size_t buffer_size, void * (*custom_malloc)(size_t), void (*custom_free)(void *))
@@ -122,12 +85,12 @@ T Buffers<T>::max_abs()
   T maxabs = 0;
   for (unsigned int i = 0; i < _pool_size ; ++i)
     {
-      T maxabs_i = array_ops::max_abs(_bufs[i](), _buffer_size);
+      T maxabs_i = array_ops::max_abs((*_bufs[i])(), _buffer_size);
       if (maxabs_i > maxabs)
 	maxabs = maxabs_i;
     }
   return maxabs;
 }
 
+#include "BuffersInstantiations.h"
 
-#endif //BUFFERSET_H__

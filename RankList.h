@@ -3,7 +3,7 @@
 #ifndef RANKLIST_H__
 #define RANKLIST_H__
 
-#include "Buffer.h"
+#include "BufferDeclaration.h"
 
 template <class Tscore, class Tvalue> class RankList;
 template <class Tscore, class Tvalue> std::ostream &operator << (std::ostream &, RankList<Tscore,Tvalue> &);

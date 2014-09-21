@@ -17,85 +17,7 @@ be accepted.
 
 */
 
-#ifndef MATRIX_H
-#define MATRIX_H
-
-
-#include <iosfwd> // You must still include iostream afterwards.
-#include <string.h> // memcpy
-
-#include "custom_assert.h"
-
-namespace MatrixAlloc
-{
-  enum Mode { Rows, Cols };
-}
-
-// Templates for friend functions
-template <class T, MatrixAlloc::Mode alloc_mode = MatrixAlloc::Rows> class Matrix;
-template <class T, MatrixAlloc::Mode alloc_mode> std::ostream &operator << (std::ostream &, Matrix<T,alloc_mode> &);
-template <class T, MatrixAlloc::Mode alloc_mode> std::istream &operator >> (std::istream &, Matrix<T,alloc_mode> &);
-
-
-
-//template <class T> Matrix<float> abs_matrix (Matrix<T> &);
-
-template <class T, MatrixAlloc::Mode alloc_mode>
-class Matrix
-{
-  // returns a matrix which is the abs of this one
-  //friend  Matrix<float> abs_matrix <>(Matrix<T> &); 
-  
-  friend std::ostream &operator << <>(std::ostream &, Matrix<T,alloc_mode> &);
-  friend std::istream &operator >> <>(std::istream &, Matrix<T,alloc_mode> &);
- public:
-
-  Matrix (size_t rows, size_t cols, T default_values = 0);
-  Matrix (const Matrix<T,alloc_mode> & copy);
-  Matrix (const Matrix<T,alloc_mode> * copy);
-  ~Matrix ();
-
-  inline T & operator () (size_t row, size_t col);
-  inline T * operator ()  () { return m; }
-  inline T * raw() const {return m; }
-  inline T * row(size_t row);
-  inline T * col(size_t row);
-
-  inline size_t rows() const { return m_rows; }
-  inline size_t cols() const { return m_cols; }
-  inline size_t size() const { return m_size; }
-
-  inline void clear() { for (size_t i=0;i<m_size;++i)m[i]=0; }
-
-  // returns a row or column according to the matrix alloc_mode
-  inline T * operator () (size_t main_dimension_pos); 
-  // Length of the main dimension ( number of elements after accessing Matrix(i) )
-  inline size_t d() const { if (alloc_mode == MatrixAlloc::Rows) return m_cols; else return m_rows; }
-  // Number of main entries available (rows in MatrixAlloc::Rows) ( Matrix(i) is valid for all i < Matrix.n() )
-  inline size_t n() const { if (alloc_mode == MatrixAlloc::Rows) return m_rows; else return m_cols; }
-
-  Matrix       & operator  = (const Matrix<T,alloc_mode> &);
-  const Matrix & operator += (const Matrix<T,alloc_mode> &);
-  const Matrix   operator +  (const Matrix<T,alloc_mode> &);
-  const Matrix   operator *  (const Matrix<T,alloc_mode> &);
-
-  const Matrix & operator *= (const T factor);
-  const Matrix & operator /= (const T factor);
-
-  void max_index(size_t &row, size_t &col, size_t max_row_index, size_t max_col_index);
-  void min_index(size_t &row, size_t &col, size_t max_row_index, size_t max_col_index);
-
-  void fill_row_with(size_t row, T value);
-  void fill_col_with(size_t col, T value);
-    
-  void print(size_t rows, size_t cols);
-
- private:
-  const size_t m_rows, m_cols, m_size;
-  T *m;
-  T _default_value;
-};
-
+#include "MatrixDeclaration.h"
        
        
 template <class T, MatrixAlloc::Mode alloc_mode>
@@ -154,6 +76,18 @@ T & Matrix<T,alloc_mode>::operator () (size_t row, size_t col)
   else
     return m[row + m_rows*col];
 }
+
+template <class T, MatrixAlloc::Mode alloc_mode> 
+T Matrix<T,alloc_mode>::operator () (size_t row, size_t col) const
+{
+  Assert (row < m_rows && col < m_cols, "Out of bounds access (%lu,%lu) for Matrix(%lu,%lu) !",row,col,m_rows,m_cols);
+  
+  if (alloc_mode == MatrixAlloc::Rows)
+    return m[col + m_cols*row];
+  else
+    return m[row + m_rows*col];
+}
+
 
 template <class T, MatrixAlloc::Mode alloc_mode> 
 T * Matrix<T,alloc_mode>::operator () (size_t main_dimension_pos)
@@ -373,4 +307,4 @@ void Matrix<T,alloc_mode>::fill_col_with(size_t col, T value)
     (*this)(i,col) = value;
 }
 
-#endif // MATRIX_H
+#include "MatrixInstantiations.h"

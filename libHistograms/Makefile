@@ -1,19 +1,15 @@
 DEBUG = 
 
-
 CC = clang++
-CCFLAGS = -O2 $(DEBUG) -I`pwd`/..
+CCFLAGS = -O2 $(DEBUG) -I../libBuffers -I..
 
-
-# Small Random Libs (libHistograms)
 libHistograms.a: Histogram.o Histogram2D.o
-	echo $(CCFLAGS)
 	ar rcs libHistograms.a Histogram.o Histogram2D.o
 
-Histogram.o: Histogram.cpp Histogram.h HistogramDeclaration.h 
+Histogram.o: Histogram.cpp Histogram.h HistogramDeclaration.h HistogramInstantiations.h
 	$(CC) $(CCFLAGS) -c Histogram.cpp 
 
-Histogram2D.o: Histogram2D.cpp Histogram2D.h Histogram2DDeclaration.h
+Histogram2D.o: Histogram2D.cpp Histogram2D.h Histogram2DDeclaration.h Histogram2DInstantiations.h
 	$(CC) $(CCFLAGS) -c Histogram2D.cpp
 
 

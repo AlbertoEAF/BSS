@@ -69,39 +69,43 @@ void build_mono_ibm_masks(Buffer<int> &masks, Buffers<real> &WDOs, Buffers<real>
       fftw_execute_r2r(fft, xoriginal(), Sn());
       // Y = X - S 
       Yn.copy(X,FFT_N); Yn -= Sn;
-      /*
+      
       evenHC2magnitude(Sn, Msn);
       evenHC2magnitude(Yn, Myn);
-      */
+      /*
       evenHC2power(Sn, Msn);
       evenHC2power(Yn, Myn);
+      */
       real &wdo = *WDOs.raw(n,tb);
-      real psr=0, sir=0;
+      real psr=0, sir=0, sir_den=0;
       for (int k = 0,K=FFT_N/2; k < K; ++k)
 	{
 	  // if Phi is positive assign it to the current source (n)
-	  if ( Phi_power(Msn[k], Myn[k], Phi_x) )
+	  if ( Phi(Msn[k], Myn[k], Phi_x) )
 	    {
 	      masks[k] = n; 
 
 	      masked_S.raw(n)[k      ] = X[k      ];
 	      masked_S.raw(n)[FFT_N-k] = X[FFT_N-k];
 
-	      /*
 	      wdo += Msn[k]*Msn[k] - Myn[k]*Myn[k];	      
 	      psr += Msn[k]*Msn[k];
-	      sir += Msn[k]*Msn[k];
-	      */
-
+	      sir_den += Myn[k]*Myn[k];
+	      /*
 	      wdo += Msn[k] - Myn[k];
 	      psr += Msn[k];
+	      */
 	    }
 	}
       
       sir = psr;
+      /*
       wdo /= Msn.sum();
       psr /= Msn.sum();
-      sir /= array_ops::energy(masked_S.raw(n), FFT_N);
+      */
+      wdo /= Sn.energy();
+      psr /= Sn.energy();
+      sir /= sir_den;
       
 
       printf(RED "wdo psr sir \t%g \t%g \t%g   %g\n" NOCOLOR, wdo, psr, sir, psr-psr/sir);

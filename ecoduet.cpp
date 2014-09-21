@@ -10,40 +10,7 @@ int MERGED_STREAMS = 0;    // How many streams were merged (permanently deleted 
 
 const int N_EXPORT_DIGITS = 5; // Number of digits to output in the output serial number.
 
-/*
-// Indicator function for IBM mask. Ms is the magnitude of the desired source at a frequency, My, the same in respect to the mixture minus the source and x the threshold of Phi.
-bool Phi(real Ms_f, real My_f, real x)
-{
-  if (20.0*std::log10(Ms_f/My_f) >= x)
-    return true;
-  return false;
-}
 
-void build_mono_ibm_masks(Buffers<int> &masks, Buffers<real> &xoriginals, Buffer<real> &X, int FFT_N, fftw_plan &fft)
-{
-  masks.clear();
-
-  int N = xoriginals.buffers(); // True Sources.
-
-  static Buffer<real> Sn(FFT_N,0,fftw_malloc,fftw_free), Yn(Sj), Ms(FFT_N/2), My(FFT_N/2);
-
-  for(int n = 0; n < N; ++n)
-    {
-      fftw_execute_r2r(fft, x_originals->raw(n), Sn());
-      // Y = X - S
-      Yn.copy(X);
-      Yn -= Sn;
-      evenHC2magnitude(Sn, Ms);
-      evenHC2magnitude(Yn, My);
-
-      Buffer<real> &mask = *masks(n);
-      for (int k = 0; k < FFT_N/2; ++k)
-	{
-	  mask[k] = Phi(Mn[k],My[k],0) * n; // if Phi is positive assign it to the current source (n)
-	}
-    }
-}
-*/
 
 /// Returns the score for the DUET histogram based on the parameters p and q
 real DUEThist_score(real x1re, real x1im, real x2re, real x2im, real omega, real p, real q)
@@ -907,9 +874,6 @@ void constrained_excess_kurtosis(real &kurtosis_x, real &kurtosis_y, Histogram2D
   kurtosis_y = mu4y/(DUET.sigma_delta*DUET.sigma_delta) / Hysum - 3.0;  
 }
 
-/**
-   Arguments: prgm [FFT_N] [x1_wav] [x2_wav]
-*/
 int main(int argc, char **argv)
 {
 
@@ -972,8 +936,6 @@ int main(int argc, char **argv)
   std::string x1_filepath = (opt->Option("x1") ? opt->getOption("x1") : o("x1_wav"));
   std::string x2_filepath = (opt->Option("x1") ? opt->getOption("x1") : o("x2_wav"));
 
-
-
   // simulation (true) centroids 
   real true_alpha[N_max];
   real true_delta[N_max];
@@ -1018,7 +980,7 @@ int main(int argc, char **argv)
   x2_file.read(x2_wav(), samples);
 
   // Only x1's are needed since that's the chosen channel for source separation
-  Buffers<real> original_waves_x1(N, samples);
+  Buffers<real> original_waves_x1(N, samples,0,fftw_malloc,fftw_free);
   for (int i = 0; i < N; ++i)
     {
       SndfileHandle wav_file("sounds/s"+std::to_string(i)+"x0.wav");
@@ -1083,6 +1045,7 @@ int main(int argc, char **argv)
   // 2 sets of buffers [optional: +1] are needed to allow up to 50% overlapping. If writing and computing is done simultaneously instead of writing and waiting for the old  buffer that is freed at the next write_data call end an additional buffer is needed to store current computations.
   Buffers<real> 
     wav_out(N_max, time_blocks*FFT_slide+(FFT_N-FFT_slide), fftw_malloc, fftw_free), 
+    ibm_out(N    , time_blocks*FFT_slide+(FFT_N-FFT_slide), fftw_malloc, fftw_free), 
     bufs1(N_max,FFT_pN,fftw_malloc,fftw_free), bufs2(bufs1), bufs3(bufs1);
   Buffers<real> *old_buffers=NULL, *new_buffers=NULL;
   // Convenient interface to handle bufs pointers.
@@ -1436,6 +1399,7 @@ int main(int argc, char **argv)
 		  build_masks(masks, alpha(tb), delta(tb), X1_history(tb), X2_history(tb), clusters.values, N_clusters, FFT_pN, FFT_pN/2, FFT_df, tmp_real_buffer_N_max, DUET);
 		  apply_masks(*new_buffers, alpha(tb), X1_history(tb), X2_history(tb), masks, clusters.values, N_clusters, FFT_pN, FFT_pN/2, FFT_df, Xxo_plan, Xo, DUET);
 
+
 		  if (tb == tb0) // This generates the class assignments C.
 		    LDMB2C (Streams, active_streams, new_buffers, 
 			    clusters.values, N_clusters, tb0, W, C, DUET);
@@ -1573,12 +1537,49 @@ int main(int argc, char **argv)
     }
 
 
-  system("rm -f x*_rebuilt.wav");
+  system("rm -f x*_rebuilt.wav ibmx*_rebuilt.wav");
+
+  // IBM masks from mix using true sources knowledge (static and dynamic are rebuilt here)
+ Buffers<real> ibm_X_bufs(original_waves_x1.buffers(),FFT_N,fftw_malloc,fftw_free); 
+ 
+ Buffers<real> WDOs(original_waves_x1.buffers(), time_blocks);
+ 
+  Buffer<int> ibm_masks(FFT_N);
+  for (size_t tb=0; tb < time_blocks; ++tb)
+    {
+      build_mono_ibm_masks(ibm_masks, WDOs, ibm_X_bufs, original_waves_x1, tb, tb*FFT_slide, X1_history(tb), FFT_N, xX1_plan, W, o.f("Phi_x"));
+
+      for (int n=0; n < N; ++n)
+	{
+	  static Buffer<real> x_buf(FFT_N,0,fftw_malloc,fftw_free);
+	  x_buf.clear();
+	  fftw_execute_r2r(Xxo_plan, ibm_X_bufs.raw(n), x_buf());
+	  ibm_out(n)->add_at(x_buf, tb*FFT_slide);
+	}
+    }
+
+  for(int n=0; n < N; ++n)
+    {
+      WDOs(n)->print();
+      printf("n) <WDO> = %.2g max(WDO) = %.2g min(WDO) = %.2g\n", WDOs(n)->avg(), WDOs(n)->max(), WDOs(n)->min());
+    }
+
+  for (uint source = 0; source < N; ++source)
+    {
+      std::string wav_filepath("ibmx"+itosNdigits(source,N_EXPORT_DIGITS)+"_rebuilt.wav");
+      printf("%s...", wav_filepath.c_str());
+      fflush(stdout);
+      print_status( wav::write_mono(wav_filepath, ibm_out.raw(source), samples, sample_rate_Hz) );
+    }
+  /// End of IBM masks section
+
+
 
   int wav_N = ( STATIC_REBUILD ? N_clusters : N_max );
 
   if (STATIC_REBUILD)
     {
+      // Estimated sources
       for (uint source = 0; source < wav_N; ++source)
 	{
 	  std::string wav_filepath("x"+itosNdigits(source,N_EXPORT_DIGITS)+"_rebuilt.wav");
@@ -1649,30 +1650,30 @@ int main(int argc, char **argv)
   puts("\nSuccess!");
 
   // Final 2D Histogram with overlays.
-
-
-  if (! STATIC_REBUILD)
+  if (o.i("show_final_plots"))
     {
-      static Gnuplot pTalpha, pTdelta, pT;
-      draw_trajectories (Streams, time_blocks, Ts*FFT_slide, pTalpha, pTdelta, pT);
+      if (! STATIC_REBUILD)
+	{
+	  static Gnuplot pTalpha, pTdelta, pT;
+	  draw_trajectories (Streams, time_blocks, Ts*FFT_slide, pTalpha, pTdelta, pT);
+	}
+
+      std::ofstream hist_cfg;
+      hist_cfg.open("h.cfg");
+      hist_cfg << hist.ybins();
+      hist_cfg.close();
+
+      // Write the clusters to the plot overlay
+      std::ofstream clusters_dat;
+      clusters_dat.open("s_duet.dat");
+      for (idx i=0; i < N_clusters; ++i)
+	clusters_dat << cumulative_clusters.values[i].x << " " << cumulative_clusters.values[i].y << " 0\n\n";
+      clusters_dat.close();
+
+      // Plot the 3D histogram with gnuplot and the simulation and DUET overlays
+      // Since the "" must be passed with quotes inside the gnuplot command a triple \ is needed and  a single \ is needed for the outer command.
+      RENDER_HIST("cumulative_hist.dat", "Cumulative hist", o.i("hist_pause"));
     }
-
-  std::ofstream hist_cfg;
-  hist_cfg.open("h.cfg");
-  hist_cfg << hist.ybins();
-  hist_cfg.close();
-
-  // Write the clusters to the plot overlay
-  std::ofstream clusters_dat;
-  clusters_dat.open("s_duet.dat");
-  for (idx i=0; i < N_clusters; ++i)
-    clusters_dat << cumulative_clusters.values[i].x << " " << cumulative_clusters.values[i].y << " 0\n\n";
-  clusters_dat.close();
-
-  // Plot the 3D histogram with gnuplot and the simulation and DUET overlays
-  // Since the "" must be passed with quotes inside the gnuplot command a triple \ is needed and  a single \ is needed for the outer command.
-  RENDER_HIST("cumulative_hist.dat", "Cumulative hist", o.i("hist_pause"));
-  
 
 
   /*

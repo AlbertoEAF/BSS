@@ -51,6 +51,7 @@ class Buffer
   ~Buffer () { (*_custom_free)(m); }
 
   inline T & operator [] (size_t pos);
+  inline T operator [] (size_t pos) const;
   
   inline T * operator () () { return m; }
 
@@ -67,16 +68,20 @@ class Buffer
 
   Buffer       & operator  = (const Buffer<T> &);
   const Buffer & operator += (const Buffer<T> &);
+  const Buffer & operator -= (const Buffer<T> &);
+  const Buffer & operator *= (const Buffer<T> &); // Hadamard-product
   const Buffer   operator +  (const Buffer<T> &);
   const Buffer   operator *  (const Buffer<T> &);
+
+
 
   const Buffer & operator *= (const T factor);
   const Buffer & operator /= (const T factor);
 
-  const Buffer & operator *= (const Buffer<T> &);
+
 
   // Prints the first elements.
-  void print(size_t n);
+  void print(size_t n=0);
 
   void normalize (const T value = 1); 
 
@@ -162,6 +167,13 @@ T & Buffer<T>::operator [] (size_t pos)
   return m[pos];
 }
 
+template <class T> 
+T Buffer<T>::operator []  (size_t pos) const
+{
+  Assert (pos < m_size, "Out of bounds access (%lu) for Buffer(%lu) ! *this=%p",pos, m_size, this);
+  
+  return m[pos];
+}
 
 template <class T>
 std::ostream &operator << (std::ostream &output, const Buffer<T> &buffer)
@@ -187,7 +199,7 @@ std::istream &operator >> (std::istream &input, Buffer<T> &buffer)
 template <class T> 
 void Buffer<T>::print(size_t n)
 {
-  size_t I = std::min(m_size, n);
+  size_t I = ( n > 0 && n < m_size ? n : m_size ); 
 
   for (size_t i = 0; i < I ; ++i)
     std::cout << m[i] << "  ";  
@@ -253,6 +265,16 @@ const Buffer<T> & Buffer<T>::operator += (const Buffer<T> &a)
   Assert (m_size == a.m_size, "Buffer sizes don not match!");
   for (size_t i = 0; i < m_size ; i++)
     m[i] += a.m[i];
+
+  return *this;
+}
+
+template <class T>
+const Buffer<T> & Buffer<T>::operator -= (const Buffer<T> &a)
+{
+  Assert (m_size == a.m_size, "Buffer sizes don not match!");
+  for (size_t i = 0; i < m_size ; i++)
+    m[i] -= a.m[i];
 
   return *this;
 }

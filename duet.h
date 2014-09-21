@@ -47,8 +47,8 @@ using std::cin;
 using std::endl;
 
 
-
-
+// Dependent headers
+#include "masks.h" 
 
 
 

@@ -1,10 +1,10 @@
 CC=clang++
 
 
-DEBUG= -g -G # -DNDEBUG
-EXTRACCFLAGS =   $(DEBUG) -ffunction-sections -Wl,-gc-sections #-Wno-unused-variable #-Wno-unused-but-set-variable
+DEBUG= -g # -DNDEBUG
+EXTRACCFLAGS =   $(DEBUG) #-Wl,-gc-sections # -ffunction-sections #-Wno-unused-variable #-Wno-unused-but-set-variable
 OPTIMIZATION_FLAGS= -O2 # -DNDEBUG
-OMP= -fopenmp
+#OMP= -fopenmp
 CCFLAGS= -Wall $(EXTRACCFLAGS) -std=c++11 $(OPTIMIZATION_FLAGS) $(OMP)
 
 
@@ -22,12 +22,15 @@ LIBS_SRL = -Llibs -lSRL
 LIBS = $(FFTLIBS) $(WAVLIBS) $(MATHLIBS) $(LIBS_SRL) $(ARMADILLO_LIB)
 
 
-all: IdList duet ecoduet drvb
+all: IdList.o duet ecoduet drvb
+
+complex_ops.o: complex_ops.cpp complex_ops.h
+	$(CC) $(CCFLAGS) -c complex_ops.cpp
 
 get_config_var: get_config_var.cpp
 	$(CC) -o get_config_var get_config_var.cpp $(LIBS_SRL)
 
-IdList: IdList.cpp IdList.h
+IdList.o: IdList.cpp IdList.h
 	$(CC) $(CCFLAGS) -c IdList.cpp
 
 drvb: libs
@@ -42,8 +45,11 @@ duet: libs
 OptionParser.o: OptionParser.cpp OptionParser.h
 	$(CC) -c OptionParser.cpp -std=c++11
 
-ecoduet: libs IdList OptionParser.o
-	$(CC) $(CCFLAGS) -o r ecoduet.cpp gnuplot_ipp/gnuplot_ipp.o timer.o IdList.o OptionParser.o $(PRECISION) $(LIBS) 
+clustering.o: clustering.cpp clustering.h
+	$(CC) $(CCFLAGS) -c clustering.cpp IdList.o $(PRECISION) $(LIBS) 
+
+ecoduet: libs IdList.o OptionParser.o clustering.o complex_ops.o
+	$(CC) $(CCFLAGS) -o r ecoduet.cpp gnuplot_ipp/gnuplot_ipp.o timer.o IdList.o OptionParser.o clustering.o complex_ops.o $(PRECISION) $(LIBS) 
 
 
 duet.h.gch: duet.h Buffer.h Matrix.h Histogram2D.h array_ops.h types.h libs/config_parser.h wav.h gnuplot_ipp/gnuplot_ipp.h filters.h extra.h libs/timer.h RankList.h

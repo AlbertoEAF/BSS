@@ -24,7 +24,6 @@ be accepted.
 #include <iosfwd> // You must still include iostream afterwards.
 #include <string.h> // memcpy
 
-#include "safemem.h"
 #include "custom_assert.h"
 
 namespace MatrixAlloc
@@ -105,7 +104,9 @@ Matrix<T,alloc_mode>::Matrix (size_t rows, size_t cols, T default_value)
 {
   Guarantee(m_size, "Initializing matrix with size 0 in at least one of the dimensions.");
 
-  m = (T*)safe_malloc(m_size*sizeof(T));
+  m = (T*) malloc(m_size*sizeof(T));
+  Guarantee(m, "Failed to initialize memory. %lu entries requested.", m_size);
+    
 
   for (size_t i = 0; i < m_size; ++i)
     m[i] = default_value;
@@ -119,7 +120,8 @@ Matrix<T,alloc_mode>::Matrix (const Matrix<T,alloc_mode> & copy)
   Assert(copy.size(), "Copying matrix with size 0 in at least one of the dimensions!");
 
   // USES MALLOC TO AVOID CALLING THE CONSTRUCTORS OF EACH ENTRY RIGHT AWAY
-  m = (T*) safe_malloc(m_size*sizeof(T));
+  m = (T*) malloc(m_size*sizeof(T));
+  Guarantee(m, "Failed to initialize memory. %lu entries requested.", m_size);
   memcpy((void*)m, (void*)copy.m, m_size*sizeof(T));
 }
 
@@ -131,7 +133,8 @@ Matrix<T,alloc_mode>::Matrix (const Matrix<T,alloc_mode> * copy)
   Assert(copy->size(), "Copying matrix with size 0 in at least one of the dimensions!");
 
   // USES MALLOC TO AVOID CALLING THE CONSTRUCTORS OF EACH ENTRY RIGHT AWAY
-  m = (T*) safe_malloc(m_size*sizeof(T));
+  m = (T*) malloc(m_size*sizeof(T));
+  Guarantee(m, "Failed to initialize memory. %lu entries requested.", m_size);
   memcpy((void*)m, (void*)copy->m, m_size*sizeof(T));
 }
 

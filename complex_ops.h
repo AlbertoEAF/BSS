@@ -2,41 +2,23 @@
 #define COMPLEX_OPS_H__
 
 
-#include "abs.h" // Includes "types.h"
+#include <iostream>
+
+#include "types.h"
+
+#include "abs.h"
 #include "Buffer.h"
 
+
+
 /// Specialization for even sizes ( read http://www.fftw.org/doc/The-Halfcomplex_002dformat-DFT.html )
-void evenHC2magnitude(int samples, real *hc, real *magnitude)
-{
-  magnitude[0] = hc[0];
-  idx I = samples/2;
-  for (idx i=1; i < I; ++i)
-    magnitude[i] = abs(hc[i], hc[samples-i]);
-}
+void evenHC2magnitude(int samples, real *hc, real *magnitude);
 
-void evenHC2power(int samples, real *hc, real *power)
-{
-  power[0] = hc[0];
-  idx I = samples/2;
-  for (idx i=1; i < I; ++i)
-    power[i] = abs2(hc[i], hc[samples-i]);
-}
+void evenHC2power(int samples, real *hc, real *power);
 
-void evenHC2magnitude(Buffer<real> &hc, Buffer<real> &magnitude)
-{
-  magnitude[0] = hc[0];
-  idx I = hc.size()/2, samples = hc.size();
-  for (idx i=1; i < I; ++i)
-    magnitude[i] = abs(hc[i], hc[samples-i]); 
-}
+void evenHC2magnitude(Buffer<real> &hc, Buffer<real> &magnitude);
 
-void evenHC2power(Buffer<real> &hc, Buffer<real> &power)
-{
-  power[0] = hc[0];
-  idx I = hc.size()/2, samples = hc.size();
-  for (idx i=1; i < I; ++i)
-    power[i] = abs2(hc[i], hc[samples-i]);
-}
+void evenHC2power(Buffer<real> &hc, Buffer<real> &power);
 
 /**
    Z = Z1*Z2
@@ -47,20 +29,10 @@ void evenHC2power(Buffer<real> &hc, Buffer<real> &power)
    @param[out] re - Re{Z}
    @param[out] im - Im{Z}
 */
-inline void complex_multiply(real re1, real im1, real re2, real im2, real *re, real *im)
-{
-  *re = re1*re2 - im1*im2;
-  *im = re1*im2 + im1*re2;
-}
+void complex_multiply(real re1, real im1, real re2, real im2, real *re, real *im);
 
 // z = z1/z2
-inline void complex_divide(real re1, real im1, real re2, real im2, real *re, real *im)
-{
-  real denominator = re2*re2 + im2*im2;
-
-  *re = (re1*re2 + im1*im2) / denominator;
-  *im = (im1*re2 - re1*im2) / denominator;
-}
+void complex_divide(real re1, real im1, real re2, real im2, real *re, real *im);
 
 /**
    HalfComplex representation multiply
@@ -71,16 +43,6 @@ inline void complex_divide(real re1, real im1, real re2, real im2, real *re, rea
 
    @warn: ONLY FOR EVEN TRANSFORMATIONS!!!
 */
-void hc_multiply (real *z1, real *z2, real *z, idx size)
-{
-  z[0] = z1[0]*z2[0];
-
-  const idx max_i = size/2;
-  for (idx i=1; i < max_i; ++i)
-    complex_multiply(z1[i], z1[size-i],
-		     z2[i], z2[size-i],
-		     &z[i], &z[size-i]);
-}
-
+void hc_multiply (real *z1, real *z2, real *z, idx size);
 
 #endif // COMPLEX_OPS_H__

@@ -14,7 +14,8 @@
 #include "types.h"
 
 #include "gnuplot_ipp/gnuplot_ipp.h" // Must be included before Histogram2D.h to enable Histogram plotting support.
-#include "Histogram2D.h" // Includes "Buffer.h" "Matrix.h" "Histogram.h" "array_ops.h"
+//#include "Histogram2D.h" // Includes "Buffer.h" "Matrix.h" "Histogram.h" "array_ops.h"
+#include "libHistograms/Histogram2DDeclaration.h"
 #include "libs/config_parser.h"
 #include "wav.h"
 #include "filters.h"

@@ -3,14 +3,8 @@
 #include "Histogram2DDeclaration.h"
 
 /// Auxiliary class for bin indexes: Point2D 
-template <class T> class Point2D
-{
- public:
- Point2D(T a=0, T b=0) : x(a), y(b) {};
+//template <class T> class Point2D;
 
-  T x;
-  T y;
-};
 template <class T> std::ostream &operator << (std::ostream &output, Point2D<T> &p)
 {
   output << "(" << p.x << "," << p.y << ")";
@@ -336,12 +330,13 @@ int Histogram2D<T>::write_to_gnuplot_pm3d_binary_data (const char *filepath)
   return 1;
 }
 
+/*
 template <class T>
 void Histogram2D<T>::plot(Gnuplot &p, const char * title)
 {
-  /* This function cannot blow up the compilation as it is optional 
-     so it will be guaranteed at runtime without performance penalties. 
-     It will require including gnuplot_ipp.h before Histogram2D.h though. */
+  // This function cannot blow up the compilation as it is optional 
+  // so it will be guaranteed at runtime without performance penalties. 
+  // It will require including gnuplot_ipp.h before Histogram2D.h though. 
 
 #ifdef GNUPLOT_IPP_H__
   p.cmd("set pm3d; unset surface");
@@ -350,6 +345,7 @@ void Histogram2D<T>::plot(Gnuplot &p, const char * title)
   Guarantee(0, "Add gnuplot_ipp to the compilation chain and include gnuplot_ipp.h before Histogram2D.h.");
 #endif
 }
+*/
 
 template <class T>
 void Histogram2D<T>::smooth_add(T value, double x, double y, double smooth_dx, double smooth_dy)

@@ -18,7 +18,7 @@
 #include <cmath> // std::isnan // same in standard C library
 
 // Fot the optional splot() command. Gnuplot_ipp must be added to the main project before Histogram is included.
-class Gnuplot;
+//class Gnuplot;
 
 
 // Histogram class ////////////////////////////////////////////
@@ -50,9 +50,9 @@ class Histogram
 
   void stretch(double min, double max);
 
-  inline T & bin(size_t ibin); // Access to bin directly by bin coordinates (faster than Histogram::(x,y))
+  T & bin(size_t ibin); // Access to bin directly by bin coordinates (faster than Histogram::(x,y))
   inline T & guarantee_bin (size_t ibinx); // Makes sure a bin is found (runtime assert)
-  inline T & operator() (double x);          // Access to bin by (x,y) coordinates
+  T & operator() (double x);          // Access to bin by (x,y) coordinates
 
   // (dx,dy) might undergo small changes so that the Histogram bins fit the area perfectly
   //  inline void reshape (double bin_dx, double bin_dy, double x_min, double x_max, double y_min, double y_max, HistogramBounds::Type bounds_type); 
@@ -76,8 +76,8 @@ class Histogram
 
   void print_format() { printf(YELLOW "Histogram(%lu) : x=[%g] y=[%g] (dx)=(%g)\n" NOCOLOR,_bins,_min,_max,_dx); }
 
-  void plot  (Gnuplot &p, const char * title);
-  void replot(Gnuplot &p, const char * title);
+  //  void plot  (Gnuplot &p, const char * title);
+  //  void replot(Gnuplot &p, const char * title);
 
   void smooth_add(T value, double x, double smooth_dx);
 

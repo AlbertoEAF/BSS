@@ -230,12 +230,13 @@ std::istream &operator >> (std::istream &input, Histogram<T> &hist)
   return input; // allows chaining
 }
 
+/*
 template <class T>
 void Histogram<T>::plot(Gnuplot &p, const char * title)
 {
-  /* This function cannot blow up the compilation as it is optional 
-     so it will be guaranteed at runtime without performance penalties. 
-     It will require including gnuplot_ipp.h before Histogram.h though. */
+  // This function cannot blow up the compilation as it is optional 
+  // so it will be guaranteed at runtime without performance penalties. 
+  // It will require including gnuplot_ipp.h before Histogram.h though. 
 
 #ifdef GNUPLOT_IPP_H__
   p.plot((*_m)(),_bins, title);
@@ -243,13 +244,15 @@ void Histogram<T>::plot(Gnuplot &p, const char * title)
   Guarantee(0, "Add gnuplot_ipp to the compilation chain and include gnuplot_ipp.h before Histogram.h.");
 #endif
 }
+*/
 
+/*
 template <class T>
 void Histogram<T>::replot(Gnuplot &p, const char * title)
 {
-  /* This function cannot blow up the compilation as it is optional 
-     so it will be guaranteed at runtime without performance penalties. 
-     It will require including gnuplot_ipp.h before Histogram.h though. */
+  // This function cannot blow up the compilation as it is optional 
+  // so it will be guaranteed at runtime without performance penalties. 
+  // It will require including gnuplot_ipp.h before Histogram.h though. 
 
 #ifdef GNUPLOT_IPP_H__
   p.replot((*_m)(),_bins, title);
@@ -257,7 +260,7 @@ void Histogram<T>::replot(Gnuplot &p, const char * title)
   Guarantee(0, "Add gnuplot_ipp to the compilation chain and include gnuplot_ipp.h before Histogram.h.");
 #endif
 }
-
+*/
 
 template <class T>
 void Histogram<T>::smooth_add(T value, double x, double smooth_dx)

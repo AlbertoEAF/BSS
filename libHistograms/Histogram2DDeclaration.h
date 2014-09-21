@@ -6,9 +6,12 @@
 #ifndef HISTOGRAM_2D_H__
 #include <stdio.h>
 #include <iostream>
+#include "HistogramDeclaration.h"
+#else
+#include "Histogram.h"
 #endif
 
-#include "Histogram.h"
+
 
 #include "Matrix.h"
 
@@ -18,10 +21,18 @@
 #include <cmath> // std::isnan // same in standard C library
 
 // Fot the optional splot() command. Gnuplot_ipp must be added to the main project before Histogram is included.
-class Gnuplot;
+//class Gnuplot;
 
 /// Auxiliary class for bin indexes: Point2D 
-template <class T> class Point2D;
+template <class T> class Point2D
+{
+ public:
+ Point2D(T a=0, T b=0) : x(a), y(b) {};
+
+  T x;
+  T y;
+};
+
 
 template <class T> std::ostream &operator << (std::ostream &output, Point2D<T> &p);
 /* End of auxiliary class: Point2D */
@@ -95,7 +106,7 @@ class Histogram2D
 
   void print_format() { printf(YELLOW "Histogram(%lu,%lu) : x=[%g,%g] y=[%g,%g] (dx,dy)=(%g,%g)\n" NOCOLOR,_xbins,_ybins,_xmin,_xmax,_ymin,_ymax,_dx,_dy); }
 
-  void plot(Gnuplot &p, const char * title);
+  //  void plot(Gnuplot &p, const char * title);
 
   void smooth_add(T value, double x, double y, double smooth_dx, double smooth_dy);
 

@@ -18,11 +18,15 @@ MATHLIBS= -lm
 
 #Small Random Libs
 LIBS_SRL = -Llibs -lSRL
+LIB_HISTOGRAMS = -LlibHistograms -lHistograms -IlibHistograms -I`pwd`
 
-LIBS = $(FFTLIBS) $(WAVLIBS) $(MATHLIBS) $(LIBS_SRL) $(ARMADILLO_LIB)
+LIBS = $(FFTLIBS) $(WAVLIBS) $(MATHLIBS) $(LIBS_SRL) $(ARMADILLO_LIB) $(LIB_HISTOGRAMS)
 
 
 all: IdList.o duet ecoduet drvb
+
+aux.a: complex_ops.o IdList.o OptionParser.o clustering.o
+	ar rcs aux.a complex_ops.o IdList.o OptionParser.o clustering.o
 
 complex_ops.o: complex_ops.cpp complex_ops.h
 	$(CC) $(CCFLAGS) -c complex_ops.cpp
@@ -48,8 +52,8 @@ OptionParser.o: OptionParser.cpp OptionParser.h
 clustering.o: clustering.cpp clustering.h
 	$(CC) $(CCFLAGS) -c clustering.cpp IdList.o $(PRECISION) $(LIBS) 
 
-ecoduet: libs IdList.o OptionParser.o clustering.o complex_ops.o
-	$(CC) $(CCFLAGS) -o r ecoduet.cpp gnuplot_ipp/gnuplot_ipp.o timer.o IdList.o OptionParser.o clustering.o complex_ops.o $(PRECISION) $(LIBS) 
+ecoduet: libs aux.a
+	$(CC) $(CCFLAGS) -o r ecoduet.cpp gnuplot_ipp/gnuplot_ipp.o timer.o aux.a $(PRECISION) $(LIBS) 
 
 
 duet.h.gch: duet.h Buffer.h Matrix.h Histogram2D.h array_ops.h types.h libs/config_parser.h wav.h gnuplot_ipp/gnuplot_ipp.h filters.h extra.h libs/timer.h RankList.h

@@ -4,7 +4,7 @@
 #define IDLIST_H__
 
 #include <iostream> // Otherwise Buffer won't shut up
-#include "Buffer.h"
+#include "BufferDeclaration.h"
 
 class IdList
 {

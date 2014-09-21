@@ -23,19 +23,6 @@
 // Fot the optional splot() command. Gnuplot_ipp must be added to the main project before Histogram is included.
 //class Gnuplot;
 
-/// Auxiliary class for bin indexes: Point2D 
-template <class T> class Point2D
-{
- public:
- Point2D(T a=0, T b=0) : x(a), y(b) {};
-
-  T x;
-  T y;
-};
-
-
-template <class T> std::ostream &operator << (std::ostream &output, Point2D<T> &p);
-/* End of auxiliary class: Point2D */
 
 
 // Histogram2D class ////////////////////////////////////////////
@@ -64,13 +51,13 @@ class Histogram2D
   Histogram2D(const Histogram2D<T> &copy);
   ~Histogram2D() { delete _m; }
 
-  inline T & bin(size_t binx, size_t biny); // Access to bin directly by bin coordinates (faster than Histogram::(x,y))
-  inline T & guarantee_bin (size_t binx, size_t biny); // Makes sure a bin is found (runtime assert)
-  inline T & operator() (double x, double y);          // Access to bin by (x,y) coordinates
+  T & bin(size_t binx, size_t biny); // Access to bin directly by bin coordinates (faster than Histogram::(x,y))
+  T & guarantee_bin (size_t binx, size_t biny); // Makes sure a bin is found (runtime assert)
+  T & operator() (double x, double y);          // Access to bin by (x,y) coordinates
 
   // (dx,dy) might undergo small changes so that the Histogram bins fit the area perfectly
   //  inline void reshape (double bin_dx, double bin_dy, double x_min, double x_max, double y_min, double y_max, HistogramBounds::Type bounds_type); 
-  inline void reshape (size_t bins_x, size_t bins_y, double x_min, double x_max, double y_min, double y_max, HistogramBounds::Type bounds_type);
+  void reshape (size_t bins_x, size_t bins_y, double x_min, double x_max, double y_min, double y_max, HistogramBounds::Type bounds_type);
   inline void clear () { _m->clear(); }
 
   bool get_bin_index  (double x, double y, size_t &bin_x_index, size_t &bin_y_index);

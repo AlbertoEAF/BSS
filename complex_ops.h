@@ -7,7 +7,7 @@
 #include "types.h"
 
 #include "abs.h"
-#include "Buffer.h"
+#include "BufferDeclaration.h"
 
 
 

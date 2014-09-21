@@ -10,7 +10,7 @@
 
 #include "array_ops.h" // for normalization (max())
 //#include "Buffer.h" // Just to avoid changing the input: copy the data and perform normaliztion on the copy
-#include "Matrix.h" // Version for matrix of outputs write
+#include "MatrixDeclaration.h" // Version for matrix of outputs write
 
 #include "Buffers.h"
 

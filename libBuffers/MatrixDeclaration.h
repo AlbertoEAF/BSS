@@ -65,8 +65,8 @@ class Matrix
   T operator ()  (size_t row, size_t col) const;
   inline T * operator ()  () { return m; }
   inline T * raw() const {return m; }
-  inline T * row(size_t row);
-  inline T * col(size_t row);
+  T * row(size_t row);
+  T * col(size_t row);
 
   inline size_t rows() const { return m_rows; }
   inline size_t cols() const { return m_cols; }
@@ -75,7 +75,7 @@ class Matrix
   inline void clear() { for (size_t i=0;i<m_size;++i)m[i]=0; }
 
   // returns a row or column according to the matrix alloc_mode
-  inline T * operator () (size_t main_dimension_pos); 
+  T * operator () (size_t main_dimension_pos); 
   // Length of the main dimension ( number of elements after accessing Matrix(i) )
   inline size_t d() const { if (alloc_mode == MatrixAlloc::Rows) return m_cols; else return m_rows; }
   // Number of main entries available (rows in MatrixAlloc::Rows) ( Matrix(i) is valid for all i < Matrix.n() )

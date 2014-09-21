@@ -1,7 +1,7 @@
 DEBUG = 
 
 CC = clang++
-CCFLAGS = -O2 $(DEBUG) -I..
+CCFLAGS = -O2 $(DEBUG) -I../libBuffers -I..
 
 libHistograms.a: Histogram.o Histogram2D.o
 	ar rcs libHistograms.a Histogram.o Histogram2D.o

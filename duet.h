@@ -23,9 +23,9 @@
 #include "libs/timer.h"
 #include "RankList.h"
 #include "color_codes.h"
-#include "Buffers.h"
+#include "BuffersDeclaration.h"
 #include "DoubleLinkedList.h"
-#include "BufferPool.h"
+#include "BufferPoolDeclaration.h"
 #include "IdList.h"
 #include "libs/String.h" // to build the names of the .dat files for rendering
 #include "CyclicCounter.h"

@@ -2,16 +2,6 @@
 
 #include "Histogram2DDeclaration.h"
 
-/// Auxiliary class for bin indexes: Point2D 
-//template <class T> class Point2D;
-
-template <class T> std::ostream &operator << (std::ostream &output, Point2D<T> &p)
-{
-  output << "(" << p.x << "," << p.y << ")";
-  return output; // allows chaining
-}
-/* End of auxiliary class: Point2D */
-
 
 // Histogram2D class ////////////////////////////////////////////
 

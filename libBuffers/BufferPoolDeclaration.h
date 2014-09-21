@@ -24,7 +24,7 @@ public:
   unsigned int try_acquire_id(); 
   // Can deadlock if pool is not enough and the user's algorithm isn't lock-free and requires #buffers > _pool_size.
   unsigned int acquire_id();
-  inline Buffer<T> * get_buffer (unsigned int id);
+  Buffer<T> * get_buffer (unsigned int id);
   void release_id(unsigned int id);
   
   void release_ids();

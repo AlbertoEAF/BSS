@@ -55,8 +55,8 @@ class Buffer
   Buffer (const Buffer<T> & copy);
   ~Buffer () { (*_custom_free)(m); }
 
-  inline T & operator [] (size_t pos);
-  inline T operator [] (size_t pos) const;
+  T & operator [] (size_t pos);
+  T operator [] (size_t pos) const;
   
   inline T * operator () () { return m; }
 

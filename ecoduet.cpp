@@ -1547,7 +1547,7 @@ int main(int argc, char **argv)
   Buffer<int> ibm_masks(FFT_N);
   for (size_t tb=0; tb < time_blocks; ++tb)
     {
-      build_mono_ibm_masks(ibm_masks, WDOs, ibm_X_bufs, original_waves_x1, tb, tb*FFT_slide, X1_history(tb), FFT_N, xX1_plan, W, o.f("Phi_x"));
+      build_mono_ibm_masks(ibm_masks, WDOs, ibm_X_bufs, original_waves_x1, tb, tb*FFT_slide, X1_history(tb), FFT_N, xX1_plan, W, o.f("Phi_x"), o.f("wdo_threshold"));
 
       for (int n=0; n < N; ++n)
 	{
@@ -1560,9 +1560,29 @@ int main(int argc, char **argv)
 
   for(int n=0; n < N; ++n)
     {
-      WDOs(n)->print();
-      printf("n) <WDO> = %.2g max(WDO) = %.2g min(WDO) = %.2g\n", WDOs(n)->avg(), WDOs(n)->max(), WDOs(n)->min());
+      real wdo_avg = 0, wdo_min = 1, wdo_max = 0;
+      real *wdos = WDOs.raw(n);
+      size_t wdo_count = 0;
+      for (size_t tb = 0; tb < time_blocks; ++tb)
+	{
+	  real wdo = wdos[tb];
+	  if (wdo > 0) // Invalid wdo values were set to -1 at the ibm mask building.
+	    {
+	      if (wdo_min > wdo)
+		wdo_min = wdo;
+	      if (wdo_max < wdo)
+		wdo_max = wdo;
+	      wdo_avg += wdo;
+	      ++wdo_count;
+	    }
+	}
+      wdo_avg /= wdo_count;
+
+      static Gnuplot pwdo;
+      pwdo.plot(WDOs.raw(n), time_blocks, std::to_string(n).c_str());
+      printf(CYAN "n) <WDO> = %.2g max(WDO) = %.2g min(WDO) = %.2g\n" NOCOLOR, wdo_avg, wdo_max, wdo_min);
     }
+
 
   for (uint source = 0; source < N; ++source)
     {
@@ -1676,10 +1696,10 @@ int main(int argc, char **argv)
     }
 
 
-  /*
-  if (WAIT)
+
+  if (o.i("wait"))
     wait();
-  */
+
 
   // With degeneracy return degenerate_count+1 > 1 since EXIT_FAILURE==1.
   return (degenerate_count>0 ? degenerate_count+1:0);

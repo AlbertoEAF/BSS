@@ -53,7 +53,7 @@ void build_mono_ibm_masks(Buffer<int> &masks, Buffer<real> &WDO, Buffers<real> &
 }
 */
 
-void build_mono_ibm_masks(Buffer<int> &masks, Buffers<real> &WDOs, Buffers<real> &masked_S, Buffers<real> &xoriginals, size_t tb, size_t t_offset, real *X, int FFT_N, fftw_plan &fft, Buffer<real> &W, real Phi_x)
+void build_mono_ibm_masks(Buffer<int> &masks, Buffers<real> &WDOs, Buffers<real> &masked_S, Buffers<real> &xoriginals, size_t tb, size_t t_offset, real *X, int FFT_N, fftw_plan &fft, Buffer<real> &W, real Phi_x, real wdo_threshold)
 {
   masks.clear();
   masked_S.clear();
@@ -72,10 +72,7 @@ void build_mono_ibm_masks(Buffer<int> &masks, Buffers<real> &WDOs, Buffers<real>
       
       evenHC2magnitude(Sn, Msn);
       evenHC2magnitude(Yn, Myn);
-      /*
-      evenHC2power(Sn, Msn);
-      evenHC2power(Yn, Myn);
-      */
+
       real &wdo = *WDOs.raw(n,tb);
       real psr=0, sir=0, sir_den=0;
       for (int k = 0,K=FFT_N/2; k < K; ++k)
@@ -87,28 +84,22 @@ void build_mono_ibm_masks(Buffer<int> &masks, Buffers<real> &WDOs, Buffers<real>
 
 	      masked_S.raw(n)[k      ] = X[k      ];
 	      masked_S.raw(n)[FFT_N-k] = X[FFT_N-k];
-
-	      wdo += Msn[k]*Msn[k] - Myn[k]*Myn[k];	      
-	      psr += Msn[k]*Msn[k];
+	    
+	      psr     += Msn[k]*Msn[k];
 	      sir_den += Myn[k]*Myn[k];
-	      /*
-	      wdo += Msn[k] - Myn[k];
-	      psr += Msn[k];
-	      */
 	    }
 	}
       
       sir = psr;
-      /*
-      wdo /= Msn.sum();
-      psr /= Msn.sum();
-      */
-      wdo /= Sn.energy();
+
       psr /= Sn.energy();
       sir /= sir_den;
       
-
-      printf(RED "wdo psr sir \t%g \t%g \t%g   %g\n" NOCOLOR, wdo, psr, sir, psr-psr/sir);
+      wdo = psr - psr/sir;
+      
+      // If wdo is invalid set it to a negative value that can quickly be discarded.
+      if ( wdo<wdo_threshold || std::isnan(wdo) )
+	wdo=-1;
     }
 }
 

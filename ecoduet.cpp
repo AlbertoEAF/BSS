@@ -979,6 +979,7 @@ int main(int argc, char **argv)
   x1_file.read(x1_wav(), samples);
   x2_file.read(x2_wav(), samples);
 
+
   // Only x1's are needed since that's the chosen channel for source separation
   Buffers<real> original_waves_x1(N, samples,0,fftw_malloc,fftw_free);
   for (int i = 0; i < N; ++i)
@@ -1163,6 +1164,14 @@ int main(int argc, char **argv)
   int N_clusters = 0;
 
   
+  Buffer<real> t_range(samples); 
+  Buffer<real> block_t_range(time_blocks); 
+  for (int t=0; t < samples; ++t)
+    t_range[t] = Ts*t;
+  for (int tb=0; tb < time_blocks; ++tb)
+    block_t_range[tb] = tb*(FFT_slide*Ts);
+
+
   Buffer<real> W(FFT_N);
   if (opt->Option("window"))
     select_window(opt->getOption("window"), W);
@@ -1542,12 +1551,12 @@ int main(int argc, char **argv)
   // IBM masks from mix using true sources knowledge (static and dynamic are rebuilt here)
  Buffers<real> ibm_X_bufs(original_waves_x1.buffers(),FFT_N,fftw_malloc,fftw_free); 
  
- Buffers<real> WDOs(original_waves_x1.buffers(), time_blocks);
+ Buffers<real> WDOs(original_waves_x1.buffers(), time_blocks), Es(WDOs);
  
   Buffer<int> ibm_masks(FFT_N);
   for (size_t tb=0; tb < time_blocks; ++tb)
     {
-      build_mono_ibm_masks(ibm_masks, WDOs, ibm_X_bufs, original_waves_x1, tb, tb*FFT_slide, X1_history(tb), FFT_N, xX1_plan, W, o.f("Phi_x"), o.f("wdo_threshold"));
+      build_mono_ibm_masks(ibm_masks, WDOs, Es, ibm_X_bufs, original_waves_x1, tb, tb*FFT_slide, X1_history(tb), FFT_N, xX1_plan, W, o.f("Phi_x"), o.f("wdo_threshold"));
 
       for (int n=0; n < N; ++n)
 	{
@@ -1578,8 +1587,11 @@ int main(int argc, char **argv)
 	}
       wdo_avg /= wdo_count;
 
-      static Gnuplot pwdo;
-      pwdo.plot(WDOs.raw(n), time_blocks, std::to_string(n).c_str());
+      static Gnuplot pwdos, pEs;
+      pwdos.set_labels("Time (s)", "WDO");
+      pEs.set_labels("Time (s)", "Block energy");
+      pwdos.plot(block_t_range(), WDOs.raw(n), time_blocks, std::to_string(n).c_str());
+      pEs  .plot(block_t_range(),   Es.raw(n), time_blocks, std::to_string(n).c_str());
       printf(CYAN "n) <WDO> = %.2g max(WDO) = %.2g min(WDO) = %.2g\n" NOCOLOR, wdo_avg, wdo_max, wdo_min);
     }
 

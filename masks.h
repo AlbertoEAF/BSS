@@ -53,7 +53,7 @@ void build_mono_ibm_masks(Buffer<int> &masks, Buffer<real> &WDO, Buffers<real> &
 }
 */
 
-void build_mono_ibm_masks(Buffer<int> &masks, Buffers<real> &WDOs, Buffers<real> &masked_S, Buffers<real> &xoriginals, size_t tb, size_t t_offset, real *X, int FFT_N, fftw_plan &fft, Buffer<real> &W, real Phi_x, real wdo_threshold)
+void build_mono_ibm_masks(Buffer<int> &masks, Buffers<real> &WDOs, Buffers<real> &Es, Buffers<real> &masked_S, Buffers<real> &xoriginals, size_t tb, size_t t_offset, real *X, int FFT_N, fftw_plan &fft, Buffer<real> &W, real Phi_x, real wdo_threshold)
 {
   masks.clear();
   masked_S.clear();
@@ -91,8 +91,10 @@ void build_mono_ibm_masks(Buffer<int> &masks, Buffers<real> &WDOs, Buffers<real>
 	}
       
       sir = psr;
+      
+      real En = *Es.raw(n,tb) = Sn.energy();
 
-      psr /= Sn.energy();
+      psr /= En;
       sir /= sir_den;
       
       wdo = psr - psr/sir;

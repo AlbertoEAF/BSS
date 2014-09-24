@@ -1,7 +1,7 @@
 DEBUG = 
 
 CC = clang++
-CCFLAGS = -O2 $(DEBUG) -I`pwd`/.. -I`pwd`
+CCFLAGS = -O2 $(DEBUG) -I${CURDIR}/.. -I${CURDIR}
 
 
 #Using the non-error-prone chaining B-type. Change to A-type for smaller binaries at the end of the development cycle. Check the how_to.

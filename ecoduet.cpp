@@ -1187,9 +1187,9 @@ int main(int argc, char **argv)
     puts("Calculating histograms...");      
     
   
+  const size_t first_tb = o.f("skip_time_s") / (Ts*FFT_slide); 
 
-
-  for (idx time_block = 0; time_block < time_blocks; ++time_block)
+  for (idx time_block = first_tb; time_block < time_blocks; ++time_block)
     {
       idx block_offset = time_block*FFT_slide;
 
@@ -1572,7 +1572,7 @@ int main(int argc, char **argv)
       real wdo_avg = 0, wdo_min = 1, wdo_max = 0;
       real *wdos = WDOs.raw(n);
       size_t wdo_count = 0;
-      for (size_t tb = 0; tb < time_blocks; ++tb)
+      for (size_t tb = first_tb; tb < time_blocks; ++tb)
 	{
 	  real wdo = wdos[tb];
 	  if (wdo > 0) // Invalid wdo values were set to -1 at the ibm mask building.

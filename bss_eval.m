@@ -20,11 +20,11 @@ cells_s  = cell(N ,1);
 cells_se = cell(Ne,1);  
 
 for n = 1:N
-    cells_s{n} = wavread(strcat(fileparts(Spattern),'/',Sfiles(n).name));
+    cells_s{n} = readwav(strcat(fileparts(Spattern),'/',Sfiles(n).name));
 end
 
 for ne = 1:Ne
-    cells_se{ne} = wavread(strcat(fileparts(Sepattern),'/',Sefiles(ne).name));
+    cells_se{ne} = readwav(strcat(fileparts(Sepattern),'/',Sefiles(ne).name));
 end   
 
 

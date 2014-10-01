@@ -83,76 +83,79 @@ real Energy_ratio(const real *e, const real *o, const idx samples)
 
 /** Provides the separation stats of the mixtures.   
  */
-int separation_stats(Buffers<real> &s, Buffers<real> &o, const int Ne, const idx samples)
+int separation_stats(Buffers<real> &e, Buffers<real> &o, const int Ne, const idx samples)
 {
   if (Ne == 0)
     return -1;
 
   const int N = o.buffers();
 
-  std::ofstream log ( "ecoduet.log", std::ios::app/*trunc*/ );
+  std::ofstream log ("ecoduet.log", std::ios::app/*trunc*/);
   log << "N = " << N << " Ne = " << Ne << std::endl;
 
 
   real dtotal;
   Buffer<real> dtotals(std::max<unsigned int>(Ne,N), FLT_MAX); // Store the temporary Dtotal results to find the minimum (best candidate)
-  IdList o2s(N), s2o(Ne); // Indices of the estimated mixtures that already have the minimum distortion measure (match found) (maps)
+  IdList o2e(N), e2o(Ne); // Indices of the estimated mixtures that already have the minimum distortion measure (match found) (maps)
 
   // Look now for the pair from each true source to the closest of the estimates.
-  log << "o s_match Dtotal Dtotal/sample SNR\n";
+  log << "e_match Dtotal Dtotal/sample SNR\n";
   dtotals.clear();
   int unmixed_results = 0;
   for (int i_o = 0; i_o < N; ++i_o)
     {
-      for (int i_s = 0; i_s < Ne; ++i_s)      
-	dtotals[i_s] = Dtotal(s.raw(i_s), o.raw(i_o), samples);	  
+      for (int i_e = 0; i_e < Ne; ++i_e)      
+	dtotals[i_e] = Dtotal(e.raw(i_e), o.raw(i_o), samples);	  
 	
-      int s_match = dtotals.min_index();
+      int e_match = dtotals.min_index();
 
-      if (o2s.has(s_match))
+      if (o2e.has(e_match))
 	++unmixed_results;
 
-      o2s.add(s_match); 
-      dtotal = dtotals[s_match];
+      o2e.add(e_match); 
+      dtotal = dtotals[e_match];
 
       // Other stats
-      real E_r = Energy_ratio(s.raw(s_match), o.raw(i_o), samples);
-      real snr = SNR(s.raw(s_match), o.raw(i_o), samples);
+      real E_r = Energy_ratio(e.raw(e_match), o.raw(i_o), samples);
+      real snr = SNR(e.raw(e_match), o.raw(i_o), samples);
     
-      printf(BLUE "o%d<-s%d : Dtotal=%g (%g/sample) SNR=%gdB E_r=%g\n" NOCOLOR, i_o, s_match, dtotal, dtotal/(real)samples, snr, E_r);     
+      printf(BLUE "o%d<-e%d : Dtotal=%g (%g/sample) SNR=%gdB E_r=%g\n" NOCOLOR, i_o, e_match, dtotal, dtotal/(real)samples, snr, E_r);     
 
-      log << i_o+1 << " " << s_match+1 << " " << dtotal << " " << dtotal/(real)samples << " " << snr << std::endl;
+      log << e_match+1 << " " << dtotal << " " << dtotal/(real)samples << " " << snr << std::endl;
     }
   if (unmixed_results) 
     printf(RED "%d Unmixed outputs.\n" NOCOLOR, unmixed_results);
 
+  log << "#degeneracies=" << unmixed_results << std::endl;
+
   // Now look the other way around, from each estimate to the closest true source to it.
-  log << "s o_match Dtotal Dtotal/sample SNR\n";
+  log << "o_match Dtotal Dtotal/sample SNR\n";
   dtotals.clear();
   unmixed_results = 0;
-  for (int i_s = 0; i_s < Ne; ++i_s)
+  for (int i_e = 0; i_e < Ne; ++i_e)
     {
       for (int i_o = 0; i_o < N; ++i_o)
-	dtotals[i_o] = Dtotal(s.raw(i_s), o.raw(i_o), samples);	  
+	dtotals[i_o] = Dtotal(e.raw(i_e), o.raw(i_o), samples);	  
 
       int o_match = dtotals.min_index();
 
-      if (s2o.has(o_match))
+      if (e2o.has(o_match))
 	++unmixed_results;
 	
-      s2o.add(o_match);
+      e2o.add(o_match);
       dtotal = dtotals[o_match];
 
       // Other stats
-      real E_r = Energy_ratio(s.raw(i_s), o.raw(o_match), samples);
-      real snr = SNR(s.raw(i_s), o.raw(o_match), samples);
-      printf(CYAN "s%d<-o%d : Dtotal=%g (%g/sample) SNR=%gdB E_r=%g\n" NOCOLOR, i_s, o_match, dtotal, dtotal/(real)samples, snr, E_r);     
+      real E_r = Energy_ratio(e.raw(i_e), o.raw(o_match), samples);
+      real snr = SNR(e.raw(i_e), o.raw(o_match), samples);
+      printf(CYAN "e%d<-o%d : Dtotal=%g (%g/sample) SNR=%gdB E_r=%g\n" NOCOLOR, i_e, o_match, dtotal, dtotal/(real)samples, snr, E_r);     
 
-      log << i_s+1 << " " << o_match+1 << " " << dtotal << " " << dtotal/(real)samples << " " << snr << std::endl;      
+      log << o_match+1 << " " << dtotal << " " << dtotal/(real)samples << " " << snr << std::endl;      
     }
   if (unmixed_results) 
     printf(RED "%d Unmixed outputs.\n" NOCOLOR, unmixed_results);
 
+  log << "#degeneracies=" << unmixed_results << std::endl;
 
   log.close();
   return unmixed_results;

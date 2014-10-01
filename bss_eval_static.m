@@ -10,10 +10,10 @@ diary on
 
 diary(logfile);
 
-% Print the best match for each true source.
-fprintf('o_'); print_bss_eval_stats(SDR , SIR , SAR , perm );
-% Print the best match for each estimated source.
-fprintf('e_'); print_bss_eval_stats(SDRe, SIRe, SARe, perme);
+% Print the best estimated source match for each true source.
+fprintf('e_'); print_bss_eval_stats(SDR , SIR , SAR , perm );
+% Print the best original match for each estimated source.
+fprintf('o_'); print_bss_eval_stats(SDRe, SIRe, SARe, perme);
 
 
 

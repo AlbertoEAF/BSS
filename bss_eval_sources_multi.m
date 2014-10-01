@@ -4,7 +4,7 @@ function [SDR,SIR,SAR,perm, SDRe,SIRe,SARe,perme]=bss_eval_sources_multi(se,s)
 % number of rebuilt sources and degenerate solutions which means the 
 % assignment criteria was changed to the maximum SIR per source 
 % instead of the maximum combined SIR of the sources permutation solution.
-
+%
 % The search is actually done in two ways.
 % The first is to find for each true source its best reconstruction.
 % The second is to find for each estimated source the true source that it 
@@ -53,7 +53,7 @@ if nsrce==0, error('No estimated sources.'); end
 if samplese~=samples, error('The estimated sources and reference sources must have the same duration.'); end
 
 %%% Performance criteria %%%
-% Computation of the criteria for all possible pair matches (Xm===X matrix)
+% Computation of the criteria for all possible pair matches ("m" means "matrix")
 SDRm    = zeros(nsrce,nsrc);
 SIRm    = zeros(nsrce,nsrc);
 SARm    = zeros(nsrce,nsrc);

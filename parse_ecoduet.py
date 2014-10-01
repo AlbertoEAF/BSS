@@ -58,7 +58,8 @@ def parse_ecoduet(logpath):
 
             # Parse normal values line.
             l = line.split()
-            values = (int(l[0])-1, float(l[1]), float(l[2]), float(l[3])) # (match, Dtotal,Dtotal_per_sample,SNR)
+            # (match, Dtotal,Dtotal_per_sample,SNR)
+            values = (int(l[0])-1, float(l[1]), float(l[2]), float(l[3])) 
 
             if line_is == ORIGINAL:
                 o.append(values)
@@ -70,3 +71,6 @@ def parse_ecoduet(logpath):
     return (N, Ne, deg_o, deg_e, o, e)
 
 
+if __name__ == "__main__":
+    eco = parse_ecoduet("ecoduet.log") 
+    p(eco)

@@ -51,7 +51,8 @@ def parse_bss_eval_static(logpath):
             continue
         elif line_is != NONE: # If the file obeys the specs at least we must be in some state by now.
             l = line.split("\t")
-            values = (int(l[0])-1, float(l[2]),float(l[5]),float(l[8])) # (match, SDR,SIR,SAR)
+            # (match, SDR,SIR,SAR)
+            values = (int(l[0])-1, float(l[2]),float(l[5]),float(l[8])) 
             if line_is == ORIGINAL:
                 o.append(values)
             else:
@@ -62,10 +63,8 @@ def parse_bss_eval_static(logpath):
 
     return (o, e)
 
-
-logpath="staticMLABlog"
-mcli_call_bss_eval_static(logpath)
-dicts = parse_bss_eval_static(logpath)
-
-
-p(dicts)
+if __name__ == "__main__":
+    mcli_call_bss_eval_static("bss_eval.log")
+    bss = parse_bss_eval_static("bss_eval.log")
+    p(bss)
+    

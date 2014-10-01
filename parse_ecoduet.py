@@ -70,7 +70,3 @@ def parse_ecoduet(logpath):
     return (N, Ne, deg_o, deg_e, o, e)
 
 
-logpath = "ecoduet.log"
-dicts = parse_ecoduet(logpath)
-
-p(dicts)

@@ -1589,7 +1589,7 @@ int main(int argc, char **argv)
 
       static Gnuplot pwdos, pEs;
       pwdos.set_labels("Time (s)", "WDO");
-      pEs.set_labels("Time (s)", "Block energy");
+      pEs  .set_labels("Time (s)", "Block energy");
       pwdos.plot(block_t_range(), WDOs.raw(n), time_blocks, std::to_string(n).c_str());
       pEs  .plot(block_t_range(),   Es.raw(n), time_blocks, std::to_string(n).c_str());
       printf(CYAN "n) <WDO> = %.2g max(WDO) = %.2g min(WDO) = %.2g\n" NOCOLOR, wdo_avg, wdo_max, wdo_min);

@@ -1,11 +1,12 @@
 #ifndef SEPARATION_METRICS_HPP__
 #define SEPARATION_METRICS_HPP__
 
+#include <fstream>
 #include "types.h"
 #include "BufferDeclaration.h" // Already includes <cmath>
 #include "IdList.h"
 
-bool in (int val, Buffer<int> &list)
+bool in (const int val, Buffer<int> &list)
 {
   size_t size = list.size();
 
@@ -23,7 +24,7 @@ bool in (int val, Buffer<int> &list)
     @param[in] samples - Number of samples
 
 */
-real Dtotal(const real *e,  const real *o, idx samples)
+real Dtotal(const real *e,  const real *o, const idx samples)
 {
   real O2 = array_ops::energy(o, samples);
   real E2 = array_ops::energy(e, samples);
@@ -37,7 +38,7 @@ real Dtotal(const real *e,  const real *o, idx samples)
 }
 
 
-real SNR(const real *e, const real *o, idx samples)
+real SNR(const real *e, const real *o, const idx samples)
 {
   Buffer<real> e_normalized(e,samples), o_normalized(o,samples);
 
@@ -70,7 +71,7 @@ real SNR(const real *e, const real *o, idx samples)
     @param[in] samples - Number of samples
 
 */
-real Energy_ratio(const real *e, const real *o, idx samples)
+real Energy_ratio(const real *e, const real *o, const idx samples)
 {
   real E_e = array_ops::energy(e, samples);
   real E_o = array_ops::energy(o, samples);
@@ -82,21 +83,28 @@ real Energy_ratio(const real *e, const real *o, idx samples)
 
 /** Provides the separation stats of the mixtures.   
  */
-int separation_stats(Buffers<real> &s, Buffers<real> &o, int N, idx samples)
+int separation_stats(Buffers<real> &s, Buffers<real> &o, const int Ne, const idx samples)
 {
-  if (N == 0)
+  if (Ne == 0)
     return -1;
 
+  const int N = o.buffers();
+
+  std::ofstream log ( "ecoduet.log", std::ios::app/*trunc*/ );
+  log << "N = " << N << " Ne = " << Ne << std::endl;
+
+
   real dtotal;
-  Buffer<real> dtotals(std::max<unsigned int>(N,o.buffers()), FLT_MAX); // Store the temporary Dtotal results to find the minimum (best candidate)
-  IdList o2s(o.buffers()), s2o(N); // Indices of the estimated mixtures that already have the minimum distortion measure (match found) (maps)
+  Buffer<real> dtotals(std::max<unsigned int>(Ne,N), FLT_MAX); // Store the temporary Dtotal results to find the minimum (best candidate)
+  IdList o2s(N), s2o(Ne); // Indices of the estimated mixtures that already have the minimum distortion measure (match found) (maps)
 
   // Look now for the pair from each true source to the closest of the estimates.
+  log << "o s_match Dtotal Dtotal/sample SNR\n";
   dtotals.clear();
   int unmixed_results = 0;
-  for (int i_o = 0; i_o < o.buffers(); ++i_o)
+  for (int i_o = 0; i_o < N; ++i_o)
     {
-      for (int i_s = 0; i_s < N; ++i_s)      
+      for (int i_s = 0; i_s < Ne; ++i_s)      
 	dtotals[i_s] = Dtotal(s.raw(i_s), o.raw(i_o), samples);	  
 	
       int s_match = dtotals.min_index();
@@ -111,17 +119,20 @@ int separation_stats(Buffers<real> &s, Buffers<real> &o, int N, idx samples)
       real E_r = Energy_ratio(s.raw(s_match), o.raw(i_o), samples);
       real snr = SNR(s.raw(s_match), o.raw(i_o), samples);
     
-      printf(BLUE "o%d->s%d : Dtotal=%g (%g/sample) SNR=%gdB E_r=%g\n" NOCOLOR, i_o, s_match, dtotal, dtotal/(real)samples, snr, E_r);     
+      printf(BLUE "o%d<-s%d : Dtotal=%g (%g/sample) SNR=%gdB E_r=%g\n" NOCOLOR, i_o, s_match, dtotal, dtotal/(real)samples, snr, E_r);     
+
+      log << i_o+1 << " " << s_match+1 << " " << dtotal << " " << dtotal/(real)samples << " " << snr << std::endl;
     }
   if (unmixed_results) 
     printf(RED "%d Unmixed outputs.\n" NOCOLOR, unmixed_results);
 
   // Now look the other way around, from each estimate to the closest true source to it.
+  log << "s o_match Dtotal Dtotal/sample SNR\n";
   dtotals.clear();
   unmixed_results = 0;
-  for (int i_s = 0; i_s < N; ++i_s)
+  for (int i_s = 0; i_s < Ne; ++i_s)
     {
-      for (int i_o = 0; i_o < o.buffers(); ++i_o)
+      for (int i_o = 0; i_o < N; ++i_o)
 	dtotals[i_o] = Dtotal(s.raw(i_s), o.raw(i_o), samples);	  
 
       int o_match = dtotals.min_index();
@@ -135,11 +146,15 @@ int separation_stats(Buffers<real> &s, Buffers<real> &o, int N, idx samples)
       // Other stats
       real E_r = Energy_ratio(s.raw(i_s), o.raw(o_match), samples);
       real snr = SNR(s.raw(i_s), o.raw(o_match), samples);
-      printf(CYAN "s%d->o%d : Dtotal=%g (%g/sample) SNR=%gdB E_r=%g\n" NOCOLOR, i_s, o_match, dtotal, dtotal/(real)samples, snr, E_r);     
+      printf(CYAN "s%d<-o%d : Dtotal=%g (%g/sample) SNR=%gdB E_r=%g\n" NOCOLOR, i_s, o_match, dtotal, dtotal/(real)samples, snr, E_r);     
+
+      log << i_s+1 << " " << o_match+1 << " " << dtotal << " " << dtotal/(real)samples << " " << snr << std::endl;      
     }
   if (unmixed_results) 
     printf(RED "%d Unmixed outputs.\n" NOCOLOR, unmixed_results);
 
+
+  log.close();
   return unmixed_results;
 }
 

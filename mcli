@@ -2,7 +2,10 @@
 
 wd=`pwd`
 
-echo "\"cd('${wd}');fprintf('${@}');exit\""
+#echo "\"cd('${wd}');fprintf('${@}');exit\""
 
+#echo \""cd('${wd}');$1(${@:2});exit\""
 
-matlab -nojvm -nodesktop -nodisplay -nosplash -r "cd('${wd}');$@;exit"
+#matlab -nojvm -nodesktop -nodisplay -nosplash -r "cd('${wd}');$@;exit"
+
+matlab -nojvm -nodesktop -nodisplay -nosplash -r "cd('${wd}');$1(${@:2});exit"

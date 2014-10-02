@@ -8,4 +8,13 @@ wd=`pwd`
 
 #matlab -nojvm -nodesktop -nodisplay -nosplash -r "cd('${wd}');$@;exit"
 
-matlab -nojvm -nodesktop -nodisplay -nosplash -r "cd('${wd}');$1(${@:2});exit"
+
+if [ "$1" == "-f" ] # use the -f flag to force interpreter abortion on error.
+then
+    matlab -nojvm -nodesktop -nodisplay -nosplash -r "try cd('${wd}');$2(${@:3});exit; catch; exit(1); end"
+else
+    matlab -nojvm -nodesktop -nodisplay -nosplash -r "cd('${wd}');$1(${@:2});exit;"
+fi
+
+
+

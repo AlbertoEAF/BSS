@@ -3,19 +3,39 @@
 from parse_ecoduet import *
 from parse_bss_eval import *
 
+
+def exec_bss_eval_static_and_ibm(bss_static_logpath, bss_ibm_logpath):
+    """ Executes the BSS Eval toolkit in parallel for the current data. """
+
+    t_static = thread_bss_eval_static(bss_static_logpath)
+    t_ibm    = thread_bss_eval_ibm   (bss_ibm_logpath)
+    t_static.start()
+    t_ibm.start()
+    t_static.join()
+    t_ibm.join()
+
+def exec_bss_eval_dynamic_and_ibm(bss_dynamic_logpath, bss_ibm_logpath):
+    """ Executes the BSS Eval toolkit in parallel for the current data. """
+
+    t_dynamic = thread_bss_eval_dynamic(bss_dynamic_logpath)
+    t_ibm    = thread_bss_eval_ibm   (bss_ibm_logpath)
+    t_dynamic.start()
+    t_ibm.start()
+    t_dynamic.join()
+    t_ibm.join()
+
+
 def parse_run(ecoduet_logpath, bss_eval_logpath):
     
-    
     eco = parse_ecoduet(ecoduet_logpath)
-
-    mcli_call_bss_eval_static(bss_eval_logpath)
-    bss = parse_bss_eval_static(bss_eval_logpath)
 
     N = eco[0]
     Ne = eco[1]
 
-    check(N==Ne, "Not implemented yet for Ne!=N")
+    check(N==Ne, "Not implemented for Ne!=N")
     check((not eco[2]) and (not eco[3]), "ABORTING: Degeneracies occured!")
+
+    bss = parse_bss_eval(bss_eval_logpath)
 
     eco_o = eco[4]
     eco_e = eco[5]
@@ -48,11 +68,9 @@ def parse_run(ecoduet_logpath, bss_eval_logpath):
 
         e.append(eco_e[i_e]+bss_e[i_e][1:])
 
-    return (o,e)
+    return (N, Ne, deg_o, deg_e, o, e)
 
 
 if __name__ == "__main__":
-    (o,e) = parse_run("ecoduet.log","bss_eval.log")
-    p(o)
-    p(e)
+    p( parse_run("ecoduet.log","bss_eval.log") )
 

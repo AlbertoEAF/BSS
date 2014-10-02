@@ -70,11 +70,11 @@ def exclude(f, f_ref, exclusion_rules):
     return excl
 
 
-def gen_test(test_file):
+def gen_combinations(test_file):
     """
     Takes a .test file and generates the necessary .csim files or runs the tests if mix is the command 
     """
-    # We're only interested in getting the dictionary
+
     test = ConfigParser(test_file)
 
     rules = test['exclusion_rules'].split()
@@ -123,8 +123,22 @@ def gen_test(test_file):
             combinations.append(combination)
 
 
-    print(YELLOW,"(",combs_count-excls_count,"/",combs_count,")\n",NOCOLOR, sep="")        
+    return combinations
 
+
+
+def tests(test_file):
+    """
+    Run all tests and save the logs for later processing.
+
+    ecoduet saves 2 logs: ecoduet.log and ecoduet_ibm.log
+    similarly we'll call bss_eval to output: bss_eval.log and bss_eval_ibm.log
+    """
+    
+    folder = test_file[:test_file.rfind("/")]
+
+    test = ConfigParser(test_file)
+    combinations = gen_combinations(test_file)
 
     if test['mixer'] == 'mix':
         for i_c in range(len(combinations)):
@@ -133,7 +147,7 @@ def gen_test(test_file):
 
             sub.check_call(['mix']+[ dirs[n]+'/'+c[n] for n in range(N) ])
 
-            sub.check_call(["rm","-f","ecoduet.log","bss_eval.log"])
+            sub.check_call(["rm","-f","ecoduet.log","bss_eval.log","bss_eval_ibm.log"])
 
             out=sub.check_output(['r','omni.cfg'])
 
@@ -142,7 +156,7 @@ def gen_test(test_file):
             print(RED,o,e,NOCOLOR)
 
     elif test['mixer'] == 'csim':
-        print("Not implemented yet!")
+        print("Not implemented!")
         exit(1)
     else:
         print("Invalid mixer mode!")

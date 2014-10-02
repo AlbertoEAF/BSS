@@ -3,6 +3,8 @@
 import os
 import subprocess as sub
 
+import threading
+
 def p(arg): print("<",arg,">",sep="")
 
 def error(msg): 
@@ -15,12 +17,35 @@ def check(test, msg):
 
 DEVNULL = open(os.devnull, 'w')
 
+
+# Synchronous calls (look below for async helpers).
 def mcli_call_bss_eval_static(logpath):
     sub.check_call(["rm","-f",logpath])
-    sub.check_call(["mcli", "bss_eval_static", "\'"+logpath+"\'"], stderr=DEVNULL, stdout=DEVNULL)
+    sub.check_call(["mcli", "-f", "bss_eval_static", "\'"+logpath+"\'"], stderr=DEVNULL, stdout=DEVNULL)
 
 
-def parse_bss_eval_static(logpath):
+def mcli_call_bss_eval_dynamic(logpath):
+    sub.check_call(["rm","-f",logpath])
+    sub.check_call(["mcli", "-f", "bss_eval_dynamic", "\'"+logpath+"\'"], stderr=DEVNULL, stdout=DEVNULL)
+
+def mcli_call_bss_eval_ibm(logpath):
+    sub.check_call(["rm","-f",logpath])
+    sub.check_call(["mcli", "-f", "bss_eval_ibm", "\'"+logpath+"\'"], stderr=DEVNULL, stdout=DEVNULL)
+
+
+# Async helpers of the mcli_calls which take lots of time. Get the thread, start it and join it (remember to use differnt logpaths for simultaneous execution of course!).
+def thread_bss_eval_static(logpath):
+    return threading.Thread(name="static",target=mcli_call_bss_eval_static, args=(logpath,))
+
+def thread_bss_eval_dynamic(logpath):
+    return threading.Thread(name="dynamic",target=mcli_call_bss_eval_dynamic, args=(logpath,))
+
+def thread_bss_eval_ibm(logpath):
+    return threading.Thread(name="ibm",target=mcli_call_bss_eval_ibm, args=(logpath,))
+
+
+
+def parse_bss_eval(logpath):
     """
     Parses the logfile and returns the original and estimated lists with entries:
     [ (matching_source_index,SDR,SIR,SAR) , ... ] sorted by the original/estimated source index.
@@ -65,6 +90,6 @@ def parse_bss_eval_static(logpath):
 
 if __name__ == "__main__":
     mcli_call_bss_eval_static("bss_eval.log")
-    bss = parse_bss_eval_static("bss_eval.log")
+    bss = parse_bss_eval("bss_eval.log")
     p(bss)
     

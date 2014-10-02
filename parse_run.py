@@ -8,7 +8,7 @@ def parse_run(ecoduet_logpath, bss_eval_logpath):
     
     eco = parse_ecoduet(ecoduet_logpath)
 
-#    mcli_call_bss_eval_static(bss_eval_logpath)
+    mcli_call_bss_eval_static(bss_eval_logpath)
     bss = parse_bss_eval_static(bss_eval_logpath)
 
     N = eco[0]

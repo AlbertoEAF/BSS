@@ -74,53 +74,57 @@ def gen_test(test_file):
 
     rules = test['exclusion_rules'].split()
 
+
+    sources = test['sources'].split()
+
+    N = len(sources)
+
+
+    print(YELLOW, "\nN =", N, NOCOLOR, "\n")
+
+    dirs  = []
+    files = []
+
+    for n in range(N):
+        dirpath = sources[n][:sources[n].rfind('/')]
+        pattern = sources[n][sources[n].rfind('/')+1:]
+
+        dirs.append( dirpath )
+        files.append( get_wav_files(dirpath, pattern) )
+
+        print_wavlist("s"+str(n),dirpath,listdir_waves(dirpath),files[n])
+
+    combinations = []
+
+    import itertools
+
+    combs_count = 0
+    excls_count = 0
+
+    all_combinations = itertools.product(*files)
+
+    for combination in all_combinations:
+        combs_count += 1
+
+        exclude_flag = False
+        for n1 in range(N-1):
+            for n2 in range(1,N):
+                if exclude(combination[n1], combination[n2], rules):
+                    exclude_flag = True
+
+        if exclude_flag:
+            excls_count += 1
+        else:
+            combinations.append(combination)
+
+
+    print(YELLOW,"(",combs_count-excls_count,"/",combs_count,")\n",NOCOLOR, sep="")        
+
+
     if test['mixer'] == 'mix':
-        sources = test['sources'].split()
-        
-        N = len(sources)
-
-
-        print(YELLOW, "\nN =", N, NOCOLOR, "\n")
-
-        files = []
-
-        for n in range(N):
-            dirpath = sources[n][:sources[n].rfind('/')]
-            pattern = sources[n][sources[n].rfind('/')+1:]
-           
-            files.append( get_wav_files(dirpath, pattern) )
-
-            print_wavlist("s"+str(n),dirpath,listdir_waves(dirpath),files[n])
-
-        combinations = []
-
-        import itertools
-
-        combs_count = 0
-        excls_count = 0
-
-        all_combinations = itertools.product(*files)
-
-        for combination in all_combinations:
-            combs_count += 1
-
-            exclude_flag = False
-            for n1 in range(N-1):
-                for n2 in range(1,N):
-                    if exclude(combination[n1], combination[n2], rules):
-                        exclude_flag = True
-
-            if exclude_flag:
-                excls_count += 1
-            else:
-                combinations.append(combination)
-
-
-        print(YELLOW,"(",combs_count-excls_count,"/",combs_count,")\n",NOCOLOR, sep="")        
-
-
-        for combination in combinations:
-            print(combination)
+        for c in range(len(combinations)):
+            print("Testing (",c,"/",len(combinations),") : ", combination, sep="")
+            
 
     elif test['mixer'] == 'csim':
         print("Not implemented yet!")

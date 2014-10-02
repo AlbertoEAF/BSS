@@ -111,15 +111,16 @@ def gen_test(test_file):
                         exclude_flag = True
 
             if exclude_flag:
-                print(combination, end=" ")
                 excls_count += 1
             else:
-                print(YELLOW, combination, NOCOLOR, sep="", end=" ")
                 combinations.append(combination)
 
 
         print(YELLOW,"(",combs_count-excls_count,"/",combs_count,")\n",NOCOLOR, sep="")        
 
+
+        for combination in combinations:
+            print(combination)
 
     elif test['mixer'] == 'csim':
         print("Not implemented yet!")

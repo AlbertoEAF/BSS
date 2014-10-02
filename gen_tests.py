@@ -12,6 +12,7 @@ from ConfigParser import *
 
 from color_codes import *
 
+from parse_run import *
 
 def raw_string(s):
     if isinstance(s, str):
@@ -130,8 +131,15 @@ def gen_test(test_file):
             c = combinations[i_c]
             print("Testing (",i_c,"/",len(combinations),") : ", c, sep="")
 
-#            out = sub.check_output(['mix']+[ dirs[n]+c[n] for n in range(N) ])
-            print(['mix']+[ dirs[n]+c[n] for n in range(N) ])
+            sub.check_call(['mix']+[ dirs[n]+'/'+c[n] for n in range(N) ])
+
+            sub.check_call(["rm","-f","ecoduet.log","bss_eval.log"])
+
+            out=sub.check_output(['r','omni.cfg'])
+
+            (o,e) = parse_run("ecoduet.log", "bss_eval.log")
+
+            print(RED,o,e,NOCOLOR)
 
     elif test['mixer'] == 'csim':
         print("Not implemented yet!")

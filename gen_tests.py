@@ -3,6 +3,10 @@
 from os import listdir
 from os.path import isfile, join
 
+import os
+import subprocess as sub
+
+
 import re
 from ConfigParser import *
 
@@ -122,9 +126,12 @@ def gen_test(test_file):
 
 
     if test['mixer'] == 'mix':
-        for c in range(len(combinations)):
-            print("Testing (",c,"/",len(combinations),") : ", combination, sep="")
-            
+        for i_c in range(len(combinations)):
+            c = combinations[i_c]
+            print("Testing (",i_c,"/",len(combinations),") : ", c, sep="")
+
+#            out = sub.check_output(['mix']+[ dirs[n]+c[n] for n in range(N) ])
+            print(['mix']+[ dirs[n]+c[n] for n in range(N) ])
 
     elif test['mixer'] == 'csim':
         print("Not implemented yet!")

@@ -1,24 +1,22 @@
 #! /bin/bash
 
 
-#input_folder="recordings"
 output_folder="sounds"
-
 
 
 rm -rf ${output_folder}/*
 
-
+# N > simulation.log
 echo $# > simulation.log
 
 i=0
 for file in "$@"
 do
-    sox "${input_folder}${file}" "${output_folder}/s${i}x0.wav" remix 1
-    sox "${input_folder}${file}" "${output_folder}/s${i}x1.wav" remix 2
+    sox "$file" "${output_folder}/s${i}x0.wav" remix 1
+    sox "$file" "${output_folder}/s${i}x1.wav" remix 2
     i=$((i+1))
-    # Write alpha,delta per source but we don't know that yet
-    echo "0 0" >> simulation.log
+    # alpha delta >> simulation.log
+    alpha_delta.py "$file" >> simulation.log
 done
 
 cd "${output_folder}"

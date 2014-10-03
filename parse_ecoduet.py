@@ -1,5 +1,6 @@
 #! /usr/bin/python3
 
+import sys
 import os
 import subprocess as sub
 
@@ -39,6 +40,9 @@ def parse_ecoduet(logpath):
     # state
     line_is = NONE
 
+    SNR0 = []
+    deg_e = 0
+
     for line in lines[1:]:
         if line[0] == "e": # line starts with e_match
             line_is = ORIGINAL
@@ -65,12 +69,16 @@ def parse_ecoduet(logpath):
                 o.append(values)
             else:
                 e.append(values)
-        else:
-            error("Unrecognized line precedes the original and estimated lines: <"+line+">")
+        else: # Line that precedes the standard results shows the SNR0 values.
+            SNR0 = line.split()
 
-    return (N, Ne, deg_o, deg_e, o, e)
+    return (N, Ne, deg_o, deg_e, o, e, SNR0)
 
 
 if __name__ == "__main__":
-    eco = parse_ecoduet("ecoduet.log") 
-    p(eco)
+    if (len(sys.argv) == 1):
+        logpath = input("Ecolog:")
+    else:
+        logpath = sys.argv[1]
+    eco = parse_ecoduet(logpath) 
+    print(eco)

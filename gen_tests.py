@@ -123,11 +123,11 @@ def gen_combinations(test_file):
             combinations.append(combination)
 
 
-    return combinations
+    return (N,dirs,combinations)
 
 
 
-def tests(test_file):
+def test(test_file):
     """
     Run all tests and save the logs for later processing.
 
@@ -135,25 +135,42 @@ def tests(test_file):
     similarly we'll call bss_eval to output: bss_eval.log and bss_eval_ibm.log
     """
     
-    folder = test_file[:test_file.rfind("/")]
+    folder = test_file[:test_file.rfind("/")+1]
 
     test = ConfigParser(test_file)
-    combinations = gen_combinations(test_file)
+    (N,dirs,combinations) = gen_combinations(test_file)
+
 
     if test['mixer'] == 'mix':
         for i_c in range(len(combinations)):
             c = combinations[i_c]
-            print("Testing (",i_c,"/",len(combinations),") : ", c, sep="")
+            print( "Testing({}/{}): {}".format(i_c,len(combinations),c) )
 
             sub.check_call(['mix']+[ dirs[n]+'/'+c[n] for n in range(N) ])
 
-            sub.check_call(["rm","-f","ecoduet.log","bss_eval.log","bss_eval_ibm.log"])
+            combi_name = "_".join([ c[n][:-4] for n in range(N) ])
 
-            out=sub.check_output(['r','omni.cfg'])
+            ecolog  = folder+combi_name+".ecolog"
+            ecologi = folder+combi_name+".ecologi" # ibm
 
-            (o,e) = parse_run("ecoduet.log", "bss_eval.log")
+            bsslog  = folder+combi_name+".bsslog"
+            bsslogi = folder+combi_name+".bsslogi" # ibm
 
-            print(RED,o,e,NOCOLOR)
+            print("Running ecoduet...",end="",flush=True)
+            duetcfg = test['duet_cfg']
+            out = sub.check_output(['r','-l', ecolog,'-i', ecologi, duetcfg])
+            print("OK")
+
+            print("BSS Eval async call...", end="",flush=True)
+            exec_bss_eval_static_and_ibm(bsslog, bsslogi)
+            print("OK")
+
+            print("BSS Eval parsing...", end="", flush=True)
+            # (N, Ne, deg_o , deg_e , o, e, SNR0)
+            _ , Ne , deg_o , deg_e , o  , e , _    = parse_run(ecolog , bsslog )
+            _ , _  , _     , _     , oi , _ , SNR0 = parse_run(ecologi, bsslogi)
+            print("OK")
+
 
     elif test['mixer'] == 'csim':
         print("Not implemented!")
@@ -165,6 +182,6 @@ def tests(test_file):
 
 
 
-gen_test('t.test')
+test('t.test')
 
 

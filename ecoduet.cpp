@@ -894,6 +894,11 @@ int main(int argc, char **argv)
   opt->setOption("FFT_N");
   opt->setOption("window",'w');
 
+  opt->setOption("log", 'l');
+  opt->setOption("ibm_log", 'i');
+
+  opt->setFlag('p');
+
   int arg0 = opt->parse(argc,argv);
   if (arg0 == argc || opt->getFlag("help"))
     {
@@ -901,6 +906,11 @@ int main(int argc, char **argv)
       exit(1);
     }
  
+  std::string logpath = opt->getOption("log");
+  std::string ibm_logpath = opt->getOption("ibm_log");
+
+  
+
   Options o(argv[arg0], Quit, 0);
 
   DUETcfg _DUET; // Just to initialize, then a const DUET is initialized from this one.
@@ -1188,7 +1198,11 @@ int main(int argc, char **argv)
     
   
   const size_t first_tb = o.f("skip_time_s") / (Ts*FFT_slide); 
+  const size_t skip_samples = o.f("skip_time_s")*sample_rate_Hz;
 
+
+  Timer rt_duet_timer;
+  rt_duet_timer.start();
   for (idx time_block = first_tb; time_block < time_blocks; ++time_block)
     {
       idx block_offset = time_block*FFT_slide;
@@ -1225,6 +1239,7 @@ int main(int argc, char **argv)
       calc_alpha_delta(time_block, FFT_pN, sample_rate_Hz, X1, X2, alpha, delta, hist, hist_alpha, hist_delta, DUET);
 
       //////////////////// MANUAL PEAK TESTING MODE //////////////////////
+      /*
       if (o.i("test_peak_tracking"))
 	{
 	  // Do not compare A0, only positions.
@@ -1250,7 +1265,7 @@ int main(int argc, char **argv)
 	      hist_delta(mdelta) += mI;
 	    }
 	}
-
+      */
                   
       /*
 	static Histogram2D<real> prod_hist(hist), diff_hist(hist);
@@ -1516,8 +1531,9 @@ int main(int argc, char **argv)
       if (DUET.use_smoothing_2D) // WARNING: VERY SLOW OPERATION
 	cumulative_hist.kernel_convolution(conv_kernel, conv_hist);
     }  
+  Timer cumulative_hist_write_timer; cumulative_hist_write_timer.start();
   cumulative_hist.write_to_gnuplot_pm3d_data("cumulative_hist.dat");
-
+  cumulative_hist_write_timer.stop();
 
 
   heuristic_clustering2D(cumulative_hist, cumulative_clusters, DUET);
@@ -1540,11 +1556,15 @@ int main(int argc, char **argv)
 	  apply_masks(*new_buffers, alpha(t_block), X1_history(t_block), X2_history(t_block), masks, cumulative_clusters.values, N_clusters, FFT_pN, FFT_pN/2, FFT_df, Xxo_plan, Xo, DUET);
 
 	  // Explicitly use the initial region FFT_N and exclude the padding FFT_pN.
+	  
 	  write_data(wav_out, new_buffers, FFT_N, FFT_slide);	  
 	  //      swap(bufs_ptr, bufs_ptr2);
 	}		      
     }
 
+  rt_duet_timer.stop(); 
+
+  // Write data to disk //////////////////////////////////////////////////////////////////////////
 
   system("rm -f x*_rebuilt.wav ibmx*_rebuilt.wav");
 
@@ -1567,6 +1587,8 @@ int main(int argc, char **argv)
 	}
     }
 
+  /*
+  // WDO-section not relevant for real-world data!
   for(int n=0; n < N; ++n)
     {
       real wdo_avg = 0, wdo_min = 1, wdo_max = 0;
@@ -1594,7 +1616,7 @@ int main(int argc, char **argv)
       pEs  .plot(block_t_range(),   Es.raw(n), time_blocks, std::to_string(n).c_str());
       printf(CYAN "n) <WDO> = %.2g max(WDO) = %.2g min(WDO) = %.2g\n" NOCOLOR, wdo_avg, wdo_max, wdo_min);
     }
-
+  */
 
   for (uint source = 0; source < N; ++source)
     {
@@ -1644,14 +1666,23 @@ int main(int argc, char **argv)
 	}
     }
 
+  // Evaluate data (separation stats) ////////////////////////////////////////////////////
   puts("");
+  Buffer<real> SNR0 (original_waves_x1.buffers());
   for (int n=0; n < original_waves_x1.buffers(); ++n)
-    printf(GREEN "o%d : SNR = %gdB\n" NOCOLOR, n,SNR(x1_wav(),original_waves_x1.raw(n),samples));
+    {
+      real snr = SNR(&x1_wav[skip_samples],original_waves_x1.raw(n,skip_samples),samples-skip_samples);
+      printf(GREEN "o%d : SNR = %gdB\n" NOCOLOR, n, snr);
+      SNR0[n] = snr;
+    }
+  // Write the minimum SNR (prior to separation) and maximum achievable (using the IBM masks)
+  separation_stats(ibm_out, original_waves_x1, original_waves_x1.buffers(), samples, skip_samples, ibm_logpath, &SNR0);
+    
   int degenerate_count; // How many outputs are degenerate
   if (STATIC_REBUILD)
     {
       puts("\nStatic Separation:");
-      degenerate_count = separation_stats(wav_out, original_waves_x1, wav_N, samples);
+      degenerate_count = separation_stats(wav_out, original_waves_x1, wav_N, samples, skip_samples, logpath);
     }
   else
     {
@@ -1660,7 +1691,7 @@ int main(int argc, char **argv)
       Buffers<real> streams_out(HIGHEST_STREAM_ID, samples, fftw_malloc, fftw_free);
       for (int s_id=1; s_id <= HIGHEST_STREAM_ID; ++s_id)
 	(*streams_out(s_id-1)).copy(*Streams.stream(s_id), samples);
-      degenerate_count=separation_stats(streams_out, original_waves_x1, HIGHEST_STREAM_ID, samples);
+      degenerate_count=separation_stats(streams_out, original_waves_x1, HIGHEST_STREAM_ID, samples, skip_samples, logpath);
     }
 
 
@@ -1674,6 +1705,8 @@ int main(int argc, char **argv)
 
   Streams.release_ids();
 
+
+  // Final 2D Histogram with overlays and other plots /////////////////////////////////////////////////////////////////
   if (render > 0)
     Guarantee0( system("make render") , "Couldn't generate the movies.");
   cout << "#Clusters = " << N_clusters <<"\n";
@@ -1681,8 +1714,7 @@ int main(int argc, char **argv)
   system("cat s.dat");
   puts("\nSuccess!");
 
-  // Final 2D Histogram with overlays.
-  if (o.i("show_final_plots"))
+  if (o.i("show_final_plots") || opt->getFlag('p'))
     {
       if (! STATIC_REBUILD)
 	{
@@ -1708,12 +1740,11 @@ int main(int argc, char **argv)
     }
 
 
+  cout << MAGENTA << rt_duet_timer.getElapsedTime()-cumulative_hist_write_timer.getElapsedTime() << " (s)\n" << NOCOLOR;
 
   if (o.i("wait"))
     wait();
 
-
-  // With degeneracy return degenerate_count+1 > 1 since EXIT_FAILURE==1.
-  return (degenerate_count>0 ? degenerate_count+1:0);
+  return 0;
 }
 

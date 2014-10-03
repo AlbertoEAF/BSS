@@ -61,14 +61,17 @@ def parse_run(ecoduet_logpath, bss_eval_logpath):
 
         o.append(eco_o[i_o]+bss_o[i_o][1:])
 
+    if (eco_e): # If we're not using an ibm otherwise there are no estimates.
+        for i_e in range(Ne):
+            match = eco_e[i_e][0]
+            check(match == bss_e[i_e][0], "LETHAL: BSS eval found a different permutation!")
 
-    for i_e in range(Ne):
-        match = eco_e[i_e][0]
-        check(match == bss_e[i_e][0], "LETHAL: BSS eval found a different permutation!")
+            e.append(eco_e[i_e]+bss_e[i_e][1:])
 
-        e.append(eco_e[i_e]+bss_e[i_e][1:])
 
-    return (N, Ne, deg_o, deg_e, o, e)
+    
+    # eco == (N, Ne, deg_o , deg_e , o, e, SNR0)
+    return   (N, Ne, eco[2], eco[3], o, e, eco[6])
 
 
 if __name__ == "__main__":

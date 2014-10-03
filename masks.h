@@ -64,6 +64,7 @@ void build_mono_ibm_masks(Buffer<int> &masks, Buffers<real> &WDOs, Buffers<real>
   static Buffer<real> xoriginal(Sn);
   for(int n = 0; n < N; ++n)
     {
+      //Guarantee(t_offset+FFT_N < xoriginals(0)->size(), "Larger by %lu", t_offset+FFT_N - xoriginals(0)->size());
       xoriginal.copy(xoriginals.raw(n,t_offset), FFT_N);
       xoriginal *= W; // The original stream wasn't windowed yet.
       fftw_execute_r2r(fft, xoriginal(), Sn());
@@ -75,7 +76,16 @@ void build_mono_ibm_masks(Buffer<int> &masks, Buffers<real> &WDOs, Buffers<real>
 
       real &wdo = *WDOs.raw(n,tb);
       real psr=0, sir=0, sir_den=0;
-      for (int k = 0,K=FFT_N/2; k < K; ++k)
+      if ( Phi(Msn[0], Myn[0], Phi_x) )
+	{
+	  masks[0] = n;
+	  
+	  masked_S.raw(n)[0] = X[0];
+
+	  psr     += Msn[0]*Msn[0];
+	  sir_den += Myn[0]*Myn[0];
+	}
+      for (int k = 1,K=FFT_N/2; k < K; ++k)
 	{
 	  // if Phi is positive assign it to the current source (n)
 	  if ( Phi(Msn[k], Myn[k], Phi_x) )

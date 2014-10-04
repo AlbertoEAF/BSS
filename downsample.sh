@@ -1,11 +1,11 @@
 #! /bin/bash
 
-[ $# != 3 ] && echo -e "\nUsage:\n\tdownsample <samplerate> <folder> <downsample_folder>\n" && exit 1
+[ $# < 3 ] && echo -e "\nUsage:\n\tdownsample <samplerate> <folder> <downsample_folder> [channel] [lowervolumemultiplier]\n" && exit 1
 
 samplerate=$1
 folder="$2"
 folder_out="$3"
-
+channel="$4"
 
 files=$( find "$folder" -name '*.wav' )
 
@@ -21,7 +21,17 @@ do
 
     mkdir -p "$destdir"
     
-    sox "$file" -r "$samplerate" "$fileout"
+    if [ $# == 3 ]; then
+	sox "$file" -r "$samplerate" "$fileout"
+    else
+	#[ $# != 5 ] && exit(1)
+	if [ $channel == 1 ]; then
+	    sox "$file" -r "$samplerate" "$fileout" remix "1v$5" 2
+	else
+	    sox "$file" -r "$samplerate" "$fileout" remix 1 "2v$5"
+	fi
+    fi
+
 done
 
 

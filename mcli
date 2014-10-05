@@ -16,6 +16,7 @@ then
     args="$3"
     for i in ${@:4}; do args=`echo $args,"$i"`; done
 
+    # MCLI -f fails for programming errors. Only catches exceptions!!! BEWARE
     matlab -nojvm -nodesktop -nodisplay -nosplash -r "try cd('${wd}');$2($args);exit; catch; exit(1); end"
 else
     args="$2"

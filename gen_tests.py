@@ -123,6 +123,15 @@ def test(test_file):
 
     sub.check_call(["cleantests.sh",folder])
 
+    try:
+        duetcfg = test['duet_cfg']
+    except KeyError:
+        cfgs = [ f for f in os.listdir(folder) if f[-4:]==".cfg" ]
+        if len(cfgs) > 1:
+            error("More than a .cfg locally available. Please set duet_cfg in the .test file.")
+        duetcfg = (folder+"/"+cfgs[0]).replace("//","/")
+        print("duet_cfg not set in test. Using local .cfg:", duetcfg)
+
     if test['mixer'] == 'mix':
         for i_c in range(len(combinations)):
             c = combinations[i_c]
@@ -139,7 +148,9 @@ def test(test_file):
             bsslogi = folder+combi_name+".bsslogi" # ibm
 
             print("Running ecoduet...",end="",flush=True)
-            duetcfg = test['duet_cfg']
+
+
+
             out = sub.check_output(['r','-l', ecolog,'-i', ecologi, duetcfg])
             print("OK")
 

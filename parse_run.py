@@ -27,6 +27,11 @@ def exec_bss_eval_dynamic_and_ibm(bss_dynamic_logpath, bss_ibm_logpath):
 
 def parse_run(ecoduet_logpath, bss_eval_logpath, check_degeneracy=1):
     
+    if (ecoduet_logpath[-1] == "i"):
+        ideal = 1
+    else:
+        ideal = 0
+
     eco = parse_ecoduet(ecoduet_logpath)
 
     N = eco[0]
@@ -65,7 +70,9 @@ def parse_run(ecoduet_logpath, bss_eval_logpath, check_degeneracy=1):
     if (eco_e): # If we're not using an ibm otherwise there are no estimates.
         for i_e in range(Ne):
             match = eco_e[i_e][0]
-            check(match == bss_e[i_e][0], "LETHAL: BSS eval found a different permutation!")
+            #check(match == bss_e[i_e][0], "LETHAL: BSS eval found a different permutation!")
+            if (match == bss_e[i_e][0]):
+                print("LETHAL: BSS eval found a different permutation!")
 
             e.append(eco_e[i_e]+bss_e[i_e][1:])
 

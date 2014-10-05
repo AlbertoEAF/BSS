@@ -57,10 +57,12 @@ if samplese~=samples, error('The estimated sources and reference sources must ha
 SDRm    = zeros(nsrce,nsrc);
 SIRm    = zeros(nsrce,nsrc);
 SARm    = zeros(nsrce,nsrc);
+Dtotalm = zeros(nsrce,nsrc);
 for jest=1:nsrce,
     for jtrue=1:nsrc,
         [s_true,e_spat,e_interf,e_artif]=bss_decomp_mtifilt(se(jest,:),s,jtrue,512);
         [SDRm(jest,jtrue),SIRm(jest,jtrue),SARm(jest,jtrue)]=bss_source_crit(s_true,e_spat,e_interf,e_artif);
+        [Dtotalm(jest,jtrue)] = Dtotal(se(jest,:),s(jtrue,:));
     end
 end
 
@@ -79,7 +81,7 @@ SARe  = zeros(nsrce,1);
 
 % Find the best matches for the true sources in the estimated sources.
 for i = 1:nsrc
-    [~,ne]  = max(SIRm(:,i));
+    [~,ne]  = min(Dtotalm(:,i));%max(SIRm(:,i));
     perm(i) = ne;
     SDR (i) = SDRm(ne,i);
     SIR (i) = SIRm(ne,i);
@@ -88,7 +90,7 @@ end
 
 % Find the best matches for the estimated sources in the true sources.
 for ne = 1:nsrce
-    [~,n]     = max(SIRm(ne,:));
+    [~,n]     = min(Dtotalm(ne,:));%max(SIRm(ne,:));
     perme(ne) = n;
     SDRe (ne) = SDRm(ne,n);
     SIRe (ne) = SIRm(ne,n);

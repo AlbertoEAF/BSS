@@ -24,7 +24,7 @@ def parse_test(testpath):
         p(ecologis)
         p(bsslogs)
         p(bsslogis)
-        error("Not all the .eco and .bss logfiles exist. Check that you haven't disabled bss_eval in the test.")
+        error("Not all the .eco and .bss logfiles exist. Check that you haven't disabled bss_eval in the test. Also note that programming errors in the MATLAB BSS toolkit that crash the script will pass as OK. Run manually and if it reaches the end of the program it's not from that.")
 
     for i in range(len(ecologs)):
         # FS sorting doesn't work in the same way for all unfortunately-> We must regenerate the names ourselves.
@@ -35,21 +35,28 @@ def parse_test(testpath):
         bsslogi = folder+"/"+combi_name+".bsslogi"
 
         print(GREEN, "Testing: ", os.path.split(ecolog)[1], NOCOLOR, sep="")
+
     
-        p(ecolog)
-        p(ecologi)
-        p(bsslog)
-        p(bsslogi)
 
 
-        os.system("cat {} {} {} {}".format(ecolog,ecologi,bsslog,bsslogi))
 
-        # (N, Ne, deg_o , deg_e , o, e, SNR0)
-        N , Ne , deg_o , deg_e , o  , e , _    = parse_run(ecolog , bsslog , 0)
-        _ , _  , _     , _     , oi , _ , SNR0 = parse_run(ecologi, bsslogi, 0)
+        N,Ne,deg_o,deg_e,o,e,SNR0,oi = parse_test_logs(ecolog,bsslog,ecologi,bsslogi)
 
-        p(N)
-        print(N,Ne,deg_o,deg_e,o,e,oi,SNR0)
+  
+        print(N,Ne,deg_o,deg_e,o,e,SNR0,oi)
+
+        
+
+def parse_test_logs(ecolog,bsslog,ecologi,bsslogi):
+
+    os.system("cat {} {} {} {}".format(ecolog,ecologi,bsslog,bsslogi))
+
+    # (N, Ne, deg_o , deg_e , o, e, SNR0)
+    N , Ne , deg_o , deg_e , o  , e , _    = parse_run(ecolog , bsslog , 0)
+    _ , _  , _     , _     , oi , _ , SNR0 = parse_run(ecologi, bsslogi, 0)
+
+    return (N,Ne,deg_o,deg_e,o,e,SNR0,oi) 
+    
 
 if __name__ == "__main__":
     parse_test(sys.argv[1])

@@ -28,7 +28,7 @@ def exec_bss_eval_dynamic_and_ibm(bss_dynamic_logpath, bss_ibm_logpath):
 def parse_run(ecoduet_logpath, bss_eval_logpath, check_degeneracy=1):
     
     if (ecoduet_logpath[-1] == "i"):
-        ideal = 1
+        ideal = 1 ## could be tested by eco_e
     else:
         ideal = 0
 
@@ -63,23 +63,28 @@ def parse_run(ecoduet_logpath, bss_eval_logpath, check_degeneracy=1):
 
     for i_o in range(N):
         match = eco_o[i_o][0]
-        check(match == bss_o[i_o][0], "LETHAL: BSS eval found a different permutation!")
+        if(match != bss_o[i_o][0]):
+            print(eco_o[i_o])
+            print(bss_o[i_o])
+            error("LETHAL: BSS eval found a different permutation!")
 
         o.append(eco_o[i_o]+bss_o[i_o][1:])
 
     if (eco_e): # If we're not using an ibm otherwise there are no estimates.
         for i_e in range(Ne):
             match = eco_e[i_e][0]
-            #check(match == bss_e[i_e][0], "LETHAL: BSS eval found a different permutation!")
-            if (match == bss_e[i_e][0]):
-                print("LETHAL: BSS eval found a different permutation!")
+            if (match != bss_e[i_e][0]):
+                error("LETHAL: BSS eval found a different permutation!")
 
             e.append(eco_e[i_e]+bss_e[i_e][1:])
 
 
     
-    # eco == (N, Ne, deg_o , deg_e , o, e, SNR0)
-    return   (N, Ne, eco[2], eco[3], o, e, eco[6])
+    # eco == (N, Ne, deg_o, deg_e, o, e, SNR0)
+    deg_o = eco[2]
+    deg_e = eco[3]
+    SNR0  = eco[6]
+    return   (N, Ne, deg_o, deg_e, o, e, SNR0)
 
 
 if __name__ == "__main__":

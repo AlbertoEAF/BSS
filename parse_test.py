@@ -19,7 +19,9 @@ def parse_test(testpath):
     bsslogs  = [ f for f in files if f[-7:] == ".bsslog"  ]
     bsslogis = [ f for f in files if f[-8:] == ".bsslogi" ]
 
-    
+    if not (len(ecologs)==len(ecologis)==len(bsslogs)==len(bsslogis)):
+        error("Not all the .eco and .bss logfiles exist.")
+
     for i in range(len(ecologs)):
         ecolog  = folder+"/"+ecologs [i]
         ecologi = folder+"/"+ecologis[i]
@@ -33,6 +35,8 @@ def parse_test(testpath):
         N , Ne , deg_o , deg_e , o  , e , _    = parse_run(ecolog , bsslog , 0)
         _ , _  , _     , _     , oi , _ , SNR0 = parse_run(ecologi, bsslogi, 0)
 
+        p(N)
+        print(N,Ne,deg_o,deg_e,o,e,oi,SNR0)
 
 if __name__ == "__main__":
     parse_test(sys.argv[1])

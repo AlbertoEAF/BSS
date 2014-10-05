@@ -1,9 +1,11 @@
-function [SDR,SIR,SAR,perm SDRe,SIRe,SARe,perme] = bss_eval_dynamic(logfile)
+function [SDR,SIR,SAR,perm SDRe,SIRe,SARe,perme] = bss_eval_dynamic(logfile,skiptime)
 
+if nargin < 2, skip_time = 0; end    
+    
 Spattern  = 'sounds/s*x0.wav';
 Sepattern = 'xstream*_rebuilt.wav';
 
-[SDR,SIR,SAR,perm, SDRe,SIRe,SARe,perme] = bss_eval(Sepattern, Spattern);
+[SDR,SIR,SAR,perm, SDRe,SIRe,SARe,perme] = bss_eval(Sepattern, Spattern,skip_time);
 
 diary on
 diary(logfile);

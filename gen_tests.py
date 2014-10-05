@@ -121,10 +121,12 @@ def test(test_file):
     test = ConfigParser(test_file)
     (N,dirs,combinations) = gen_combinations(test_file)
 
+    sub.check_call(["cleantests.sh",folder])
+
     if test['mixer'] == 'mix':
         for i_c in range(len(combinations)):
             c = combinations[i_c]
-            print( GREEN, "Testing({}/{}): {}".format(i_c,len(combinations),c) , NOCOLOR, sep="")
+            print( GREEN, "Testing({}/{}): {}".format(i_c+1,len(combinations),c) , NOCOLOR, sep="")
 
             sub.check_call(['mix']+[ dirs[n]+'/'+c[n] for n in range(N) ])
 
@@ -141,19 +143,23 @@ def test(test_file):
             out = sub.check_output(['r','-l', ecolog,'-i', ecologi, duetcfg])
             print("OK")
 
+
+            if test.i('check_degeneracy'):
+                print("Checking degeneracy through ecoduet.log...",end="",flush=True)
+                N_,Ne_,_,_,_,_,_ = parse_ecoduet(ecolog)
+                if N_ == Ne_:
+                    print("OK")
+                else:
+                    error("FAIL! N={} != Ne={}".format(N_,Ne_))
+
             if (test.i('disable_bss_eval')):
-                if not test.i('disable_check_degeneracy'):
-                    print("Checking ecoduet.log sanity...",end="",flush=True)
-                    N_,Ne_,_,_,_,_,_ = parse_ecoduet(ecolog)
-                    if N_ == Ne_:
-                        print("OK")
-                    else:
-                        error("FAIL! N={} != Ne={}".format(N_,Ne_))
                 print(RED,"Skipping BSS Eval.",NOCOLOR,sep="")
             else:
                 print("BSS Eval async call...", end="",flush=True)
                 exec_bss_eval_static_and_ibm(bsslog, bsslogi)
+#                sub.check_call(["stty","sane"])
                 print("OK")
+
 
 
     elif test['mixer'] == 'csim':
@@ -166,6 +172,9 @@ def test(test_file):
 
 
 
-test(sys.argv[1]) # .test path
+test(sys.argv[1]) # .test filepath
+
+
+
 
 

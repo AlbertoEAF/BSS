@@ -1,25 +1,17 @@
 #! /usr/bin/python3
 
+### usage: prgm <test_file.test>
+
 from os import listdir
 from os.path import isfile, join
-
 import os
 import subprocess as sub
-
-
+import itertools
 import re
+
 from ConfigParser import *
-
 from color_codes import *
-
 from parse_run import *
-
-def raw_string(s):
-    if isinstance(s, str):
-        s = s.encode('string-escape')
-    elif isinstance(s, unicode):
-        s = s.encode('unicode-escape')
-    return s
 
 
 def listdir_waves(dirpath):
@@ -80,7 +72,8 @@ def gen_combinations(test_file):
     rules = test['exclusion_rules'].split()
 
 
-    sources = test['sources'].split()
+    sources = [ test['sources_folder']+"/"+f for f in test['sources'].split() ]
+    sources = [ s.replace("//","/") for s in sources ]
 
     N = len(sources)
 
@@ -99,29 +92,17 @@ def gen_combinations(test_file):
 
         print_wavlist("s"+str(n),dirpath,listdir_waves(dirpath),files[n])
 
-    combinations = []
-
-    import itertools
-
-    combs_count = 0
-    excls_count = 0
-
     all_combinations = itertools.product(*files)
-
+    combinations = []
     for combination in all_combinations:
-        combs_count += 1
-
         exclude_flag = False
         for n1 in range(N-1):
-            for n2 in range(1,N):
+            for n2 in range(n1+1,N):
                 if exclude(combination[n1], combination[n2], rules):
                     exclude_flag = True
 
-        if exclude_flag:
-            excls_count += 1
-        else:
+        if not exclude_flag:
             combinations.append(combination)
-
 
     return (N,dirs,combinations)
 
@@ -140,11 +121,10 @@ def test(test_file):
     test = ConfigParser(test_file)
     (N,dirs,combinations) = gen_combinations(test_file)
 
-
     if test['mixer'] == 'mix':
         for i_c in range(len(combinations)):
             c = combinations[i_c]
-            print( "Testing({}/{}): {}".format(i_c,len(combinations),c) )
+            print( GREEN, "Testing({}/{}): {}".format(i_c,len(combinations),c) , NOCOLOR, sep="")
 
             sub.check_call(['mix']+[ dirs[n]+'/'+c[n] for n in range(N) ])
 
@@ -161,15 +141,19 @@ def test(test_file):
             out = sub.check_output(['r','-l', ecolog,'-i', ecologi, duetcfg])
             print("OK")
 
-            print("BSS Eval async call...", end="",flush=True)
-            exec_bss_eval_static_and_ibm(bsslog, bsslogi)
-            print("OK")
-
-            print("BSS Eval parsing...", end="", flush=True)
-            # (N, Ne, deg_o , deg_e , o, e, SNR0)
-            _ , Ne , deg_o , deg_e , o  , e , _    = parse_run(ecolog , bsslog )
-            _ , _  , _     , _     , oi , _ , SNR0 = parse_run(ecologi, bsslogi)
-            print("OK")
+            if (test.i('disable_bss_eval')):
+                if not test.i('disable_check_degeneracy'):
+                    print("Checking ecoduet.log sanity...",end="",flush=True)
+                    N_,Ne_,_,_,_,_,_ = parse_ecoduet(ecolog)
+                    if N_ == Ne_:
+                        print("OK")
+                    else:
+                        error("FAIL! N={} != Ne={}".format(N_,Ne_))
+                print(RED,"Skipping BSS Eval.",NOCOLOR,sep="")
+            else:
+                print("BSS Eval async call...", end="",flush=True)
+                exec_bss_eval_static_and_ibm(bsslog, bsslogi)
+                print("OK")
 
 
     elif test['mixer'] == 'csim':
@@ -182,6 +166,6 @@ def test(test_file):
 
 
 
-test('t.test')
+test(sys.argv[1]) # .test path
 
 

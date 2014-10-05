@@ -10,8 +10,10 @@ class ConfigParser:
 
         for line in lines:
             l = line.split('=')
-            self.d[l[0].strip()] = l[1].strip()
-
+            if len(l) == 2:
+                self.d[l[0].strip()] = l[1].strip()
+            elif l[0].strip()[0] != "#":
+                error("Invalid line on .cfg file: <{}>".format(line))
 
     def __getitem__(self, key):
         return self.d[key]

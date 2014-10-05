@@ -20,6 +20,7 @@ struct stereo_frame_t {
 
 #include <stdlib.h>
 
+// Usage icg <stereo.wav> [skip_frames]
 int main(int argc, char **argv)
 {
   SndfileHandle sndfile(argv[1]);
@@ -35,9 +36,13 @@ int main(int argc, char **argv)
 
   sndfile.read(wav, samples*2); 
 
-  Buffer<float> l(samples), r(samples);
+  Buffer<double> l(samples), r(samples);
 
-  for (int i=0; i < samples; i+=2)
+  int skip_frames = 0;
+  if (argc == 3)
+    skip_frames = atoi(argv[2]);
+
+  for (int i=skip_frames; i < samples; i+=2)
     {
       l[i] = wav[i];
       r[i] = wav[i+1];
@@ -46,8 +51,8 @@ int main(int argc, char **argv)
   //  std::cout << std::sqrt( l.energy() ) / float(samples) << std::endl;
   // std::cout << std::sqrt( r.energy() ) / float(samples) << std::endl;
   
-  double al = std::sqrt( l.energy() ) / float(samples);
-  double ar = std::sqrt( r.energy() ) / float(samples);
+  double al = std::sqrt( l.energy() ) / float(samples-skip_frames);
+  double ar = std::sqrt( r.energy() ) / float(samples-skip_frames);
 
   double g = ar/al;
 

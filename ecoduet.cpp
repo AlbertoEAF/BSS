@@ -1706,7 +1706,20 @@ int main(int argc, char **argv)
   Streams.release_ids();
 
 
+
   // Final 2D Histogram with overlays and other plots /////////////////////////////////////////////////////////////////
+  system("rm -f ecoduet.log");
+  if (STATIC_REBUILD)
+    {
+      std::ofstream ecoduet_log("ecoduet.log", std::ios::trunc);
+      for (int n=0; n < cumulative_clusters.eff_size(DUET.noise_threshold); ++n)
+	{
+	  ecoduet_log << cumulative_clusters.values[n].x << " " 
+		      << cumulative_clusters.values[n].y << "\n";
+	}
+      ecoduet_log.close();
+    }
+
   if (render > 0)
     Guarantee0( system("make render") , "Couldn't generate the movies.");
   cout << "#Clusters = " << N_clusters <<"\n";

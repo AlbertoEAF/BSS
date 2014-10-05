@@ -61,8 +61,8 @@ ecoduet: libs aux.a
 	$(CC) $(CCFLAGS) -o r ecoduet.cpp gnuplot_ipp/gnuplot_ipp.o timer.o aux.a $(PRECISION) $(LIBS) 
 
 
-avg_abs: libs aux.a
-	$(CC) $(CCFLAGS) -o avg_abs avg_abs.cpp aux.a $(PRECISION) $(LIBS) 
+icg: libs aux.a
+	$(CC) $(CCFLAGS) -o icg icg.cpp $(LIBS) 
 
 
 duet.h.gch: duet.h Buffer.h Matrix.h Histogram2D.h array_ops.h types.h libs/config_parser.h wav.h gnuplot_ipp/gnuplot_ipp.h filters.h extra.h libs/timer.h RankList.h

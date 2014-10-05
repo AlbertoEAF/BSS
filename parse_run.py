@@ -25,15 +25,16 @@ def exec_bss_eval_dynamic_and_ibm(bss_dynamic_logpath, bss_ibm_logpath):
     t_ibm.join()
 
 
-def parse_run(ecoduet_logpath, bss_eval_logpath):
+def parse_run(ecoduet_logpath, bss_eval_logpath, check_degeneracy=1):
     
     eco = parse_ecoduet(ecoduet_logpath)
 
     N = eco[0]
     Ne = eco[1]
 
-    check(N==Ne, "Not implemented for Ne!=N")
-    check((not eco[2]) and (not eco[3]), "ABORTING: Degeneracies occured!")
+    if check_degeneracy:
+        check(N==Ne, "Not implemented for Ne!=N")
+        check((not eco[2]) and (not eco[3]), "ABORTING: Degeneracies occured!")
 
     bss = parse_bss_eval(bss_eval_logpath)
 

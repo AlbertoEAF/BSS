@@ -19,29 +19,29 @@ DEVNULL = open(os.devnull, 'w')
 
 
 # Synchronous calls (look below for async helpers).
-def mcli_call_bss_eval_static(logpath):
+def mcli_call_bss_eval_static(logpath, skip_time=0):
     sub.check_call(["rm","-f",logpath])
-    sub.check_call(["mcli", "-f", "bss_eval_static", "\'"+logpath+"\'"], stderr=DEVNULL, stdout=DEVNULL)
+    sub.check_call(["mcli", "-f", "bss_eval_static", "\'"+logpath+"\'", str(skip_time)], stderr=DEVNULL, stdout=DEVNULL)
 
 
-def mcli_call_bss_eval_dynamic(logpath):
+def mcli_call_bss_eval_dynamic(logpath, skip_time=0):
     sub.check_call(["rm","-f",logpath])
-    sub.check_call(["mcli", "-f", "bss_eval_dynamic", "\'"+logpath+"\'"], stderr=DEVNULL, stdout=DEVNULL)
+    sub.check_call(["mcli", "-f", "bss_eval_dynamic", "\'"+logpath+"\'", str(skip_time)], stderr=DEVNULL, stdout=DEVNULL)
 
-def mcli_call_bss_eval_ibm(logpath):
+def mcli_call_bss_eval_ibm(logpath, skip_time=0):
     sub.check_call(["rm","-f",logpath])
-    sub.check_call(["mcli", "-f", "bss_eval_ibm", "\'"+logpath+"\'"], stderr=DEVNULL, stdout=DEVNULL)
+    sub.check_call(["mcli", "-f", "bss_eval_ibm", "\'"+logpath+"\'", str(skip_time)], stderr=DEVNULL, stdout=DEVNULL)
 
 
 # Async helpers of the mcli_calls which take lots of time. Get the thread, start it and join it (remember to use differnt logpaths for simultaneous execution of course!).
-def thread_bss_eval_static(logpath):
-    return threading.Thread(name="static",target=mcli_call_bss_eval_static, args=(logpath,))
+def thread_bss_eval_static(logpath, skip_time=0):
+    return threading.Thread(name="static",target=mcli_call_bss_eval_static, args=(logpath,skip_time,))
 
-def thread_bss_eval_dynamic(logpath):
-    return threading.Thread(name="dynamic",target=mcli_call_bss_eval_dynamic, args=(logpath,))
+def thread_bss_eval_dynamic(logpath, skip_time=0):
+    return threading.Thread(name="dynamic",target=mcli_call_bss_eval_dynamic, args=(logpath,skip_time,))
 
-def thread_bss_eval_ibm(logpath):
-    return threading.Thread(name="ibm",target=mcli_call_bss_eval_ibm, args=(logpath,))
+def thread_bss_eval_ibm(logpath, skip_time=0):
+    return threading.Thread(name="ibm",target=mcli_call_bss_eval_ibm, args=(logpath,skip_time,))
 
 
 

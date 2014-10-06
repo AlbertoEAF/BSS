@@ -2,7 +2,7 @@
 #include <cmath>
 
 #include <iostream>
-#include "Buffer.h"
+#include "libBuffers/Buffer.h"
 
 #include "types.h"
 #include "libs/config_parser.h"
@@ -33,7 +33,7 @@ real complex_norm(real re, real im)
 /* READ!!: http://www.fftw.org/doc/The-Halfcomplex_002dformat-DFT.html */
 void HC2magnitude(int N, real *hc, real *magnitude)
 {
-  magnitude[0] = hc[0];
+  magnitude[0] = std::abs(hc[0]);
   for (idx i=1; i < N/2; ++i)
     magnitude[i] = complex_norm(hc[i], hc[N-i]); // Not true for odd N!!!
 }

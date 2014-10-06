@@ -4,21 +4,21 @@ from parse_ecoduet import *
 from parse_bss_eval import *
 
 
-def exec_bss_eval_static_and_ibm(bss_static_logpath, bss_ibm_logpath):
+def exec_bss_eval_static_and_ibm(bss_static_logpath, bss_ibm_logpath,skip_time=0):
     """ Executes the BSS Eval toolkit in parallel for the current data. """
 
-    t_static = thread_bss_eval_static(bss_static_logpath)
-    t_ibm    = thread_bss_eval_ibm   (bss_ibm_logpath)
+    t_static = thread_bss_eval_static(bss_static_logpath,skip_time)
+    t_ibm    = thread_bss_eval_ibm   (bss_ibm_logpath,skip_time)
     t_static.start()
     t_ibm.start()
     t_static.join()
     t_ibm.join()
 
-def exec_bss_eval_dynamic_and_ibm(bss_dynamic_logpath, bss_ibm_logpath):
+def exec_bss_eval_dynamic_and_ibm(bss_dynamic_logpath, bss_ibm_logpath,skip_time):
     """ Executes the BSS Eval toolkit in parallel for the current data. """
 
-    t_dynamic = thread_bss_eval_dynamic(bss_dynamic_logpath)
-    t_ibm    = thread_bss_eval_ibm   (bss_ibm_logpath)
+    t_dynamic = thread_bss_eval_dynamic(bss_dynamic_logpath,skip_time)
+    t_ibm    = thread_bss_eval_ibm   (bss_ibm_logpath,skip_time)
     t_dynamic.start()
     t_ibm.start()
     t_dynamic.join()

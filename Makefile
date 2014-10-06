@@ -73,14 +73,14 @@ fft_convolution: libs
 	$(CC) $(CCFLAGS) -o c fft_convolution.cpp gnuplot_ipp/gnuplot_ipp.o timer.o $(PRECISION) $(LIBS)
 
 utils: libs convolve.cpp invert_ir.cpp
+	$(CC) $(CCFLAGS) -o view view.cpp gnuplot_ipp/gnuplot_ipp.o $(PRECISION) $(LIBS)
+	$(CC) $(CCFLAGS) -o spectrum spectrum.cpp gnuplot_ipp/gnuplot_ipp.o timer.o IdList.o $(PRECISION) $(LIBS) 
 	$(CC) $(CCFLAGS) -o convolve convolve.cpp gnuplot_ipp/gnuplot_ipp.o timer.o $(PRECISION) $(LIBS)	
 	$(CC) $(CCFLAGS) -o convolve2 convolve2.cpp gnuplot_ipp/gnuplot_ipp.o timer.o $(PRECISION) $(LIBS)	
 	$(CC) $(CCFLAGS) -o invert_ir invert_ir.cpp gnuplot_ipp/gnuplot_ipp.o timer.o $(PRECISION) $(LIBS)
 	$(CC) $(CCFLAGS) -o nlms nlms.cpp gnuplot_ipp/gnuplot_ipp.o timer.o $(PRECISION) $(LIBS)
 	$(CC) $(CCFLAGS) -o reverse reverse.cpp $(PRECISION) $(LIBS)
 	$(CC) $(CCFLAGS) -o xcorr xcorr.cpp $(PRECISION) $(LIBS)
-	$(CC) $(CCFLAGS) -o view view.cpp gnuplot_ipp/gnuplot_ipp.o $(PRECISION) $(LIBS)
-	$(CC) $(CCFLAGS) -o spectrum spectrum.cpp gnuplot_ipp/gnuplot_ipp.o timer.o IdList.o $(PRECISION) $(LIBS) 
 
 window_plots: window_plots.cpp
 	$(CC) $(CCFLAGS) -o window_plots window_plots.cpp gnuplot_ipp/gnuplot_ipp.o timer.o IdList.o $(PRECISION) $(LIBS) 

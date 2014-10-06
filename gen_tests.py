@@ -167,7 +167,7 @@ def test(test_file):
                 print(RED,"Skipping BSS Eval.",NOCOLOR,sep="")
             else:
                 print("BSS Eval async call...", end="",flush=True)
-                exec_bss_eval_static_and_ibm(bsslog, bsslogi)
+                exec_bss_eval_static_and_ibm(bsslog, bsslogi, test['skip_time'])
 #                sub.check_call(["stty","sane"])
                 print("OK")
 

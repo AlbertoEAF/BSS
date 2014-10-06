@@ -42,7 +42,9 @@ int main(int argc, char **argv)
   if (argc == 3)
     skip_frames = atoi(argv[2]);
 
-  for (int i=skip_frames; i < samples; i+=2)
+  const int channels = 2;
+
+  for (int i=skip_frames*channels; i < samples; i+=2)
     {
       l[i] = wav[i];
       r[i] = wav[i+1];

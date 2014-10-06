@@ -33,6 +33,8 @@ skip_time=double(skip_time);
 
 skip_samples = int64(skip_time/Ts);
 
+display(skip_samples); display('This message is from bss_eval.m');
+
 % Find the number of samples
 samples           = max(cellfun(@length, cells_s ));
 estimated_samples = max(cellfun(@length, cells_se));

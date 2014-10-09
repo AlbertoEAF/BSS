@@ -67,7 +67,7 @@ def gen_combinations(test_file):
     Takes a .test file and generates the necessary .csim files or runs the tests if mix is the command 
     """
 
-    test = ConfigParser(test_file)
+    test = ConfigParser(test_file, "parent_localpath")
 
     rules = test['exclusion_rules'].split()
 
@@ -118,7 +118,7 @@ def test(test_file):
     
     folder = test_file[:test_file.rfind("/")+1]
 
-    test = ConfigParser(test_file)
+    test = ConfigParser(test_file, "parent_localpath")
     (N,dirs,combinations) = gen_combinations(test_file)
 
     sub.check_call(["cleantests.sh",folder])
@@ -131,6 +131,8 @@ def test(test_file):
             error("More than a .cfg locally available. Please set duet_cfg in the .test file.")
         duetcfg = (folder+"/"+cfgs[0]).replace("//","/")
         print("duet_cfg not set in test. Using local .cfg:", duetcfg)
+
+    sub.check_call(["cleantests.sh",folder])
 
     if test['mixer'] == 'mix':
         for i_c in range(len(combinations)):

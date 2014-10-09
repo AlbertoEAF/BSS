@@ -18,7 +18,7 @@ struct DUETcfg
   idx FFT_pN;
   int FFT_p; // The FFT oversampling factor.
 
-  int Fmax, Fmin;
+  int Fmax, Fmin; // For speech usage this is more than enough (short int goes up to 32767)
 
   bool use_window; // we'll always use a window from now on
   //  int window_type;

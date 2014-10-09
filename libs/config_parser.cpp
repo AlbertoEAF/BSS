@@ -8,7 +8,7 @@ using namespace std;
 //! strips the leading and trailing spaces
 std::string strip(const std::string &s)
 {
-  int a, b = s.length();
+  int a=0, b = s.length();
 
   for (a = 0; s[a]   == ' ' && a<b; ++a) {}
   for (     ; s[b-1] == ' ' && b  ; --b) {}

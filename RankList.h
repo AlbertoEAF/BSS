@@ -150,7 +150,7 @@ size_t RankList<Tscore,Tvalue>::eff_size(Tscore min_value)
 template <class Tscore, class Tvalue>
 std::ostream &operator << (std::ostream &output, RankList<Tscore,Tvalue> &rlist)
 {
-  for (int i = 0; i < rlist._size ; ++i)
+  for (size_t i = 0; i < rlist._size ; ++i)
     output << i << ")\t" << rlist.scores[i] << "\t\t" << rlist.values[i] << std::endl;  
   output << std::endl;
 

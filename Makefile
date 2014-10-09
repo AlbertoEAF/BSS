@@ -1,8 +1,8 @@
 CC=clang++
 
-
+WARNINGS=-Wuninitialized -Winit-self -Wextra -Wunused-parameter -Wall
 DEBUG= -g # -DNDEBUG
-EXTRACCFLAGS =   $(DEBUG) #-Wl,-gc-sections # -ffunction-sections #-Wno-unused-variable #-Wno-unused-but-set-variable
+EXTRACCFLAGS =   $(DEBUG) $(WARNINGS) #-Wl,-gc-sections # -ffunction-sections #-Wno-unused-variable #-Wno-unused-but-set-variable
 OPTIMIZATION_FLAGS= -O2 # -DNDEBUG
 #OMP= -fopenmp
 CCFLAGS= -Wall $(EXTRACCFLAGS) -std=c++11 $(OPTIMIZATION_FLAGS) $(OMP)

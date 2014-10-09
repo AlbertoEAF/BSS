@@ -2,7 +2,7 @@ DEBUG =
 
 
 CC = g++
-CCFLAGS = -O2 $(DEBUG)
+CCFLAGS = -O2 $(DEBUG) -Wuninitialized -Wextra -Winit-self
 
 # Small Random Libs (SRL)
 libSRL.a: String.o config_parser.o safedl.o 

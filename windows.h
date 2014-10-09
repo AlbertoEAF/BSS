@@ -9,7 +9,7 @@
 
 
 
-real Rectangular(idx n, idx N)
+real Rectangular(idx , idx)
 {
   return 1;
 }

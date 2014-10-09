@@ -38,7 +38,7 @@ real Dtotal(const real *e,  const real *o, const idx samples)
 }
 
 
-real SNR(const real *e, const real *o, const idx samples)
+real SNR(const real *e, const real *o, const size_t samples)
 {
   Buffer<real> e_normalized(e,samples), o_normalized(o,samples);
 

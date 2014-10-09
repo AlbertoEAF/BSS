@@ -158,6 +158,7 @@ void calc_alpha_delta(idx time_block, idx pN, idx sample_rate_Hz,
     }
 }
 
+/*
 void ransac_test(idx time_block, idx pN, idx sample_rate_Hz,
 		 Buffer<real> &X1, Buffer<real> &X2,
 		 Matrix<real,MatrixAlloc::Rows> &alpha, 
@@ -168,11 +169,10 @@ void ransac_test(idx time_block, idx pN, idx sample_rate_Hz,
 {
   static real df = sample_rate_Hz/(real)pN;
 
-  /*
-    f = 0 Hz:
-    d_Re = X1(0) / X2(0);
-    d_Im = 0;
-  */
+  // f = 0 Hz:
+  // d_Re = X1(0) / X2(0);
+  // d_Im = 0;
+  
   real a = X2[0] / X1[0];
   alpha(time_block, 0) = a - 1/a;
   delta(time_block, 0) = 0.0;
@@ -198,11 +198,11 @@ void ransac_test(idx time_block, idx pN, idx sample_rate_Hz,
 	  
 
       // Do not override alpha and delta, for those are for DUET right now
-      _alpha /*=alpha(time_block, f)*/ = a - 1/a;
+      _alpha =alpha(time_block, f) = a - 1/a;
       // Wrong
 
       //_delta = delta(time_block, f) = std::fmod(std::arg(F1) - std::arg(F2), M_PI);///omega;
-      //_delta /*= delta(time_block, f)*/ = std::arg(std::polar<real>(1,std::arg(F1) - std::arg(F2)));///omega;
+      //_delta = delta(time_block, f) = std::arg(std::polar<real>(1,std::arg(F1) - std::arg(F2)));///omega;
       _delta = std::fmod(std::arg(F1)-std::arg(F2) + M_PI, 2*M_PI) - M_PI;
 
       //      _delta = std::fmod(std::arg(F1)-std::arg(F2),M_PI);
@@ -215,10 +215,8 @@ void ransac_test(idx time_block, idx pN, idx sample_rate_Hz,
 
   pransac.replot(delta_axis(), f_axis(), pN/2, "Frame RANSAC");
   //wait();
-
- 
 }
-
+*/
 
 
 #define RELEASE(x) {}
@@ -290,7 +288,7 @@ real alpha2a (real alpha)
 /// Fills a buffer of size FFT_N/2 // To each bin will be assigned the number of the source. values < 0 indicate that the bin won't be assigned a source (noise or intentional algorithm rejection/discard). 
 /// Thus, a single buffer is required to hold all the masks
 /// tmp must have size = max(N_clusters)
-void build_masks(Buffer<int> &masks, real *alpha, real *delta, real *X1, real *X2, Buffer<Point2D<real> > &clusters, int N_clusters, idx FFT_N, idx FFT_half_N, real FFT_df, Buffer<real> &tmp, const DUETcfg &DUET)
+void build_masks(Buffer<int> &masks, real *alpha, real *delta, real *X1, real *X2, Buffer<Point2D<real> > &clusters, int N_clusters, idx FFT_N, real FFT_df, Buffer<real> &tmp, const DUETcfg &DUET)
 {
   Buffer<int> old_masks(masks);
   idx masks_diffs = 0;
@@ -321,12 +319,12 @@ void build_masks(Buffer<int> &masks, real *alpha, real *delta, real *X1, real *X
   //  cout << RED << masks_diffs << NOCOLOR << endl;
 }
 
-void apply_masks(Buffers<real> &buffers, real *alpha, real *X1, real *X2, Buffer<int> &masks, Buffer<Point2D<real> > &clusters, uint active_sources, idx FFT_N, idx FFT_half_N, real FFT_df, fftw_plan &FFTi_plan, Buffer<real> &Xo, const DUETcfg &DUET)
+void apply_masks(Buffers<real> &buffers, real *X1, real *X2, Buffer<int> &masks, Buffer<Point2D<real> > &clusters, unsigned int active_sources, idx FFT_N, real FFT_df, fftw_plan &FFTi_plan, Buffer<real> &Xo, const DUETcfg &DUET)
 {
   buffers.clear();
 
   // Rebuild one source per iteration to reuse the FFT plan (only 1 needed).
-  for (uint source = 0; source < active_sources; ++source)
+  for (int source = 0; source < (int)active_sources; ++source)
     {
       Xo.clear();
 
@@ -339,11 +337,11 @@ void apply_masks(Buffers<real> &buffers, real *alpha, real *X1, real *X2, Buffer
 	}
       
       real maxXabs=0;
-      for (uint f = DUET.Fmin; f < DUET.Fmax; ++f)
+      for (int f = DUET.Fmin; f < DUET.Fmax; ++f)
 	{
 	  if (masks[f] == source)
 	    {
-	      uint f_im = FFT_N - f;
+	      int  f_im = FFT_N - f;
 	      real a_k = alpha2a(clusters[source].x);
 	      real delta_k = clusters[source].y;
 	      real omega = _2Pi * f * FFT_df;
@@ -412,7 +410,7 @@ void LDMB2C(StreamSet &Streams, IdList &active_streams, Buffers<real> *new_buffe
   assigned_clusters.clear();
 
   // Calculate the distance between old streams and new buffers in terms of D and A0. A0 requires applying the complementary window.
-  for (int s=0; s < active_streams.N(); ++s)
+  for (int s=0; s < (int)active_streams.N(); ++s)
     {
       static Buffer<real> W_buf_stream(FFT_overlap), W_buf_new_stream(FFT_overlap);
 
@@ -440,7 +438,7 @@ void LDMB2C(StreamSet &Streams, IdList &active_streams, Buffers<real> *new_buffe
 	}
     }
 	  
-  for (int s=0; s < active_streams.N(); ++s)
+  for (int s=0; s < (int)active_streams.N(); ++s)
     Streams.print(active_streams[s]);
   printf("Active_Streams=%u clusters = %u\n", active_streams.N(), N_clusters);
   puts("D:");
@@ -525,7 +523,7 @@ void LDMB2C(StreamSet &Streams, IdList &active_streams, Buffers<real> *new_buffe
       puts("\n" NOCOLOR);
     }
   // Death
-  for (int s = 0; s < active_streams.N(); ++s)
+  for (int s = 0; s < (int)active_streams.N(); ++s)
     {
       int id = active_streams[s];
       // The difference is zero for freshly active streams (right at the previous block).
@@ -535,7 +533,7 @@ void LDMB2C(StreamSet &Streams, IdList &active_streams, Buffers<real> *new_buffe
 	  active_streams.del(id);
 
 	  // Add stream to the list of streams to merge. Note we won't merge to other streams in the same condition but only streams that remain active.
-	  if ( Streams.active_blocks(id) <= MIN_ACTIVE_BLOCKS )
+	  if ( Streams.active_blocks(id) <= (const unsigned int)MIN_ACTIVE_BLOCKS )
 	    merging_streams.add(id);
 	  else
 	    printf(RED "Stream id %d has died.\n" NOCOLOR, id);
@@ -548,14 +546,14 @@ void LDMB2C(StreamSet &Streams, IdList &active_streams, Buffers<real> *new_buffe
   // Merge to the closest active stream. Note that this is the only stage at which more than one stream can be assigned to a destination stream (merging procedure).
   if (active_streams.N())
     {
-      for (int m = 0; m < merging_streams.N(); ++m )
+      for (long int m = 0; m < (long int)merging_streams.N(); ++m )
 	{
 	  int m_id = merging_streams[m];
 	      
 	  // Find the closest active stream to stream id=m_id.
 	  real min_distance = FLT_MAX;
 	  int  s_id_match   = active_streams[0];
-	  for (int s = 0; s < active_streams.N(); ++s)
+	  for (int s = 0; s < (int)active_streams.N(); ++s)
 	    {
 	      int s_id = active_streams[s];
 
@@ -759,7 +757,7 @@ bool excess_kurtosis(real &kurtosis, Histogram<real> &H, Buffer<real> &kernel, r
   return true;
 }
 
-bool excess_kurtosis(real &kurtosis_x, real &kurtosis_y, Histogram2D<real> &H, Matrix<real> &kernel, real pos_x, real pos_y, const DUETcfg &DUET)
+bool excess_kurtosis(real &kurtosis_x, real &kurtosis_y, Histogram2D<real> &H, Matrix<real> &kernel, real pos_x, real pos_y)
 {
   int kcxbin = kernel.rows()/2;
   int kcybin = kernel.cols()/2;
@@ -956,10 +954,10 @@ int main(int argc, char **argv)
   Guarantee(sim.is_open(), "Couldn't open simulation log!");
   sim >> N;
   printf(YELLOW "N=%d" NOCOLOR, N);
-  for (uint i = 0; i < N; ++i)
+  for (int i = 0; i < N; ++i)
     sim >> true_alpha[i] >> true_delta[i];
   // If N_max > N: Make the remaining true locations invisible by drawing over the same position of one of the active sources
-  for (uint i = N; i < N_max; ++i)
+  for (int i = N; i < N_max; ++i)
     {
       true_alpha[i] = true_alpha[0];
       true_delta[i] = true_delta[0];
@@ -1349,7 +1347,7 @@ int main(int argc, char **argv)
 		  // 1D kurtosis from 2D histogram.
 		  excess_kurtosis(kurtosis_x, kurtosis_y, 
 				  chist, conv_kernel, 
-				  pos.x, pos.y, DUET);
+				  pos.x, pos.y);
 
 		  printf(MAGENTA "%g %g      (%d %d)\n" NOCOLOR, 
 			 kurtosis_x, kurtosis_y,
@@ -1375,9 +1373,9 @@ int main(int argc, char **argv)
 	      alpha_level_pdf.stretch(0, chist_alpha.max_value());
 	      delta_level_pdf.stretch(0, chist_delta.max_value());
 
-	      for (int bin_alpha=0; bin_alpha < chist_alpha.bins(); ++bin_alpha)
+	      for (unsigned int bin_alpha=0; bin_alpha < chist_alpha.bins(); ++bin_alpha)
 		alpha_level_pdf( chist_alpha.bin(bin_alpha) ) += 1/(real)chist_alpha.bins();
-	      for (int bin_delta=0; bin_delta < chist_delta.bins(); ++bin_delta)
+	      for (unsigned int bin_delta=0; bin_delta < chist_delta.bins(); ++bin_delta)
 		delta_level_pdf( chist_delta.bin(bin_delta) ) += 1/(real)chist_delta.bins();
 
 	      /*	      
@@ -1420,8 +1418,8 @@ int main(int argc, char **argv)
 		  old_buffers = bufs.read();
 		  new_buffers = bufs.next();
 
-		  build_masks(masks, alpha(tb), delta(tb), X1_history(tb), X2_history(tb), clusters.values, N_clusters, FFT_pN, FFT_pN/2, FFT_df, tmp_real_buffer_N_max, DUET);
-		  apply_masks(*new_buffers, alpha(tb), X1_history(tb), X2_history(tb), masks, clusters.values, N_clusters, FFT_pN, FFT_pN/2, FFT_df, Xxo_plan, Xo, DUET);
+		  build_masks(masks, alpha(tb), delta(tb), X1_history(tb), X2_history(tb), clusters.values, N_clusters, FFT_pN, FFT_df, tmp_real_buffer_N_max, DUET);
+		  apply_masks(*new_buffers, X1_history(tb), X2_history(tb), masks, clusters.values, N_clusters, FFT_pN, FFT_df, Xxo_plan, Xo, DUET);
 
 
 		  if (tb == tb0) // This generates the class assignments C.
@@ -1480,7 +1478,7 @@ int main(int argc, char **argv)
 
 		      pM1.replot(f_axis(),M1(),FFT_pN/2,"M1");
 
-		      for (int i=0; i < M12.size();++i)
+		      for (size_t i=0; i < M12.size();++i)
 			M12[i] = M1[i]*M2[i];
 
 		      pM12.set_labels("f (Hz)", "M1*M2");
@@ -1551,9 +1549,9 @@ int main(int argc, char **argv)
 	{
 	  old_buffers = bufs.read();
 	  new_buffers = bufs.next();
-	  build_masks(masks, alpha(t_block), delta(t_block), X1_history(t_block), X2_history(t_block), cumulative_clusters.values, N_clusters, FFT_pN, FFT_pN/2, FFT_df, tmp_real_buffer_N_max, DUET);
+	  build_masks(masks, alpha(t_block), delta(t_block), X1_history(t_block), X2_history(t_block), cumulative_clusters.values, N_clusters, FFT_pN, FFT_df, tmp_real_buffer_N_max, DUET);
       
-	  apply_masks(*new_buffers, alpha(t_block), X1_history(t_block), X2_history(t_block), masks, cumulative_clusters.values, N_clusters, FFT_pN, FFT_pN/2, FFT_df, Xxo_plan, Xo, DUET);
+	  apply_masks(*new_buffers, X1_history(t_block), X2_history(t_block), masks, cumulative_clusters.values, N_clusters, FFT_pN, FFT_df, Xxo_plan, Xo, DUET);
 
 	  // Explicitly use the initial region FFT_N and exclude the padding FFT_pN.
 	  
@@ -1574,7 +1572,7 @@ int main(int argc, char **argv)
  Buffers<real> WDOs(original_waves_x1.buffers(), time_blocks), Es(WDOs);
  
   Buffer<int> ibm_masks(FFT_N);
-  for (size_t tb=0; tb < time_blocks; ++tb)
+  for (size_t tb=0; tb < (size_t)time_blocks; ++tb)
     {
       build_mono_ibm_masks(ibm_masks, WDOs, Es, ibm_X_bufs, original_waves_x1, tb, tb*FFT_slide, X1_history(tb), FFT_N, xX1_plan, W, o.f("Phi_x"), o.f("wdo_threshold"));
 
@@ -1618,7 +1616,7 @@ int main(int argc, char **argv)
     }
   */
 
-  for (uint source = 0; source < N; ++source)
+  for (int source = 0; source < N; ++source)
     {
       std::string wav_filepath("ibmx"+itosNdigits(source,N_EXPORT_DIGITS)+"_rebuilt.wav");
       printf("%s...", wav_filepath.c_str());
@@ -1634,7 +1632,7 @@ int main(int argc, char **argv)
   if (STATIC_REBUILD)
     {
       // Estimated sources
-      for (uint source = 0; source < wav_N; ++source)
+      for (int source = 0; source < wav_N; ++source)
 	{
 	  std::string wav_filepath("x"+itosNdigits(source,N_EXPORT_DIGITS)+"_rebuilt.wav");
 	  printf("%s...", wav_filepath.c_str());
@@ -1669,7 +1667,7 @@ int main(int argc, char **argv)
   // Evaluate data (separation stats) ////////////////////////////////////////////////////
   puts("");
   Buffer<real> SNR0 (original_waves_x1.buffers());
-  for (int n=0; n < original_waves_x1.buffers(); ++n)
+  for (unsigned int n=0; n < original_waves_x1.buffers(); ++n)
     {
       real snr = SNR(&x1_wav[skip_samples],original_waves_x1.raw(n,skip_samples),samples-skip_samples);
       printf(GREEN "o%d : SNR = %gdB\n" NOCOLOR, n, snr);
@@ -1712,7 +1710,7 @@ int main(int argc, char **argv)
   if (STATIC_REBUILD)
     {
       std::ofstream ecoduet_log("ecoduet.log", std::ios::trunc);
-      for (int n=0; n < cumulative_clusters.eff_size(DUET.noise_threshold); ++n)
+      for (int n=0; n < (int)cumulative_clusters.eff_size(DUET.noise_threshold); ++n)
 	{
 	  ecoduet_log << cumulative_clusters.values[n].x << " " 
 		      << cumulative_clusters.values[n].y << "\n";

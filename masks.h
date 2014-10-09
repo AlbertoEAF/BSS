@@ -129,12 +129,18 @@ void build_mono_ibm_masks(Buffer<int> &masks, Buffers<real> &masked_S, Buffers<r
   static Buffer<real> 
     Sn(FFT_N,0,fftw_malloc,fftw_free), Yn(Sn), xoriginal(Sn),
     Msn(FFT_N/2,0,fftw_malloc,fftw_free), Myn(Msn);
+
+  cout << "Call ";
   for(int n = 0; n < N; ++n)
     {
-      //Guarantee(t_offset+FFT_N < xoriginals(0)->size(), "Larger by %lu", t_offset+FFT_N - xoriginals(0)->size());
-      cout << "Performing copy! " << n<< endl;
+      cout << n << " ";
+
+      Guarantee(t_offset+FFT_N <= xoriginals(0)->size(), "Larger by %lu", (long int)(t_offset+FFT_N) - (long int)(xoriginals(0)->size()));
+
       xoriginal.copy(xoriginals.raw(n,t_offset), FFT_N);
-      cout << "DONE\n";
+
+      cout << " . ";
+
       xoriginal *= W; // The original stream wasn't windowed yet.
       fftw_execute_r2r(fft, xoriginal(), Sn());
       // Y = X - S 
@@ -161,6 +167,7 @@ void build_mono_ibm_masks(Buffer<int> &masks, Buffers<real> &masked_S, Buffers<r
 	    }
 	}
     }
+  cout << "\n";
 }
 
 

@@ -979,31 +979,11 @@ int main(int argc, char **argv)
   Guarantee(wav::mono(x1_file) && wav::mono(x2_file), "Input files must be mono.");
 
   const uint sample_rate_Hz = x1_file.samplerate();
-  const idx  samples        = x1_file.frames(); 
+  const idx  samples_input  = x1_file.frames(); 
   const real Ts             = 1.0/(real)sample_rate_Hz;
-
-
-  Buffer<real> x1_wav(samples,0,fftw_malloc,fftw_free), x2_wav(x1_wav);
-  x1_file.read(x1_wav(), samples);
-  x2_file.read(x2_wav(), samples);
-
-
-  // Only x1's are needed since that's the chosen channel for source separation
-  Buffers<real> original_waves_x1(N, samples,0,fftw_malloc,fftw_free);
-  for (int i = 0; i < N; ++i)
-    {
-      SndfileHandle wav_file("sounds/s"+std::to_string(i)+"x0.wav");
-      if (! wav::ok (wav_file))
-	return EXIT_FAILURE;
-
-      wav_file.read(original_waves_x1.raw(i), samples);
-    }
   	
   printf("\nProcessing input file with %lu frames @ %u Hz.\n\n", 
-	 samples, sample_rate_Hz);	
-  printf("Max int: %d\n"
-	 "Max idx: %ld\n", INT_MAX, LONG_MAX);
-  printf("Indexing usage: %.2f%%\n\n", 0.01*(float)x1_file.frames()/(float)LONG_MAX);
+	 samples_input, sample_rate_Hz);	
 	
   const idx FFT_N = (opt.Option("FFT_N") ? 
 		     (idx)strtol(opt.getOption("FFT_N").c_str(), NULL, 10) : o.i("FFT_N"));
@@ -1033,9 +1013,25 @@ int main(int argc, char **argv)
   _DUET.FFT_pN = _DUET.FFT_p * _DUET.FFT_N;
   const idx FFT_pN = _DUET.FFT_pN;
 
-  //  const idx time_blocks = 1 + blocks(samples, FFT_slide);
+  const idx time_blocks = div_up(samples_input-FFT_N,FFT_slide) + 1;
+  // If it's samples_input % block != 0, samples_all>samples_input
+  const size_t samples_all = time_blocks*FFT_slide+(FFT_N-FFT_slide);
 
-  const idx time_blocks = div_up(samples-FFT_N,FFT_slide) + 1;
+  Buffer<real> x1_wav(samples_all,0,fftw_malloc,fftw_free), x2_wav(x1_wav);
+  x1_file.read(x1_wav(), samples_input);
+  x2_file.read(x2_wav(), samples_input);
+
+
+  // Only x1's are needed since that's the chosen channel for source separation
+  Buffers<real> original_waves_x1(N, samples_all,0,fftw_malloc,fftw_free);
+  for (int i = 0; i < N; ++i)
+    {
+      SndfileHandle wav_file("sounds/s"+std::to_string(i)+"x0.wav");
+      if (! wav::ok (wav_file))
+	return EXIT_FAILURE;
+
+      wav_file.read(original_waves_x1.raw(i), samples_input);
+    }
 
   //// Storage allocation ///////
 
@@ -1053,8 +1049,8 @@ int main(int argc, char **argv)
 
   // 2 sets of buffers [optional: +1] are needed to allow up to 50% overlapping. If writing and computing is done simultaneously instead of writing and waiting for the old  buffer that is freed at the next write_data call end an additional buffer is needed to store current computations.
   Buffers<real> 
-    wav_out(N_max, time_blocks*FFT_slide+(FFT_N-FFT_slide), fftw_malloc, fftw_free), 
-    ibm_out(N    , time_blocks*FFT_slide+(FFT_N-FFT_slide), fftw_malloc, fftw_free), 
+    wav_out(N_max, samples_all, fftw_malloc, fftw_free), 
+    ibm_out(N    , samples_all, fftw_malloc, fftw_free), 
     bufs1(N_max,FFT_pN,fftw_malloc,fftw_free), bufs2(bufs1), bufs3(bufs1);
   Buffers<real> *old_buffers=NULL, *new_buffers=NULL;
   // Convenient interface to handle bufs pointers.
@@ -1172,9 +1168,9 @@ int main(int argc, char **argv)
   int N_clusters = 0;
 
   
-  Buffer<real> t_range(samples); 
+  Buffer<real> t_range(samples_all); 
   Buffer<real> block_t_range(time_blocks); 
-  for (int t=0; t < samples; ++t)
+  for (size_t t=0; t < samples_all; ++t)
     t_range[t] = Ts*t;
   for (int tb=0; tb < time_blocks; ++tb)
     block_t_range[tb] = tb*(FFT_slide*Ts);
@@ -1209,7 +1205,7 @@ int main(int argc, char **argv)
 	{
 	  idx offset_i = i+block_offset;
 
-	  if (offset_i < samples)
+	  if (offset_i < samples_input)
 	    {
 	      x1[i] = x1_wav[offset_i] * W[i];
 	      x2[i] = x2_wav[offset_i] * W[i]; 	
@@ -1573,8 +1569,16 @@ int main(int argc, char **argv)
  
  
   Buffer<int> ibm_masks(FFT_N,0,fftw_malloc,fftw_free);
+
+
+
+
+
   for (size_t tb=0; tb < (size_t)time_blocks; ++tb)
     {
+      printf("%lu %lu %lu %lu\n", tb, tb*FFT_slide, tb*FFT_slide+FFT_N, samples_all);
+
+      cout << "tb = "<< tb << endl;
       build_mono_ibm_masks(ibm_masks, ibm_X_bufs, original_waves_x1, tb*FFT_slide, X1_history(tb), FFT_N, xX1_plan, W, o.f("Phi_x"));
 
       for (int n=0; n < N; ++n)
@@ -1591,7 +1595,7 @@ int main(int argc, char **argv)
       std::string wav_filepath("ibmx"+itosNdigits(source,N_EXPORT_DIGITS)+"_rebuilt.wav");
       printf("%s...", wav_filepath.c_str());
       fflush(stdout);
-      print_status( wav::write_mono(wav_filepath, ibm_out.raw(source), samples, sample_rate_Hz) );
+      print_status( wav::write_mono(wav_filepath, ibm_out.raw(source), samples_input, sample_rate_Hz) );
     }
   /// End of IBM masks section
 
@@ -1607,7 +1611,7 @@ int main(int argc, char **argv)
 	  std::string wav_filepath("x"+itosNdigits(source,N_EXPORT_DIGITS)+"_rebuilt.wav");
 	  printf("%s...", wav_filepath.c_str());
 	  fflush(stdout);
-	  print_status( wav::write_mono(wav_filepath, wav_out.raw(source), samples, sample_rate_Hz) );
+	  print_status( wav::write_mono(wav_filepath, wav_out.raw(source), samples_input, sample_rate_Hz) );
 	}
     }
   else
@@ -1630,7 +1634,7 @@ int main(int argc, char **argv)
 	  std::string wav_filepath("xstream"+itosNdigits(stream_id,N_EXPORT_DIGITS)+"_rebuilt.wav");
 	  printf("(active_blocks=%u) %s...", Streams.active_blocks(stream_id), wav_filepath.c_str());
 	  fflush(stdout);
-	  print_status( wav::write_mono(wav_filepath, (*Streams.stream(stream_id))(), samples, sample_rate_Hz,streams_max_abs) );
+	  print_status( wav::write_mono(wav_filepath, (*Streams.stream(stream_id))(), samples_input, sample_rate_Hz,streams_max_abs) );
 	}
     }
 
@@ -1639,27 +1643,27 @@ int main(int argc, char **argv)
   Buffer<real> SNR0 (original_waves_x1.buffers());
   for (unsigned int n=0; n < original_waves_x1.buffers(); ++n)
     {
-      real snr = SNR(&x1_wav[skip_samples],original_waves_x1.raw(n,skip_samples),samples-skip_samples);
+      real snr = SNR(&x1_wav[skip_samples],original_waves_x1.raw(n,skip_samples),samples_input-skip_samples);
       printf(GREEN "o%d : SNR = %gdB\n" NOCOLOR, n, snr);
       SNR0[n] = snr;
     }
   // Write the minimum SNR (prior to separation) and maximum achievable (using the IBM masks)
-  separation_stats(ibm_out, original_waves_x1, original_waves_x1.buffers(), samples, skip_samples, ibm_logpath, &SNR0);
+  separation_stats(ibm_out, original_waves_x1, original_waves_x1.buffers(), samples_input, skip_samples, ibm_logpath, &SNR0);
     
   int degenerate_count; // How many outputs are degenerate
   if (STATIC_REBUILD)
     {
       puts("\nStatic Separation:");
-      degenerate_count = separation_stats(wav_out, original_waves_x1, wav_N, samples, skip_samples, logpath);
+      degenerate_count = separation_stats(wav_out, original_waves_x1, wav_N, samples_input, skip_samples, logpath);
     }
   else
     {
       puts("\nDynamic separation:");
       // Even if there are streams that were merged and none took their place the "holes" will hopefully give nan stats.
-      Buffers<real> streams_out(HIGHEST_STREAM_ID, samples, fftw_malloc, fftw_free);
+      Buffers<real> streams_out(HIGHEST_STREAM_ID, samples_all, fftw_malloc, fftw_free);
       for (int s_id=1; s_id <= HIGHEST_STREAM_ID; ++s_id)
-	(*streams_out(s_id-1)).copy(*Streams.stream(s_id), samples);
-      degenerate_count=separation_stats(streams_out, original_waves_x1, HIGHEST_STREAM_ID, samples, skip_samples, logpath);
+	(*streams_out(s_id-1)).copy(*Streams.stream(s_id), samples_input);
+      degenerate_count=separation_stats(streams_out, original_waves_x1, HIGHEST_STREAM_ID, samples_input, skip_samples, logpath);
     }
 
 

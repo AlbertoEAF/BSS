@@ -298,12 +298,12 @@ void build_masks(Buffer<int> &masks, real *alpha, real *delta, real *X1, real *X
       real omega = _2Pi * f * FFT_df;
       idx f_im = FFT_N - f;
       
-      for (int k=0; k < N_clusters; ++k)
+      for (int n=0; n < N_clusters; ++n)
 	{
-	  real a_k = alpha2a(clusters[k].x);
-	  real delta_k = clusters[k].y;
+	  real a_n = alpha2a(clusters[n].x);
+	  real delta_n = clusters[n].y;
 
-	  tmp[k] = std::norm(a_k*std::polar<real>(1,-delta_k*omega) * std::complex<real>(X1[f],X1[f_im]) - std::complex<real>(X2[f],X2[f_im])) / (1.0 + a_k*a_k);
+	  tmp[n] = std::norm(a_n*std::polar<real>(1,-delta_n*omega) * std::complex<real>(X1[f],X1[f_im]) - std::complex<real>(X2[f],X2[f_im])) / (1.0 + a_n*a_n);
 	}
       masks[f] = array_ops::min_index(tmp(), N_clusters);
 
@@ -884,28 +884,28 @@ int main(int argc, char **argv)
      and capital letters for the frequency domain
   */	
 
-  OptionParser *opt = new OptionParser();
+  OptionParser opt;
 
-  opt->setFlag("help",'h');
-  opt->setOption("x1");
-  opt->setOption("x2");
-  opt->setOption("FFT_N");
-  opt->setOption("window",'w');
+  opt.setFlag("help",'h');
+  opt.setOption("x1");
+  opt.setOption("x2");
+  opt.setOption("FFT_N");
+  opt.setOption("window",'w');
 
-  opt->setOption("log", 'l');
-  opt->setOption("ibm_log", 'i');
+  opt.setOption("log", 'l');
+  opt.setOption("ibm_log", 'i');
 
-  opt->setFlag('p');
+  opt.setFlag('p');
 
-  int arg0 = opt->parse(argc,argv);
-  if (arg0 == argc || opt->getFlag("help"))
+  int arg0 = opt.parse(argc,argv);
+  if (arg0 == argc || opt.getFlag("help"))
     {
       printf("Usage:\n\tPrgm [-x1 x] [-x2 x] [-FFT_N N] [-w/--window type] file.duet\n\n");
       exit(1);
     }
  
-  std::string logpath = opt->getOption("log");
-  std::string ibm_logpath = opt->getOption("ibm_log");
+  std::string logpath = opt.getOption("log");
+  std::string ibm_logpath = opt.getOption("ibm_log");
 
   
 
@@ -938,11 +938,11 @@ int main(int argc, char **argv)
 
   const int N_max = o.i("N_max");
   int N;
-  Buffer<real> tmp_real_buffer_N_max(N_max); // For calculations in sub-functions but we must allocate the space already
+  Buffer<real> tmp_real_buffer_N_max(N_max,0,fftw_malloc,fftw_free); // For calculations in sub-functions but we must allocate the space already
 
   // Choose mic input files
-  std::string x1_filepath = (opt->Option("x1") ? opt->getOption("x1") : o("x1_wav"));
-  std::string x2_filepath = (opt->Option("x1") ? opt->getOption("x1") : o("x2_wav"));
+  std::string x1_filepath = (opt.Option("x1") ? opt.getOption("x1") : o("x1_wav"));
+  std::string x2_filepath = (opt.Option("x1") ? opt.getOption("x1") : o("x2_wav"));
 
   // simulation (true) centroids 
   real true_alpha[N_max];
@@ -983,7 +983,7 @@ int main(int argc, char **argv)
   const real Ts             = 1.0/(real)sample_rate_Hz;
 
 
-  Buffer<real> x1_wav(samples), x2_wav(samples);
+  Buffer<real> x1_wav(samples,0,fftw_malloc,fftw_free), x2_wav(x1_wav);
   x1_file.read(x1_wav(), samples);
   x2_file.read(x2_wav(), samples);
 
@@ -1005,8 +1005,8 @@ int main(int argc, char **argv)
 	 "Max idx: %ld\n", INT_MAX, LONG_MAX);
   printf("Indexing usage: %.2f%%\n\n", 0.01*(float)x1_file.frames()/(float)LONG_MAX);
 	
-  const idx FFT_N = (opt->Option("FFT_N") ? 
-		     (idx)strtol(opt->getOption("FFT_N").c_str(), NULL, 10) : o.i("FFT_N"));
+  const idx FFT_N = (opt.Option("FFT_N") ? 
+		     (idx)strtol(opt.getOption("FFT_N").c_str(), NULL, 10) : o.i("FFT_N"));
   _DUET.FFT_N = FFT_N;
   Guarantee0(FFT_N % 2, "System implemented for FFTs with even size.");
  
@@ -1181,8 +1181,8 @@ int main(int argc, char **argv)
 
 
   Buffer<real> W(FFT_N);
-  if (opt->Option("window"))
-    select_window(opt->getOption("window"), W);
+  if (opt.Option("window"))
+    select_window(opt.getOption("window"), W);
   else
     select_window(o("window"), W);
 
@@ -1429,7 +1429,9 @@ int main(int argc, char **argv)
 		  // Add the separated buffers to the streams.
 		  for (int j = 0; j < N_clusters; ++j)
 		    {
-		      static Buffer<real> tmp_M(FFT_pN/2), tmp_X(FFT_pN);
+		      static Buffer<real> 
+			tmp_M(FFT_pN/2,0,fftw_malloc,fftw_free), 
+			tmp_X(FFT_pN,0,fftw_malloc,fftw_free);
 
 		      int id = C[j];
 
@@ -1567,14 +1569,13 @@ int main(int argc, char **argv)
   system("rm -f x*_rebuilt.wav ibmx*_rebuilt.wav");
 
   // IBM masks from mix using true sources knowledge (static and dynamic are rebuilt here)
- Buffers<real> ibm_X_bufs(original_waves_x1.buffers(),FFT_N,fftw_malloc,fftw_free); 
+  Buffers<real> ibm_X_bufs(original_waves_x1.buffers(),FFT_N,fftw_malloc,fftw_free); 
  
- Buffers<real> WDOs(original_waves_x1.buffers(), time_blocks), Es(WDOs);
  
-  Buffer<int> ibm_masks(FFT_N);
+  Buffer<int> ibm_masks(FFT_N,0,fftw_malloc,fftw_free);
   for (size_t tb=0; tb < (size_t)time_blocks; ++tb)
     {
-      build_mono_ibm_masks(ibm_masks, WDOs, Es, ibm_X_bufs, original_waves_x1, tb, tb*FFT_slide, X1_history(tb), FFT_N, xX1_plan, W, o.f("Phi_x"), o.f("wdo_threshold"));
+      build_mono_ibm_masks(ibm_masks, ibm_X_bufs, original_waves_x1, tb*FFT_slide, X1_history(tb), FFT_N, xX1_plan, W, o.f("Phi_x"));
 
       for (int n=0; n < N; ++n)
 	{
@@ -1584,37 +1585,6 @@ int main(int argc, char **argv)
 	  ibm_out(n)->add_at(x_buf, tb*FFT_slide);
 	}
     }
-
-  /*
-  // WDO-section not relevant for real-world data!
-  for(int n=0; n < N; ++n)
-    {
-      real wdo_avg = 0, wdo_min = 1, wdo_max = 0;
-      real *wdos = WDOs.raw(n);
-      size_t wdo_count = 0;
-      for (size_t tb = first_tb; tb < time_blocks; ++tb)
-	{
-	  real wdo = wdos[tb];
-	  if (wdo > 0) // Invalid wdo values were set to -1 at the ibm mask building.
-	    {
-	      if (wdo_min > wdo)
-		wdo_min = wdo;
-	      if (wdo_max < wdo)
-		wdo_max = wdo;
-	      wdo_avg += wdo;
-	      ++wdo_count;
-	    }
-	}
-      wdo_avg /= wdo_count;
-
-      static Gnuplot pwdos, pEs;
-      pwdos.set_labels("Time (s)", "WDO");
-      pEs  .set_labels("Time (s)", "Block energy");
-      pwdos.plot(block_t_range(), WDOs.raw(n), time_blocks, std::to_string(n).c_str());
-      pEs  .plot(block_t_range(),   Es.raw(n), time_blocks, std::to_string(n).c_str());
-      printf(CYAN "n) <WDO> = %.2g max(WDO) = %.2g min(WDO) = %.2g\n" NOCOLOR, wdo_avg, wdo_max, wdo_min);
-    }
-  */
 
   for (int source = 0; source < N; ++source)
     {
@@ -1725,7 +1695,7 @@ int main(int argc, char **argv)
   system("cat s.dat");
   puts("\nSuccess!");
 
-  if (o.i("show_final_plots") || opt->getFlag('p'))
+  if (o.i("show_final_plots") || opt.getFlag('p'))
     {
       if (! STATIC_REBUILD)
 	{

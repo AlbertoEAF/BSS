@@ -53,6 +53,7 @@ void build_mono_ibm_masks(Buffer<int> &masks, Buffer<real> &WDO, Buffers<real> &
 }
 */
 
+/*
 void build_mono_ibm_masks(Buffer<int> &masks, Buffers<real> &WDOs, Buffers<real> &Es, Buffers<real> &masked_S, Buffers<real> &xoriginals, size_t tb, size_t t_offset, real *X, int FFT_N, fftw_plan &fft, Buffer<real> &W, real Phi_x, real wdo_threshold)
 {
   masks.clear();
@@ -60,12 +61,14 @@ void build_mono_ibm_masks(Buffer<int> &masks, Buffers<real> &WDOs, Buffers<real>
 
   int N = xoriginals.buffers(); // True Sources.
 
-  static Buffer<real> Sn(FFT_N,0,fftw_malloc,fftw_free), Yn(Sn), Msn(FFT_N/2), Myn(FFT_N/2);
+  static Buffer<real> Sn(FFT_N,0,fftw_malloc,fftw_free), Yn(Sn), Msn(FFT_N/2,fftw_malloc,fftw_free), Myn(FFT_N/2,fftw_malloc,fftw_free);
   static Buffer<real> xoriginal(Sn);
   for(int n = 0; n < N; ++n)
     {
       //Guarantee(t_offset+FFT_N < xoriginals(0)->size(), "Larger by %lu", t_offset+FFT_N - xoriginals(0)->size());
+      cout << "Performing copy! " << n<< endl;
       xoriginal.copy(xoriginals.raw(n,t_offset), FFT_N);
+      cout << "DONE\n";
       xoriginal *= W; // The original stream wasn't windowed yet.
       fftw_execute_r2r(fft, xoriginal(), Sn());
       // Y = X - S 
@@ -114,5 +117,51 @@ void build_mono_ibm_masks(Buffer<int> &masks, Buffers<real> &WDOs, Buffers<real>
 	wdo=-1;
     }
 }
+*/
+
+void build_mono_ibm_masks(Buffer<int> &masks, Buffers<real> &masked_S, Buffers<real> &xoriginals, size_t t_offset, real *X, int FFT_N, fftw_plan &fft, Buffer<real> &W, real Phi_x)
+{
+  masks.clear();
+  masked_S.clear();
+
+  int N = xoriginals.buffers(); // True Sources.
+
+  static Buffer<real> 
+    Sn(FFT_N,0,fftw_malloc,fftw_free), Yn(Sn), xoriginal(Sn),
+    Msn(FFT_N/2,0,fftw_malloc,fftw_free), Myn(Msn);
+  for(int n = 0; n < N; ++n)
+    {
+      //Guarantee(t_offset+FFT_N < xoriginals(0)->size(), "Larger by %lu", t_offset+FFT_N - xoriginals(0)->size());
+      cout << "Performing copy! " << n<< endl;
+      xoriginal.copy(xoriginals.raw(n,t_offset), FFT_N);
+      cout << "DONE\n";
+      xoriginal *= W; // The original stream wasn't windowed yet.
+      fftw_execute_r2r(fft, xoriginal(), Sn());
+      // Y = X - S 
+      Yn.copy(X,FFT_N); Yn -= Sn;
+      
+      evenHC2magnitude(Sn, Msn);
+      evenHC2magnitude(Yn, Myn);
+
+      if ( Phi(Msn[0], Myn[0], Phi_x) )
+	{
+	  masks[0] = n;
+	  
+	  masked_S.raw(n)[0] = X[0];
+	}
+      for (int k = 1,K=FFT_N/2; k < K; ++k)
+	{
+	  // if Phi is positive assign it to the current source (n)
+	  if ( Phi(Msn[k], Myn[k], Phi_x) )
+	    {
+	      masks[k] = n; 
+
+	      masked_S.raw(n)[k      ] = X[k      ];
+	      masked_S.raw(n)[FFT_N-k] = X[FFT_N-k];
+	    }
+	}
+    }
+}
+
 
 #endif // MASKS_H__

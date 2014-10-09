@@ -10,7 +10,7 @@ std::string strip(const std::string &s)
 {
   int a=0, b = s.length();
 
-  for (a = 0; s[a]   == ' ' && a<b; ++a) {}
+  for (a = 0; s[a  ] == ' ' && a<b; ++a) {}
   for (     ; s[b-1] == ' ' && b  ; --b) {}
 
   return s.substr(a,b-a);
@@ -19,7 +19,7 @@ std::string strip(const std::string &s)
 Options::Options (const char *filepath, OnFail default_onfail, int print)
 {
   std::ifstream cfgfile (filepath);
-  std::string line, id, val;
+  std::string line, id, val, rawline;
   int eq_pos;
 
   if (default_onfail == Unspecified)
@@ -37,10 +37,9 @@ Options::Options (const char *filepath, OnFail default_onfail, int print)
     cout << "\nConfig file " << filepath << ":\n";
   while(! cfgfile.eof())
     {
-      getline(cfgfile, line);
+      getline(cfgfile, rawline);
       
-      
-      line = strip(line);
+      line = strip(rawline);
       if (line[0] == '#' || line == "") 
         continue;  // skip comments
 

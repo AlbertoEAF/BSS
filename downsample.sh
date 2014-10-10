@@ -1,11 +1,13 @@
 #! /bin/bash
 
-[ $# < 3 ] && echo -e "\nUsage:\n\tdownsample <samplerate> <folder> <downsample_folder> [channel] [lowervolumemultiplier]\n" && exit 1
+[ $# -lt 3 ] && echo -e "\nUsage:\n\tdownsample <samplerate> <folder> <downsample_folder> [HPF] [channel] [lowervolumemultiplier_on_channel]\n" && exit 1
 
 samplerate=$1
 folder="$2"
 folder_out="$3"
-channel="$4"
+HPF="$4"
+channel="$5"
+volume_multiplier="$6"
 
 files=$( find "$folder" -name '*.wav' )
 
@@ -20,18 +22,34 @@ do
     echo "$file->$fileout "
 
     mkdir -p "$destdir"
-    
-    if [ $# == 3 ]; then
-	sox "$file" -r "$samplerate" "$fileout"
-    else
-	#[ $# != 5 ] && exit(1)
-	if [ $channel == 1 ]; then
-	    sox "$file" -r "$samplerate" "$fileout" remix "1v$5" 2
+
+    # Set the HPF filter command part
+    #hpf_cmd=""
+    #if [ $# -gt 3 ]; then
+    #	hpf_cmd="highpass $HPF"
+    #fi
+
+    channels=$( soxi $file | grep Channels | awk '{ print $3 }' )
+
+    # Set the remix command component part.
+    remix_cmd=""
+    if [ $# -eq 6 ] && [ "$channels" -eq "2" ]; then
+	if [ $channel == 1 ]; then # Change the volume on channel 1.
+	    remix_cmd="remix 1v${volume_multiplier} 2"
 	else
-	    sox "$file" -r "$samplerate" "$fileout" remix 1 "2v$5"
+	    remix_cmd="remix 1 2v${volume_multiplier}"
 	fi
     fi
+    
+    
+    echo "Remix_cmd:<$remix_cmd>"
+    echo "HPF_cmd:<$hpf_cmd>"   
 
+
+    sox "$file" -r "$samplerate" "$fileout" $remix_cmd #$hpf_cmd
+
+
+    echo -e "\n\n"
 done
 
 

@@ -119,7 +119,7 @@ void build_mono_ibm_masks(Buffer<int> &masks, Buffers<real> &WDOs, Buffers<real>
 }
 */
 
-void build_and_apply_mono_ibm_masks(Buffer<int> &masks, Buffers<real> &masked_S, Buffers<real> &xoriginals, size_t t_offset, real *X, int FFT_N, fftw_plan &fft, Buffer<real> &W, real Phi_x)
+void build_and_apply_multi_mono_ibm_masks(Buffers<bool> &masks, Buffers<real> &masked_S, Buffers<real> &xoriginals, size_t t_offset, real *X, int FFT_N, fftw_plan &fft, Buffer<real> &W, real Phi_x, const DUETcfg &DUET)
 {
   masks.clear();
   masked_S.clear();
@@ -146,16 +146,16 @@ void build_and_apply_mono_ibm_masks(Buffer<int> &masks, Buffers<real> &masked_S,
 
       if ( Phi(Msn[0], Myn[0], Phi_x) )
 	{
-	  masks[0] = n;
+	  masks.raw(n)[0] = true;
 	  
 	  masked_S.raw(n)[0] = X[0];
 	}
-      for (int k = 1,K=FFT_N/2; k < K; ++k)
+      for (int k = DUET.Fmin,K=DUET.Fmax; k < K; ++k)
 	{
 	  // if Phi is positive assign it to the current source (n)
 	  if ( Phi(Msn[k], Myn[k], Phi_x) )
 	    {
-	      masks[k] = n; 
+	      masks.raw(n)[k] = true; 
 
 	      masked_S.raw(n)[k      ] = X[k      ];
 	      masked_S.raw(n)[FFT_N-k] = X[FFT_N-k];

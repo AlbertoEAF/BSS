@@ -288,8 +288,11 @@ real alpha2a (real alpha)
 /// Fills a buffer of size FFT_N/2 // To each bin will be assigned the number of the source. values < 0 indicate that the bin won't be assigned a source (noise or intentional algorithm rejection/discard). 
 /// Thus, a single buffer is required to hold all the masks
 /// tmp must have size = max(N_clusters)
-void build_masks(Buffer<int> &masks, real *alpha, real *delta, real *X1, real *X2, const Buffer<Point2D<real> > &clusters, int N_clusters, idx FFT_N, real FFT_df, Buffer<real> &tmp, const DUETcfg &DUET)
+void build_single_masks(Buffer<int> &masks, real *alpha, real *delta, real *X1, real *X2, const Buffer<Point2D<real> > &clusters, int N_clusters, idx FFT_N, real FFT_df, Buffer<real> &tmp, const DUETcfg &DUET)
 {
+  ///// ATTENTION IF YOU WANT TO MODIFY THIS CODE !! PERFORMANCE
+  // This code is optimized for binwise single mask assignment. For multiple assignment use build_multi_masks instead.
+   
   #ifdef OLD_MASK_BUILD
   static Buffer<int> old_masks(masks);
   idx masks_diffs = 0;
@@ -323,7 +326,9 @@ void build_masks(Buffer<int> &masks, real *alpha, real *delta, real *X1, real *X
 #endif // OLD_MASK_BUILD
 }
 
-void apply_masks(Buffers<real> &buffers, real *X1, real *X2, const Buffer<int> &masks, Buffer<Point2D<real> > &clusters, unsigned int active_sources, idx FFT_N, real FFT_df, fftw_plan &FFTi_plan, Buffer<real> &Xo, const DUETcfg &DUET)
+
+/// Mask bins can only belong to a source thus it is more efficient to have Buffer<int> where a negative value means the bin has no owning source and the bin value is the number of the source.
+void apply_single_masks(Buffers<real> &buffers, real *X1, real *X2, const Buffer<int> &masks, Buffer<Point2D<real> > &clusters, unsigned int active_sources, idx FFT_N, real FFT_df, fftw_plan &FFTi_plan, Buffer<real> &Xo, const DUETcfg &DUET)
 {
   buffers.clear();
   
@@ -332,7 +337,6 @@ void apply_masks(Buffers<real> &buffers, real *X1, real *X2, const Buffer<int> &
     {
       Xo.clear();
 
-
       if (masks[0] == source)
 	{
 	  real a_k = alpha2a(clusters[source].x);
@@ -340,7 +344,6 @@ void apply_masks(Buffers<real> &buffers, real *X1, real *X2, const Buffer<int> &
 	  Xo[0] *= Xo[0] / (1 + a_k*a_k);
 	}
       
-      //real maxXabs=0;
       for (int f = DUET.Fmin; f < DUET.Fmax; ++f)
 	{
 	  if (masks[f] == source)
@@ -352,11 +355,50 @@ void apply_masks(Buffers<real> &buffers, real *X1, real *X2, const Buffer<int> &
 
 	      std::complex<real> X(std::complex<real>(X1[f],X1[f_im])+std::polar<real>(a_k,delta_k*omega) * std::complex<real>(X2[f],X2[f_im]));
 
-	      /*
-	      real Xabs = std::norm(X);
-	      if (Xabs > maxXabs)
-		maxXabs = Xabs;
-	      */
+#ifdef OLD_PEAK_ASSIGN
+	      Xo[f   ] = X1[f   ];
+	      Xo[f_im] = X1[f_im];
+#else
+	      Xo[f   ] = X.real();
+	      Xo[f_im] = X.imag();
+#endif // OLD_PEAK_ASSIGN
+	    }
+	}
+      fftw_execute_r2r(FFTi_plan, Xo(), buffers.raw(source));
+    }
+
+  buffers /= (real)FFT_N;
+}
+
+/// Masks bins can belong to multiple owners thus Buffers<bool> is used.
+void apply_multi_masks(Buffers<real> &buffers, real *X1, real *X2, Buffers<bool> &masks, Buffer<Point2D<real> > &clusters, unsigned int active_sources, idx FFT_N, real FFT_df, fftw_plan &FFTi_plan, Buffer<real> &Xo, const DUETcfg &DUET)
+{
+  buffers.clear();
+  
+  // Rebuild one source per iteration to reuse the FFT plan (only 1 needed).
+  for (int source = 0; source < (int)active_sources; ++source)
+    {
+      Xo.clear();
+
+      bool *mask = masks.raw(source);
+
+      if (mask[0])
+	{
+	  real a_k = alpha2a(clusters[source].x);
+	  Xo[0] = a_k*X1[0]-X2[0];
+	  Xo[0] *= Xo[0] / (1 + a_k*a_k);
+	}
+      
+      for (int f = DUET.Fmin; f < DUET.Fmax; ++f)
+	{
+	  if (mask[f])
+	    {
+	      int  f_im = FFT_N - f;
+	      real a_k = alpha2a(clusters[source].x);
+	      real delta_k = clusters[source].y;
+	      real omega = _2Pi * f * FFT_df;
+
+	      std::complex<real> X(std::complex<real>(X1[f],X1[f_im])+std::polar<real>(a_k,delta_k*omega) * std::complex<real>(X2[f],X2[f_im]));
 
 #ifdef OLD_PEAK_ASSIGN
 	      Xo[f   ] = X1[f   ];
@@ -367,24 +409,11 @@ void apply_masks(Buffers<real> &buffers, real *X1, real *X2, const Buffer<int> &
 #endif // OLD_PEAK_ASSIGN
 	    }
 	}
-      /*
-	// Tried to filter weak components for the .5s windows but degrades the signal until musical noise is generated.
-      for (int f = 1, fmax = FFT_N/2; f < fmax; ++f)
-	{
-	  real fabs2 = abs2(Xo[f],Xo[FFT_N-f]);
-	  if (fabs2 < maxXabs*1e-2)
-	    {
-	      // printf("f=%d %g\n", f, fabs2/maxXabs);
-	      Xo[f] = Xo[FFT_N-f] = 0;
-	    }    
-	}
-      */
       fftw_execute_r2r(FFTi_plan, Xo(), buffers.raw(source));
     }
 
   buffers /= (real)FFT_N;
 }
-
 
 
 void LDMB2C(StreamSet &Streams, IdList &active_streams, Buffers<real> *new_buffers, Buffer<Point2D<real> > &clusters_pos, int N_clusters, idx time_block, Buffer<real> &W, Buffer<int> &C, const DUETcfg &DUET)
@@ -1076,11 +1105,11 @@ int main(int argc, char **argv)
     Omega[k] = _2Pi*k*FFT_df;
   */
 
-  _DUET.Fmax = std::min<int>(o.f("DUET.high_cutoff_Hz", Warn)/FFT_df, 
+  _DUET.Fmax = std::min<int>(o.f("DUET.high_cutoff_Hz")/FFT_df, 
 			     int(FFT_pN/2));
   if (_DUET.Fmax <= 2)
     _DUET.Fmax = FFT_pN/2;
-  _DUET.Fmin = std::min<int>(o.f("DUET.low_cutoff_Hz" , Warn)/FFT_df, 
+  _DUET.Fmin = std::min<int>(o.f("DUET.low_cutoff_Hz")/FFT_df, 
 			     _DUET.Fmax-1);
   if (_DUET.Fmin <= 1)
     _DUET.Fmin = 1;
@@ -1243,35 +1272,6 @@ int main(int argc, char **argv)
       hist_delta.clear();
       calc_alpha_delta(time_block, FFT_pN, sample_rate_Hz, X1, X2, alpha, delta, hist, hist_alpha, hist_delta, DUET);
 
-      //////////////////// MANUAL PEAK TESTING MODE //////////////////////
-      /*
-      if (o.i("test_peak_tracking"))
-	{
-	  // Do not compare A0, only positions.
-	  X1_history.clear();
-	  X2_history.clear();
-
-	  hist.clear();
-	  hist_alpha.clear();
-	  hist_delta.clear();
-
-	  // Manual values
-	  real malpha, mdelta, mI;
-	  while(1)
-	    {
-	      cout << BLUE << "Manual(I=0 to finish)    I alpha delta = " << NOCOLOR;
-	      std::cin >> mI;
-	      if (std::abs(mI)<1e-9)
-		break;
-	      cin >> malpha >> mdelta;
-
-	      hist(malpha,mdelta) += mI;
-	      hist_alpha(malpha) += mI;
-	      hist_delta(mdelta) += mI;
-	    }
-	}
-      */
-                  
       /*
 	static Histogram2D<real> prod_hist(hist), diff_hist(hist);
 
@@ -1425,8 +1425,8 @@ int main(int argc, char **argv)
 		  old_buffers = bufs.read();
 		  new_buffers = bufs.next();
 
-		  build_masks(masks, alpha(tb), delta(tb), X1_history(tb), X2_history(tb), clusters.values, N_clusters, FFT_pN, FFT_df, tmp_real_buffer_N_max, DUET);
-		  apply_masks(*new_buffers, X1_history(tb), X2_history(tb), masks, clusters.values, N_clusters, FFT_pN, FFT_df, Xxo_plan, Xo, DUET);
+		  build_single_masks(masks, alpha(tb), delta(tb), X1_history(tb), X2_history(tb), clusters.values, N_clusters, FFT_pN, FFT_df, tmp_real_buffer_N_max, DUET);
+		  apply_single_masks(*new_buffers, X1_history(tb), X2_history(tb), masks, clusters.values, N_clusters, FFT_pN, FFT_df, Xxo_plan, Xo, DUET);
 
 
 		  if (tb == tb0) // This generates the class assignments C.
@@ -1558,9 +1558,9 @@ int main(int argc, char **argv)
 	{
 	  old_buffers = bufs.read();
 	  new_buffers = bufs.next();
-	  build_masks(masks, alpha(t_block), delta(t_block), X1_history(t_block), X2_history(t_block), cumulative_clusters.values, N_clusters, FFT_pN, FFT_df, tmp_real_buffer_N_max, DUET);
+	  build_single_masks(masks, alpha(t_block), delta(t_block), X1_history(t_block), X2_history(t_block), cumulative_clusters.values, N_clusters, FFT_pN, FFT_df, tmp_real_buffer_N_max, DUET);
       
-	  apply_masks(*new_buffers, X1_history(t_block), X2_history(t_block), masks, cumulative_clusters.values, N_clusters, FFT_pN, FFT_df, Xxo_plan, Xo, DUET);
+	  apply_single_masks(*new_buffers, X1_history(t_block), X2_history(t_block), masks, cumulative_clusters.values, N_clusters, FFT_pN, FFT_df, Xxo_plan, Xo, DUET);
 
 	  // Explicitly use the initial region FFT_N and exclude the padding FFT_pN.
 	  
@@ -1579,15 +1579,11 @@ int main(int argc, char **argv)
   Buffers<real> ibm_X_bufs(original_waves_x1.buffers(),FFT_N,fftw_malloc,fftw_free); 
  
  
-  Buffer<int> ibm_masks(FFT_N,-1,fftw_malloc,fftw_free); // By default are not assigned (-1)
-
-
-
-
+  Buffers<bool> ibm_masks(original_waves_x1.buffers(),FFT_N/2,false,fftw_malloc,fftw_free); // By default are not assigned (false)
 
   for (size_t tb=0; tb < (size_t)time_blocks; ++tb)
     {
-      build_and_apply_mono_ibm_masks(ibm_masks, ibm_X_bufs, original_waves_x1, tb*FFT_slide, X1_history(tb), FFT_N, xX1_plan, W, o.f("Phi_x"));
+      build_and_apply_multi_mono_ibm_masks(ibm_masks, ibm_X_bufs, original_waves_x1, tb*FFT_slide, X1_history(tb), FFT_N, xX1_plan, W, o.f("Phi_x"),DUET);
 
       for (int n=0; n < N; ++n)
 	{

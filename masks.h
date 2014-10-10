@@ -119,7 +119,7 @@ void build_mono_ibm_masks(Buffer<int> &masks, Buffers<real> &WDOs, Buffers<real>
 }
 */
 
-void build_mono_ibm_masks(Buffer<int> &masks, Buffers<real> &masked_S, Buffers<real> &xoriginals, size_t t_offset, real *X, int FFT_N, fftw_plan &fft, Buffer<real> &W, real Phi_x)
+void build_and_apply_mono_ibm_masks(Buffer<int> &masks, Buffers<real> &masked_S, Buffers<real> &xoriginals, size_t t_offset, real *X, int FFT_N, fftw_plan &fft, Buffer<real> &W, real Phi_x)
 {
   masks.clear();
   masked_S.clear();
@@ -130,17 +130,12 @@ void build_mono_ibm_masks(Buffer<int> &masks, Buffers<real> &masked_S, Buffers<r
     Sn(FFT_N,0,fftw_malloc,fftw_free), Yn(Sn), xoriginal(Sn),
     Msn(FFT_N/2,0,fftw_malloc,fftw_free), Myn(Msn);
 
-  cout << "Call ";
   for(int n = 0; n < N; ++n)
     {
-      cout << n << " ";
-
-      Guarantee(t_offset+FFT_N <= xoriginals(0)->size(), "Larger by %lu", (long int)(t_offset+FFT_N) - (long int)(xoriginals(0)->size()));
+      // This assert can already be removed!
+      Assert(t_offset+FFT_N <= xoriginals(0)->size(), "Larger by %lu", (long int)(t_offset+FFT_N) - (long int)(xoriginals(0)->size()));
 
       xoriginal.copy(xoriginals.raw(n,t_offset), FFT_N);
-
-      cout << " . ";
-
       xoriginal *= W; // The original stream wasn't windowed yet.
       fftw_execute_r2r(fft, xoriginal(), Sn());
       // Y = X - S 
@@ -167,7 +162,6 @@ void build_mono_ibm_masks(Buffer<int> &masks, Buffers<real> &masked_S, Buffers<r
 	    }
 	}
     }
-  cout << "\n";
 }
 
 

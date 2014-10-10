@@ -288,10 +288,12 @@ real alpha2a (real alpha)
 /// Fills a buffer of size FFT_N/2 // To each bin will be assigned the number of the source. values < 0 indicate that the bin won't be assigned a source (noise or intentional algorithm rejection/discard). 
 /// Thus, a single buffer is required to hold all the masks
 /// tmp must have size = max(N_clusters)
-void build_masks(Buffer<int> &masks, real *alpha, real *delta, real *X1, real *X2, Buffer<Point2D<real> > &clusters, int N_clusters, idx FFT_N, real FFT_df, Buffer<real> &tmp, const DUETcfg &DUET)
+void build_masks(Buffer<int> &masks, real *alpha, real *delta, real *X1, real *X2, const Buffer<Point2D<real> > &clusters, int N_clusters, idx FFT_N, real FFT_df, Buffer<real> &tmp, const DUETcfg &DUET)
 {
-  Buffer<int> old_masks(masks);
+  #ifdef OLD_MASK_BUILD
+  static Buffer<int> old_masks(masks);
   idx masks_diffs = 0;
+  #endif
 
   for (idx f = DUET.Fmin; f < DUET.Fmax; ++f)
     {
@@ -307,22 +309,24 @@ void build_masks(Buffer<int> &masks, real *alpha, real *delta, real *X1, real *X
 	}
       masks[f] = array_ops::min_index(tmp(), N_clusters);
 
+      #ifdef OLD_MASK_BUILD
       old_masks[f] = closest_cluster(Point2D<real>(alpha[f],delta[f]), clusters);
 
       if (masks[f]!=old_masks[f])
 	masks_diffs += 1;
+      #endif
     }
 #ifdef OLD_MASK_BUILD
   masks = old_masks;
   cout << "#Mask diffs = " << masks_diffs << endl;
+  cout << RED << masks_diffs << NOCOLOR << endl;
 #endif // OLD_MASK_BUILD
-  //  cout << RED << masks_diffs << NOCOLOR << endl;
 }
 
-void apply_masks(Buffers<real> &buffers, real *X1, real *X2, Buffer<int> &masks, Buffer<Point2D<real> > &clusters, unsigned int active_sources, idx FFT_N, real FFT_df, fftw_plan &FFTi_plan, Buffer<real> &Xo, const DUETcfg &DUET)
+void apply_masks(Buffers<real> &buffers, real *X1, real *X2, const Buffer<int> &masks, Buffer<Point2D<real> > &clusters, unsigned int active_sources, idx FFT_N, real FFT_df, fftw_plan &FFTi_plan, Buffer<real> &Xo, const DUETcfg &DUET)
 {
   buffers.clear();
-
+  
   // Rebuild one source per iteration to reuse the FFT plan (only 1 needed).
   for (int source = 0; source < (int)active_sources; ++source)
     {
@@ -336,7 +340,7 @@ void apply_masks(Buffers<real> &buffers, real *X1, real *X2, Buffer<int> &masks,
 	  Xo[0] *= Xo[0] / (1 + a_k*a_k);
 	}
       
-      real maxXabs=0;
+      //real maxXabs=0;
       for (int f = DUET.Fmin; f < DUET.Fmax; ++f)
 	{
 	  if (masks[f] == source)
@@ -348,9 +352,11 @@ void apply_masks(Buffers<real> &buffers, real *X1, real *X2, Buffer<int> &masks,
 
 	      std::complex<real> X(std::complex<real>(X1[f],X1[f_im])+std::polar<real>(a_k,delta_k*omega) * std::complex<real>(X2[f],X2[f_im]));
 
+	      /*
 	      real Xabs = std::norm(X);
 	      if (Xabs > maxXabs)
 		maxXabs = Xabs;
+	      */
 
 #ifdef OLD_PEAK_ASSIGN
 	      Xo[f   ] = X1[f   ];
@@ -1064,6 +1070,11 @@ int main(int argc, char **argv)
 
   const real FFT_df = sample_rate_Hz / (real) FFT_pN;
 
+  /*
+  Buffer<real> Omega(FFT_N/2);
+  for (size_t k=0; k<FFT_N/2;++k)
+    Omega[k] = _2Pi*k*FFT_df;
+  */
 
   _DUET.Fmax = std::min<int>(o.f("DUET.high_cutoff_Hz", Warn)/FFT_df, 
 			     int(FFT_pN/2));
@@ -1122,7 +1133,7 @@ int main(int argc, char **argv)
     alpha_clusters(delta_clusters);
 
   //// Each of the clusters should now belong to a source: create masks and separate the sources.
-  Buffer<int> masks(FFT_pN/2); 
+  Buffer<int> masks(FFT_pN/2,-1); // By default no source is assigned (-1). 
 
   Gnuplot palpha,pdelta;
 
@@ -1568,7 +1579,7 @@ int main(int argc, char **argv)
   Buffers<real> ibm_X_bufs(original_waves_x1.buffers(),FFT_N,fftw_malloc,fftw_free); 
  
  
-  Buffer<int> ibm_masks(FFT_N,0,fftw_malloc,fftw_free);
+  Buffer<int> ibm_masks(FFT_N,-1,fftw_malloc,fftw_free); // By default are not assigned (-1)
 
 
 
@@ -1576,10 +1587,7 @@ int main(int argc, char **argv)
 
   for (size_t tb=0; tb < (size_t)time_blocks; ++tb)
     {
-      printf("%lu %lu %lu %lu\n", tb, tb*FFT_slide, tb*FFT_slide+FFT_N, samples_all);
-
-      cout << "tb = "<< tb << endl;
-      build_mono_ibm_masks(ibm_masks, ibm_X_bufs, original_waves_x1, tb*FFT_slide, X1_history(tb), FFT_N, xX1_plan, W, o.f("Phi_x"));
+      build_and_apply_mono_ibm_masks(ibm_masks, ibm_X_bufs, original_waves_x1, tb*FFT_slide, X1_history(tb), FFT_N, xX1_plan, W, o.f("Phi_x"));
 
       for (int n=0; n < N; ++n)
 	{

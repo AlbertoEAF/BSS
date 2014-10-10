@@ -55,8 +55,8 @@ def parse_test(testpath):
     deg_intrinsic = 0
 
     # To histogram of degeneracy per each simulation. the last bin is for results of max_degeneracies or higher
-    eNpos_hist = np.zeros( MAX_DEGENERACIES+1 )
-    eNneg_hist = np.zeros( MAX_DEGENERACIES+1 )
+    eNpos_hist = np.zeros( MAX_DEGENERACIES+1 , dtype=np.int)
+    eNneg_hist = np.zeros( MAX_DEGENERACIES+1 , dtype=np.int)
 
     for i in range(len(ecologs)):
         # FS sorting doesn't work in the same way for all unfortunately-> We must regenerate the names ourselves.
@@ -89,7 +89,7 @@ def parse_test(testpath):
                 check (deg_o ==   0 and deg_e == eN, "Intrinsic Degeneracies!")
             else:
                 eNnegative[pass_count] = -eN
-                eNneg_hist[-eN] += 1
+                eNneg_hist[-eN] -= 1
                 check (deg_o == -eN and deg_e == 0 , "Intrinsic degeneracies!")
         else:
             if (deg_o or deg_e):
@@ -99,7 +99,7 @@ def parse_test(testpath):
                     check(deg_o == 0 and deg_e == 0, "Intrinsic Degeneracies")
             else:
                 eNpos_hist[0] += 1
-                eNneg_hist[0] += 1
+                eNneg_hist[0] -= 1
         
 
         # parse_run's o = (match, Dtotal, Dtotal_per_sample, SNR, SDR, SIR, SAR)
@@ -147,12 +147,12 @@ def parse_test(testpath):
 
     print("")
 
-    print("SNR (dB)\tSDR (dB)\tSIR (dB)\tSAR (dB)")
+    print("SNR eSNR\tSDR eSDR\tSIR eSIR\tSAR eSAR")
     for i in range(4):
         print("{:.3}+-{:.3}\t".format(targetavgratios[i],targetstddevratios[i]), end="")
     print("")
 
-    print("iSNR (dB)\tiSDR (dB)\tiSIR (dB)\tiSAR (dB)")
+    print("iSNR eiSNR\tiSDR eiSDR\tiSIR eiSIR\tiSAR eiSAR")
     for i in range(4):
         print("{:.3}+-{:.3}\t".format(targetavgratiosi[i],targetstddevratiosi[i]), end="")
     print("")
@@ -168,16 +168,16 @@ def parse_test(testpath):
     log.close()
 
     log = open(testpath[:-len(".test")]+".results",'w')
-    log.write("SNR (dB)\tSDR (dB)\tSIR (dB)\tSAR (dB)\n")
+    log.write("SNR eSNR\tSDR eSDR\tSIR eSIR\tSAR eSAR\n")
     for i in range(4):
-        log.write("{:.3}+-{:.3}\t".format(targetavgratios[i],targetstddevratios[i]))
+        log.write("{:.3} {:.3}\t".format(targetavgratios[i],targetstddevratios[i]))
     log.write("\n")
     log.close()
         
     log = open(testpath[:-len(".test")]+".iresults",'w')
-    log.write("iSNR (dB)\tiSDR (dB)\tiSIR (dB)\tiSAR (dB)\n")
+    log.write("iSNR eiSNR\tiSDR eiSDR\tiSIR eiSIR)\tiSAR eiSAR\n")
     for i in range(4):
-        log.write("{:.3}+-{:.3}\t".format(targetavgratiosi[i],targetstddevratiosi[i]))
+        log.write("{:.3} {:.3}\t".format(targetavgratiosi[i],targetstddevratiosi[i]))
     log.write("\n")
     log.close()
 

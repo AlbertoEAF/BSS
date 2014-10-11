@@ -21,23 +21,13 @@ FOLDER_SEP="_____"
 cd "$folder"
 
 if [ "$mode" == "j" ]; then # join mode #################################
-    files=$( find . -name '*.wav' )
+    files=$( find -mindepth 2  -name '*.wav' )
 
     for file in $files
     do
 	# Merge from the subfolders to the folder
-	filedir=$( lpath "$file" )
-	filename=$( rpath "$file" )
-
-	lvlr=$( rpath "$filedir" )
-	lvll=$( rpath `lpath "$filedir"` )
-
-#	len_folder="${#folder}"
-#	hierarchic_name="${file:${len_folder}+1}"
-
 	hierarchic_name="${file:2}"
 	new_name="${hierarchic_name//\//$FOLDER_SEP}"
-
 
 	if [ "$hierarchic_name" != "$new_name" ]; then
 	    mv  "$hierarchic_name" "$new_name"

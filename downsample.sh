@@ -1,13 +1,13 @@
 #! /bin/bash
 
-[ $# -lt 3 ] && echo -e "\nUsage:\n\tdownsample <samplerate> <folder> <downsample_folder> [channel] [lowervolumemultiplier_on_channel] [HPF]\n" && exit 1
+[ $# -lt 3 ] && echo -e "\nUsage:\n\tdownsample <samplerate> <folder> <downsample_folder> [channel] [lowervolumemultiplier_on_channel]\n" && exit 1
 
 samplerate=$1
 folder="$2"
 folder_out="$3"
 channel="$4"
 volume_multiplier="$5"
-HPF="$6"
+#HPF="$6"
 
 files=$( find "$folder" -name '*.wav' )
 
@@ -25,9 +25,9 @@ do
 
     # Set the HPF filter command part
     #hpf_cmd=""
-    if [ $# -eq 6 ]; then
-     	hpf_cmd="highpass $HPF"
-    fi
+    #if [ $# -eq 6 ]; then
+    # 	hpf_cmd="highpass $HPF"
+    #fi
 
     channels=$( soxi $file | grep Channels | awk '{ print $3 }' )
 
@@ -41,12 +41,8 @@ do
 	fi
     fi
     
-    
-
-    sox "$file" -r "$samplerate" "$fileout" $remix_cmd $hpf_cmd
-
-
-    echo -e "\n\n"
+    # Issue the sox command # Do not apply filters. Audacity EQ is better.
+    sox "$file" -r "$samplerate" "$fileout" $remix_cmd #$hpf_cmd
 done
 
 

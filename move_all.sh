@@ -41,6 +41,7 @@ else # split mode #########################################################
     for file in $files
     do
 	new_file="${file//${FOLDER_SEP}/\/}"
+	mkdir -p `lpath "$new_file"`
 	mv "$file" "$new_file"
     done
 fi

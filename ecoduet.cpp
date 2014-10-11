@@ -1361,16 +1361,6 @@ int main(int argc, char **argv)
 			 std::abs(kurtosis_x)<o.f("alpha_kurtosis"), 
 			 std::abs(kurtosis_y)<o.f("delta_kurtosis"));
 
-		  /*
-		  // 1D kurtosis from 1D histograms.
-		  excess_kurtosis(kurtosis_x, chist_alpha, conv_kernel_alpha, pos.x);
-		  excess_kurtosis(kurtosis_y, chist_delta, conv_kernel_delta, pos.y);
-
-		  printf(CYAN "%g %g      (%d %d)\n" NOCOLOR, 
-			 kurtosis_x, kurtosis_y,
-			 std::abs(kurtosis_x)<o.f("alpha_kurtosis"), 
-			 std::abs(kurtosis_y)<o.f("delta_kurtosis"));		  
-		  */
 		}
 
 

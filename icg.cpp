@@ -20,53 +20,56 @@ struct stereo_frame_t {
 
 #include <stdlib.h>
 
-// Usage icg <stereo.wav> [skip_frames]
+
 int main(int argc, char **argv)
 {
-  SndfileHandle sndfile(argv[1]);
+  size_t skip_frames = atoi(argv[1]);
 
+  Guarantee(argc>=3, "Usage:\n\t icg <skip_frames> <stereo.wav>");
+    
 
-  //  const uint sample_rate_Hz = sndfile.samplerate();
-  const uint samples        = sndfile.frames(); 
-
-  //  Buffer<stereo_frame_t> wav(samples, stereo_frame_t());
-
-  double *wav = new double[samples*2];
-  
-
-  sndfile.read(wav, samples*2); 
-
-  Buffer<double> l(samples), r(samples);
-
-  int skip_frames = 0;
-  if (argc == 3)
-    skip_frames = atoi(argv[2]);
-
-  const int channels = 2;
-
-  for (int i=skip_frames*channels; i < samples; i+=2)
+  for (int wave_arg=2; wave_arg<argc; ++wave_arg)
     {
-      l[i] = wav[i];
-      r[i] = wav[i+1];
+      SndfileHandle sndfile(argv[wave_arg]);
+      //  const uint sample_rate_Hz = sndfile.samplerate();
+      const uint samples = sndfile.frames(); 
+      //  Buffer<stereo_frame_t> wav(samples, stereo_frame_t());
+      Buffer<double> wav(samples*2);
+
+      sndfile.read(wav(), samples*2); 
+
+      Buffer<double> l(samples), r(samples);
+
+
+      Guarantee(sndfile.channels() == 2, "Stereo file required");
+
+      const int channels = 2;
+
+      for (size_t i=skip_frames*channels; i < samples; i+=2)
+	{
+	  l[i] = wav[i];
+	  r[i] = wav[i+1];
+	}
+
+      //  std::cout << std::sqrt( l.energy() ) / float(samples) << std::endl;
+      // std::cout << std::sqrt( r.energy() ) / float(samples) << std::endl;
+  
+      double al = std::sqrt( l.energy() ) / float(samples-skip_frames);
+      double ar = std::sqrt( r.energy() ) / float(samples-skip_frames);
+
+      double g = ar/al;
+
+      /*
+	if (g > 1)
+	std::cout << "2 " << 1/g << std::endl; // If the signal is stronger on the channel 2 reduce its volume.
+	else
+	std::cout << "1 " << g   << std::endl; // If the signal is stronger on the channel 1 reduce its volume.
+      */
+
+      std::cout << argv[wave_arg] << std::endl;
+      std::cout << g << std::endl;
+  
     }
-
-  //  std::cout << std::sqrt( l.energy() ) / float(samples) << std::endl;
-  // std::cout << std::sqrt( r.energy() ) / float(samples) << std::endl;
-  
-  double al = std::sqrt( l.energy() ) / float(samples-skip_frames);
-  double ar = std::sqrt( r.energy() ) / float(samples-skip_frames);
-
-  double g = ar/al;
-
-  /*
-  if (g > 1)
-    std::cout << "2 " << 1/g << std::endl; // If the signal is stronger on the channel 2 reduce its volume.
-  else
-    std::cout << "1 " << g   << std::endl; // If the signal is stronger on the channel 1 reduce its volume.
-  */
-
-  std::cout << g << std::endl;
-  
 
   return 0;
 }

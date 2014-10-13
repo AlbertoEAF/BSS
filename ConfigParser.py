@@ -6,7 +6,9 @@ def error(msg):
 
 class ConfigParser:
     def __init__(self, configpath, var_parent_localpath = ""):
+
         self.d = _parse_file_to_dict(configpath)
+
 
         # Perform recursive replacements and rescans the dictionary over and over until substitutions are exhausted. It checks for loops so it is recursively safe.
         # Doesn't force the search because some parameters might be set on the parent, however all the replacements that can be done now should be done now as they have priority over the parent.
@@ -27,7 +29,8 @@ class ConfigParser:
         
         # Now that the parent has been included we should force the variable substitution.
         dict_replace_bash_vars_once(self.d, force=1)
-       
+
+
 
     def __getitem__(self, key):
         return self.d[key]
@@ -126,3 +129,5 @@ def dict_replace_bash_vars_once(dictionary, force=1):
 
 
 
+
+        

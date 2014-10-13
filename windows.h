@@ -42,6 +42,20 @@ real weakHamming(idx n, idx N)
 
   return alpha - beta*std::cos(_2Pi*n/(N-1.0));
 }
+real midweakHamming(idx n, idx N) 
+{ 
+  static const real alpha = 25.0/46.0 -0.05; 
+  static const real beta  = 21.0/46.0 - 0.1;
+
+  return alpha - beta*std::cos(_2Pi*n/(N-1.0));
+}
+real lowweakHamming(idx n, idx N) 
+{ 
+  static const real alpha = 25.0/46.0 - 0.1; 
+  static const real beta  = 21.0/46.0 - 0.1;
+
+  return alpha - beta*std::cos(_2Pi*n/(N-1.0));
+}
 real weakerHamming(idx n, idx N) 
 { 
   static const real alpha = 25.0/46.0; 
@@ -49,16 +63,16 @@ real weakerHamming(idx n, idx N)
 
   return alpha - beta*std::cos(_2Pi*n/(N-1.0));
 }
-real lowweakerHamming(idx n, idx N) 
+real midweakerHamming(idx n, idx N) 
 { 
-  static const real alpha = 25.0/46.0 - 0.2; 
+  static const real alpha = 25.0/46.0 - 0.1; 
   static const real beta  = 21.0/46.0 - 0.2;
 
   return alpha - beta*std::cos(_2Pi*n/(N-1.0));
 }
-real midweakerHamming(idx n, idx N) 
+real lowweakerHamming(idx n, idx N) 
 { 
-  static const real alpha = 25.0/46.0 - 0.1; 
+  static const real alpha = 25.0/46.0 - 0.2; 
   static const real beta  = 21.0/46.0 - 0.2;
 
   return alpha - beta*std::cos(_2Pi*n/(N-1.0));
@@ -127,6 +141,12 @@ void select_window(const std::string &window, Buffer<real> &W)
 
   else if (window == "weakHamming")
     build_window(W,weakHamming);      
+
+  else if (window == "midweakHamming")
+    build_window(W,midweakHamming);      
+
+  else if (window == "lowweakHamming")
+    build_window(W,lowweakHamming);      
 
   else if (window == "weakerHamming")
     build_window(W,weakerHamming);      

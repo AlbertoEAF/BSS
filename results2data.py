@@ -58,7 +58,7 @@ def results2data(folder, output_path, extension):
 def degeneracies2data(folder, output_path):
     """ Merges all .iresults in subfolders into a single file for gnuplot. """
     results = subdirs_file_endfilter(folder, ".degeneracies") 
-   
+
     data = open(output_path,'w')
 
     columns = 0

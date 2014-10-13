@@ -9,10 +9,24 @@ import subprocess as sub
 import itertools
 import re
 
+import math
+
 from ConfigParser import *
 from color_codes import *
 from parse_run import *
 
+def degrees2rad(degrees): 
+    return math.pi/180.0 * degrees
+
+def rad2degrees(rad): 
+    return 180.0/math.pi * rad
+
+
+def rm_extension(path):
+    if "." in path:
+        return path[:path.rfind(".")]
+    else:
+        return path
 
 def listdir_waves(dirpath):
     return [ f for f in listdir(dirpath) if f[-4:]==".wav" ]
@@ -107,6 +121,47 @@ def gen_combinations(test_file):
     return (N,dirs,combinations)
 
 
+def execute_ecoduet_and_bss_eval_combi(folder,test,c,dirs,N,duetcfg):
+    combi_name = "_".join([ c[n][:-4] for n in range(N) ])
+
+    ecolog  = folder+combi_name+".ecolog"
+    ecologi = folder+combi_name+".ecologi" # ibm
+
+    bsslog  = folder+combi_name+".bsslog"
+    bsslogi = folder+combi_name+".bsslogi" # ibm
+
+    print("Running ecoduet...",end="",flush=True)
+
+    out = None
+    duet_flags=""
+    try:
+        duet_flags=test['duet_flags']
+        print("<",duet_flags,">",end="",sep="",flush=True)
+        out = sub.check_output(['r','-l', ecolog,'-i', ecologi]+ duet_flags.split() + [duetcfg])
+    except KeyError:
+        out = sub.check_output(['r','-l', ecolog,'-i', ecologi, duetcfg])
+    print("OK")
+
+
+    if test.i('check_degeneracy'):
+        print("Checking degeneracy through ecoduet.log...",end="",flush=True)
+        N_,Ne_,_,_,_,_,_ = parse_ecoduet(ecolog)
+        if N_ == Ne_:
+            print("OK")
+        else:
+            error("FAIL! N={} != Ne={}".format(N_,Ne_))
+
+    if (test.i('disable_bss_eval')):
+        print(RED,"Skipping BSS Eval.",NOCOLOR,sep="")
+    else:
+        print("BSS Eval async call...", end="",flush=True)
+        exec_bss_eval_static_and_ibm(bsslog, bsslogi, test['skip_time'])
+#                sub.check_call(["stty","sane"])
+        print("OK")
+
+
+
+
 
 def test(test_file):
     """
@@ -141,43 +196,57 @@ def test(test_file):
 
             sub.check_call(['mix']+[ dirs[n]+'/'+c[n] for n in range(N) ])
 
-            combi_name = "_".join([ c[n][:-4] for n in range(N) ])
-
-            ecolog  = folder+combi_name+".ecolog"
-            ecologi = folder+combi_name+".ecologi" # ibm
-
-            bsslog  = folder+combi_name+".bsslog"
-            bsslogi = folder+combi_name+".bsslogi" # ibm
-
-            print("Running ecoduet...",end="",flush=True)
-
-
-
-            out = sub.check_output(['r','-l', ecolog,'-i', ecologi, duetcfg])
-            print("OK")
-
-
-            if test.i('check_degeneracy'):
-                print("Checking degeneracy through ecoduet.log...",end="",flush=True)
-                N_,Ne_,_,_,_,_,_ = parse_ecoduet(ecolog)
-                if N_ == Ne_:
-                    print("OK")
-                else:
-                    error("FAIL! N={} != Ne={}".format(N_,Ne_))
-
-            if (test.i('disable_bss_eval')):
-                print(RED,"Skipping BSS Eval.",NOCOLOR,sep="")
-            else:
-                print("BSS Eval async call...", end="",flush=True)
-                exec_bss_eval_static_and_ibm(bsslog, bsslogi, test['skip_time'])
-#                sub.check_call(["stty","sane"])
-                print("OK")
-
-
+            execute_ecoduet_and_bss_eval_combi(folder,test,c,dirs)
 
     elif test['mixer'] == 'csim':
-        print("Not implemented!")
-        exit(1)
+        if combinations: # Otherwise don't erase old results.
+            sub.check_call(["rm","-f",folder+"*.csim"])
+        for i_c in range(len(combinations)):
+            c = combinations[i_c]
+            print( GREEN, "Testing({}/{}): {}".format(i_c+1,len(combinations),c) , NOCOLOR, sep="")
+
+            sources_pos = test['sources_pos'].split()
+            if "m" in sources_pos[0]: 
+                # sources_pos in format : <distance1>m<degrees1>o ...
+                if len(sources_pos) != len(c):
+                    error("ERROR: Wrong number of sources positions in <distance>m<angle>o format.")
+            elif len(sources_pos) != len(c)*3:
+                # sources_pos in format : <x1> <y1> <z1> ...
+                error("ERROR: Wrong number of sources positions in <x> <y> <z> format.")
+
+            path_csim = folder+"_".join([ rm_extension(c[n]) for n in range(N) ]) + ".csim"
+            with open(path_csim,'w') as csim:
+                csim.write("sources_folder = "+test['sources_folder']+"\n")
+                csim.write("output_folder = sounds\n\n")
+                csim.write("Delta = "+test['Delta']+"\n")
+                csim.write("c = "+test['c']+"\n\n")
+                for n in range(N):
+                    dir_n = dirs[n][len(test['sources_folder'])+1:] 
+                    if (dir_n):
+                        dir_n += '/'
+
+                    # Source position (convert from <d>m<phi>o to x y z if needed).
+                    sx = sy = sz = ""
+                    if "m" in sources_pos[0]:
+                        s = sources_pos[n]
+                        d,angle = re.search('(\d+\.?\d*)m(-?\d+\.?\d*)o$', s).groups()
+                        d = float(d)
+                        angle = float(angle)
+                
+                        # Coordinate system where the angle refers to the y axis.
+                        sx = str( d*math.sin(degrees2rad(angle)) ) 
+                        sy = str( d*math.cos(degrees2rad(angle)) )
+                        sz = str( 0 )
+                    else:
+                        sx = sources_pos[n*3  ]
+                        sy = sources_pos[n*3+1]
+                        sz = sources_pos[n*3+2]
+
+                    csim.write( "{} = {} {} {}\n".format(dir_n+c[n], sx,sy,sz) )
+
+            sub.check_call(['csim',path_csim])
+            execute_ecoduet_and_bss_eval_combi(folder,test,c,dirs,N,duetcfg)
+            
     else:
         print("Invalid mixer mode!")
         exit(1)

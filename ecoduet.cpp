@@ -924,8 +924,10 @@ int main(int argc, char **argv)
   opt.setFlag("help",'h');
   opt.setOption("x1");
   opt.setOption("x2");
-  opt.setOption("FFT_N");
+  opt.setOption("FFT_N",'N');
+  opt.setOption("FFT_slide",'s');
   opt.setOption("window",'w');
+  
 
   opt.setOption("log", 'l');
   opt.setOption("ibm_log", 'i');
@@ -1031,7 +1033,13 @@ int main(int argc, char **argv)
 
   _DUET.FFT_slide = FFT_N * (_DUET.FFT_slide_percentage/100.);
   Guarantee(_DUET.FFT_slide <= _DUET.FFT_N, "FFT_slide(%ld) > FFT_N(%ld)", _DUET.FFT_slide, _DUET.FFT_N);
+
+  if (opt.Option("FFT_slide"))
+    _DUET.FFT_slide = std::stol(opt.getOption("FFT_slide"));
+
   printf(YELLOW "FFT_N = %ld\n" "FFT_slide = %ld (%ld%%)\n" NOCOLOR, FFT_N, _DUET.FFT_slide, _DUET.FFT_slide_percentage);
+
+
 
   const idx FFT_slide = _DUET.FFT_slide;
 

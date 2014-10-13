@@ -77,6 +77,16 @@ int main(int argc, char **argv)
   calcR(W,R);
   Rplot.plot(R(),R.size(),"weakHamming");
 
+  build_window(W,midweakHamming);
+  Wplot.plot(W(),W.size(),"midweakHamming");
+  calcR(W,R);
+  Rplot.plot(R(),R.size(),"midweakHamming");
+
+  build_window(W,lowweakHamming);
+  Wplot.plot(W(),W.size(),"lowweakHamming");
+  calcR(W,R);
+  Rplot.plot(R(),R.size(),"lowweakHamming");
+
   build_window(W,weakerHamming);
   Wplot.plot(W(),W.size(),"weakerHamming");
   calcR(W,R);

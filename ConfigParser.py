@@ -1,5 +1,7 @@
 #! /usr/bin/python3
 
+import os.path # To define the special variables
+
 def error(msg):
     print(msg)
     exit(1)
@@ -9,7 +11,25 @@ class ConfigParser:
 
         self.d = _parse_file_to_dict(configpath)
 
+        # Add Special Variables:
+        
+        relpath = configpath
+        abspath = os.path.abspath(configpath)
+        config_name = relpath.split('/')[-1]
+        config_extension = ""
+        if '.' in config_name:
+            config_extension = config_name.split('.')[-1]
+            config_name = config_name[:config_name.rfind('.')]
+            
+        folder_name = "" if '/' not in abspath else abspath.split('/')[-2]
 
+        self.d[':config_relpath'] = relpath
+        self.d[':config_abspath'] = abspath
+        self.d[':folder_name'] = folder_name
+        self.d[':config_name'] = config_name
+        self.d[':config_extension'] = config_extension
+
+   
         # Perform recursive replacements and rescans the dictionary over and over until substitutions are exhausted. It checks for loops so it is recursively safe.
         # Doesn't force the search because some parameters might be set on the parent, however all the replacements that can be done now should be done now as they have priority over the parent.
         while dict_replace_bash_vars_once(self.d, force=0):

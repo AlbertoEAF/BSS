@@ -139,7 +139,7 @@ def execute_ecoduet_and_bss_eval_combi(folder,test,c,dirs,N,duetcfg):
         print("<",duet_flags,">",end="",sep="",flush=True)
         out = sub.check_output(['r','-l', ecolog,'-i', ecologi]+ duet_flags.split() + [duetcfg])
     except KeyError:
-        out = sub.check_output(['r','-l', ecolog,'-i', ecologi, duetcfg])
+        out = sub.check_output(['r','-l', ecolog,'-i', ecologi, duetcfg])    
     print("OK")
 
 
@@ -199,20 +199,22 @@ def test(test_file):
             execute_ecoduet_and_bss_eval_combi(folder,test,c,dirs)
 
     elif test['mixer'] == 'csim':
-        if combinations: # Otherwise don't erase old results.
-            sub.check_call(["rm","-f",folder+"*.csim"])
+
+        sources_pos = test['sources_pos'].split()
+        if "m" in sources_pos[0]: 
+            # sources_pos in format : <distance1>m<degrees1>o ...
+            if len(sources_pos) != len(combinations[0]):
+                error("ERROR: Wrong number of sources positions in <distance>m<angle>o format.")
+        elif len(sources_pos) != len(combinations[0])*3:
+            # sources_pos in format : <x1> <y1> <z1> ...
+            error("ERROR: Wrong number of sources positions in <x> <y> <z> format.")
+
+
         for i_c in range(len(combinations)):
             c = combinations[i_c]
             print( GREEN, "Testing({}/{}): {}".format(i_c+1,len(combinations),c) , NOCOLOR, sep="")
 
-            sources_pos = test['sources_pos'].split()
-            if "m" in sources_pos[0]: 
-                # sources_pos in format : <distance1>m<degrees1>o ...
-                if len(sources_pos) != len(c):
-                    error("ERROR: Wrong number of sources positions in <distance>m<angle>o format.")
-            elif len(sources_pos) != len(c)*3:
-                # sources_pos in format : <x1> <y1> <z1> ...
-                error("ERROR: Wrong number of sources positions in <x> <y> <z> format.")
+
 
             path_csim = folder+"_".join([ rm_extension(c[n]) for n in range(N) ]) + ".csim"
             with open(path_csim,'w') as csim:

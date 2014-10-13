@@ -14,9 +14,7 @@ import numpy as np
 MAX_DEGENERACIES = 2 # Above this it sums everything up
 
 def parse_test(testpath):
-    test = ConfigParser(testpath,"parent_localpath")
-
-    
+    test = ConfigParser(testpath,"parent_localpath")  
 
     folder = os.path.split(os.path.abspath(testpath))[0]
 
@@ -109,6 +107,9 @@ def parse_test(testpath):
             if not disabled_bss_eval:
                 targetvalues[pass_count]  = (o[0][3] ,o[0][4] ,o[0][5] ,o[0][6])
                 targetvaluesi[pass_count] = (oi[0][3],oi[0][4],oi[0][5],oi[0][6])
+            else:
+                targetvalues[pass_count]   = (o[0][3],0,0,0)
+                #targetvaluesi[pass_count]  = (SNR0,0,0,0)
             #targetSNR = o[0][3]
             #targetSDR = o[0][4]
             #targetSIR = o[0][5]
@@ -119,7 +120,7 @@ def parse_test(testpath):
 
     if disabled_bss_eval:
         print ("No degeneracies in ", pass_count, "/", len(ecologs))
-        exit
+        
 
         #        print(N,Ne,deg_o,deg_e,o,e,SNR0,oi)
 

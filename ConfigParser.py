@@ -29,7 +29,8 @@ class ConfigParser:
         self.d[':config_name'] = config_name
         self.d[':config_extension'] = config_extension
 
-   
+        add_path_vkeys(self.d,':folder_vpath',os.path.split(abspath)[-2])
+
         # Perform recursive replacements and rescans the dictionary over and over until substitutions are exhausted. It checks for loops so it is recursively safe.
         # Doesn't force the search because some parameters might be set on the parent, however all the replacements that can be done now should be done now as they have priority over the parent.
         while dict_replace_bash_vars_once(self.d, force=0):
@@ -151,3 +152,11 @@ def dict_replace_bash_vars_once(dictionary, force=1):
 
 
         
+def add_path_vkeys(dictionary, path_key_name, path):
+    """ Adds the keys path_key_name with indexes [0],... and ...,[-1] to the dictionary emulating a virtual list inside the dictionary. """
+    split_path = path.split('/')
+    split_len  = len(split_path)
+
+    for i in range(split_len):
+        dictionary[ path_key_name+"[" +str(i)  +"]" ] = split_path[i     ]
+        dictionary[ path_key_name+"[-"+str(i+1)+"]" ] = split_path[-(i+1)]

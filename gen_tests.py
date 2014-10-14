@@ -196,7 +196,7 @@ def test(test_file):
 
             sub.check_call(['mix']+[ dirs[n]+'/'+c[n] for n in range(N) ])
 
-            execute_ecoduet_and_bss_eval_combi(folder,test,c,dirs)
+            execute_ecoduet_and_bss_eval_combi(folder,test,c,dirs,N,duetcfg)
 
     elif test['mixer'] == 'csim':
 

@@ -120,7 +120,7 @@ def parse_test(testpath):
 
     if disabled_bss_eval:
         print ("No degeneracies in ", pass_count, "/", len(ecologs))
-        
+
 
         #        print(N,Ne,deg_o,deg_e,o,e,SNR0,oi)
 

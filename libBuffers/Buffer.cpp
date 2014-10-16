@@ -203,6 +203,16 @@ const Buffer<T> & Buffer<T>::operator *= (const Buffer<T> &other)
   return *this;
 }
 
+template <class T>
+const Buffer<T> & Buffer<T>::operator /= (const Buffer<T> &other)
+{
+  Assert(m_size == other.m_size, "Sizes must match.");
+
+  for (size_t i = 0; i < m_size ; i++)
+    m[i] /= other[i];
+
+  return *this;
+}
 
 template <class T>
 void Buffer<T>::normalize (const T value)

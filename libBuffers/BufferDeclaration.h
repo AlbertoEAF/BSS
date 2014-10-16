@@ -75,6 +75,7 @@ class Buffer
   const Buffer & operator += (const Buffer<T> &);
   const Buffer & operator -= (const Buffer<T> &);
   const Buffer & operator *= (const Buffer<T> &); // Hadamard-product
+  const Buffer & operator /= (const Buffer<T> &); // "Hadamard"-division
   const Buffer   operator +  (const Buffer<T> &);
   const Buffer   operator *  (const Buffer<T> &);
 

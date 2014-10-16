@@ -922,6 +922,7 @@ int main(int argc, char **argv)
   OptionParser opt;
 
   opt.setFlag("help",'h');
+  opt.setFlag('c'); // STFT correction enable
   opt.setOption("x1");
   opt.setOption("x2");
   opt.setOption("FFT_N",'N');
@@ -1547,7 +1548,78 @@ int main(int argc, char **argv)
 
   N_clusters = cumulative_clusters.eff_size(DUET.noise_threshold);
 
+  // Perform the STFT normalization
+  
+  Buffer<real> Wenvelope(samples_all);
+  Buffer<real> W2(W);
+  W2 *= W;
+  for (idx tb=0; tb < 5; ++tb)
+    Wenvelope.add_at(W2,tb*FFT_slide);
+  // Safe operation (sequential values overriden independently from others) given the current implementation in Buffer.cpp.
+  /*
+  for (size_t t=0; t < samples_all; ++t)
+    Wenvelope[t] = (Wenvelope[t]*Wenvelope[t]);
+  */
 
+  Gnuplot pWenv, pline;
+  pline.cmd("set termoption dashed");
+  pWenv.plot(Wenvelope(),6*FFT_slide,"Wenvelope");
+  
+ 
+
+  Buffer<real> line(samples_all,0), buf(FFT_N,0);
+  Buffer<real> fftin(FFT_N,0,fftw_malloc,fftw_free), fftout(fftin);
+
+  /*
+      fftin = W; // (Line = 1) * W
+
+      fftw_execute_r2r(xX1_plan, fftin(), fftout());
+      fftw_execute_r2r(Xxo_plan, fftout(), fftin());
+
+      fftin/=FFT_N;
+  */
+  fftout = W; // 1*window passed through FFT and IFFT.
+
+      pWenv.plot(fftout(),FFT_N,"iSTFT");
+      pWenv.plot(W(),FFT_N,"W");
+
+      line.clear();
+  for(idx tb=0;tb< 5;++tb)
+    {
+      buf = fftout;
+      line.add_at(buf,tb*FFT_slide);
+    }
+
+  pline.plot(line(),10000,"Line without corrections");
+
+  line.clear();
+  for(idx tb=0;tb< 5;++tb)
+    {
+      buf = fftout;
+      buf *= W;
+      line.add_at(buf,tb*FFT_slide);
+    }
+  
+  
+
+  pline.plot(line(),10000,"Line with W correction before W² correction");
+
+
+
+  for (size_t t=1; t < 6*FFT_slide-1; ++t)
+    line[t] /= Wenvelope[t];
+  
+  
+
+  pline.plot(line(),10000,"Line with W² correction");
+
+  
+
+  
+  //  pline.plot(line(),10000,"line = 1");
+
+  wait();
+  exit(1);
 
   if (STATIC_REBUILD)
     {
@@ -1562,9 +1634,19 @@ int main(int argc, char **argv)
 
 	  // Explicitly use the initial region FFT_N and exclude the padding FFT_pN.
 	  
+	  // Apply the window again to the inverse STFT segment
+	  if (APPLY_STFT_CORRECTION)
+	    for (unsigned int n=0; n<new_buffers->buffers(); ++n)
+	      (*(*new_buffers)(n)) *= W;
+	  
 	  write_data(wav_out, new_buffers, FFT_N, FFT_slide);	  
 	  //      swap(bufs_ptr, bufs_ptr2);
 	}		      
+
+      if (APPLY_STFT_CORRECTION)
+	for (unsigned int n=0; n<wav_out.buffers(); ++n)
+	  *(wav_out(n)) *= Wenvelope;
+	
     }
 
   rt_duet_timer.stop(); 

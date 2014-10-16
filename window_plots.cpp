@@ -51,6 +51,8 @@ int main(int argc, char **argv)
   static Gnuplot Wplot; // Window plot
   static Gnuplot Rplot; // Ratio=Emin/Emax plot
 
+  Wplot.cmd("set termoption dashed");
+  Rplot.cmd("set termoption dashed");
 
   Wplot.set_labels("i (samples)", "W[i]");
   Rplot.set_labels("FFT_slide (samples)", "R (Emin/Emax)");
@@ -61,11 +63,12 @@ int main(int argc, char **argv)
   calcR(W,R);
   Rplot.plot(R(),R.size(),"Hann");
 
+  /*
   build_window(W,myHamming);
   Wplot.plot(W(),W.size(),"myHamming");
   calcR(W,R);
   Rplot.plot(R(),R.size(),"myHamming");
-
+  */
 
   build_window(W,Hamming);
   Wplot.plot(W(),W.size(),"Hamming");
@@ -102,10 +105,12 @@ int main(int argc, char **argv)
   calcR(W,R);
   Rplot.plot(R(),R.size(),"lowweakerHamming");
 
+  /*
   build_window(W,Hamming0);
   Wplot.plot(W(),W.size(),"Hamming0");
   calcR(W,R);
   Rplot.plot(R(),R.size(),"Hamming0");
+  */
 
   build_window(W,Blackman);
   Wplot.plot(W(),W.size(),"Blackman");

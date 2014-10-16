@@ -7,6 +7,8 @@ import re
 
 from ConfigParser import *
 
+from color_codes import *
+
 def p(m): print("<",m,">",sep="")
 
 def error(msg):
@@ -35,6 +37,11 @@ filedir = path.split(path.abspath(filepath))[0]
 
 splitpath = filedir.split("/")
 
+#try: 
+#    setup = ConfigParser("/".join(splitpath[:-2])+"/setup")
+#except:
+#    print("Couldn't find setup file at ", "/".join(splitpath[:-2])+"/setup")
+#    exit(1)
 setup = ConfigParser("/".join(splitpath[:-2])+"/setup")
 y_offset = setup.f('d_forward_cm') * 0.01
 z_offset = setup.f('z_offset_cm' ) * 0.01

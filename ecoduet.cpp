@@ -1555,38 +1555,19 @@ int main(int argc, char **argv)
   W2 *= W;
   for (idx tb=0; tb < 5; ++tb)
     Wenvelope.add_at(W2,tb*FFT_slide);
-  // Safe operation (sequential values overriden independently from others) given the current implementation in Buffer.cpp.
-  /*
-  for (size_t t=0; t < samples_all; ++t)
-    Wenvelope[t] = (Wenvelope[t]*Wenvelope[t]);
-  */
 
   Gnuplot pWenv, pline;
   pline.cmd("set termoption dashed");
   pWenv.plot(Wenvelope(),6*FFT_slide,"Wenvelope");
-  
- 
-
   Buffer<real> line(samples_all,0), buf(FFT_N,0);
   Buffer<real> fftin(FFT_N,0,fftw_malloc,fftw_free), fftout(fftin);
 
-  /*
-      fftin = W; // (Line = 1) * W
+  pWenv.plot(W(),FFT_N,"W");
 
-      fftw_execute_r2r(xX1_plan, fftin(), fftout());
-      fftw_execute_r2r(Xxo_plan, fftout(), fftin());
-
-      fftin/=FFT_N;
-  */
-  fftout = W; // 1*window passed through FFT and IFFT.
-
-      pWenv.plot(fftout(),FFT_N,"iSTFT");
-      pWenv.plot(W(),FFT_N,"W");
-
-      line.clear();
+  line.clear();
   for(idx tb=0;tb< 5;++tb)
     {
-      buf = fftout;
+      buf = W;
       line.add_at(buf,tb*FFT_slide);
     }
 
@@ -1595,29 +1576,18 @@ int main(int argc, char **argv)
   line.clear();
   for(idx tb=0;tb< 5;++tb)
     {
-      buf = fftout;
+      buf = W;
       buf *= W;
       line.add_at(buf,tb*FFT_slide);
     }
   
-  
-
   pline.plot(line(),10000,"Line with W correction before W² correction");
-
-
 
   for (size_t t=1; t < 6*FFT_slide-1; ++t)
     line[t] /= Wenvelope[t];
-  
-  
 
   pline.plot(line(),10000,"Line with W² correction");
-
   
-
-  
-  //  pline.plot(line(),10000,"line = 1");
-
   wait();
   exit(1);
 

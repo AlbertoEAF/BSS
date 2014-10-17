@@ -49,9 +49,9 @@ unsigned int StreamSet::latest_id() { return _latest_id; }
 
 
 
-void StreamSet::add_buffer_at(unsigned int id, int cluster, Buffer<real> &buf, Buffer<real> &magnitude, unsigned int block, unsigned int block_size, Point2D<real> &cluster_pos)
+void StreamSet::add_buffer_at(unsigned int id, int cluster, Buffer<real> &buf, Buffer<real> &magnitude, unsigned int block, unsigned int hop_size, Point2D<real> &cluster_pos)
 {
-  stream(id)->add_at(buf, block*block_size);
+  stream(id)->add_at(buf, block*hop_size);
   last_buf(id) = &buf;
   last_cluster(id) = cluster;
   (*spectrum(id)) += magnitude;

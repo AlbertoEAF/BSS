@@ -487,7 +487,7 @@ void LDMB2C(StreamSet &Streams, IdList &active_streams, Buffers<real> *new_buffe
 	      W_buf_new_stream.copy(new_buffers->raw(j), FFT_overlap); 
 	      for (int u=0; u < FFT_overlap; ++u)
 		W_buf_new_stream[u] *= W[u+FFT_slide]; // Apply the past complementary window.
-	      // PERFORMANCE: Can do the normalization outside manually.
+	      // PERFORMANCE: Could do the normalization outside manually.
 	      A0(s,j) = array_ops::a0(W_buf_stream(), W_buf_new_stream(), FFT_N-FFT_slide);
 	    }
 	}
@@ -942,7 +942,7 @@ int main(int argc, char **argv)
   OptionParser opt;
 
   opt.setFlag("help",'h');
-  opt.setFlag('c'); // STFT correction disable (-c)
+  opt.setFlag("noSTFTcorrection"); 
   opt.setOption("x1");
   opt.setOption("x2");
   opt.setOption("FFT_N",'N');
@@ -962,6 +962,8 @@ int main(int argc, char **argv)
       exit(1);
     }
  
+  const bool APPLY_STFT_CORRECTION = ! opt.getFlag("noSTFTcorrection");
+
   std::string logpath = opt.getOption("log");
   std::string ibm_logpath = opt.getOption("ibm_log");
 
@@ -1214,6 +1216,8 @@ int main(int argc, char **argv)
   _DUET.noise_threshold = o.d("DUET.noise_threshold");
 
   const DUETcfg DUET = _DUET; // Make every parameter constant to avoid mistakes
+
+
   // For the histogram smoothing.
   puts("Gen kernels");
   bool smooth_alpha, smooth_delta, smooth; // If smoothing is not possible they are 0.
@@ -1250,6 +1254,12 @@ int main(int argc, char **argv)
     select_window(opt.getOption("window"), W);
   else
     select_window(o("window"), W);
+  Buffer<real> W2(W); W2 *= W; // W2 = W*W
+  Buffer<real> invWenvelope(samples_all);
+  for (idx tb=0; tb < time_blocks; ++tb)
+    invWenvelope.add_at(W2,tb*FFT_slide);
+  for (size_t t=1; t < samples_all-1; ++t) // Beginning and ending samples will be 0.
+    invWenvelope[t] = 1/invWenvelope[t];
 
   if (render >= 0)
     {
@@ -1463,6 +1473,8 @@ int main(int argc, char **argv)
 
 		      fftw_execute_r2r(xX1_plan, new_buffers->raw(j), tmp_X());
 		      evenHC2magnitude(FFT_pN, tmp_X(), tmp_M());
+		      if (APPLY_STFT_CORRECTION)
+			*(*new_buffers)(j) *= W;
 		      Streams.add_buffer_at(id, j, *(*new_buffers)(j), tmp_M,
 					    tb, FFT_slide, clusters.values[j]);
 		    }
@@ -1621,16 +1633,10 @@ int main(int argc, char **argv)
   exit(1);
   */  
 
-  Buffer<real> invWenvelope(samples_all);
-  Buffer<real> W2(W);
-  W2 *= W;
-  for (idx tb=0; tb < time_blocks; ++tb)
-    invWenvelope.add_at(W2,tb*FFT_slide);
-  for (size_t t=1; t < samples_all-1; ++t) // Beginning and ending samples will be 0.
-    invWenvelope[t] = 1/invWenvelope[t];
+
 
   
-  const bool APPLY_STFT_CORRECTION = ! opt.getFlag('c');
+
 
 
   if (STATIC_REBUILD)
@@ -1681,8 +1687,9 @@ int main(int argc, char **argv)
       for (int n=0; n < N; ++n)
 	{
 	  static Buffer<real> x_buf(FFT_N,0,fftw_malloc,fftw_free);
-	  x_buf.clear();
 	  fftw_execute_r2r(Xxo_plan, ibm_X_bufs.raw(n), x_buf());
+	  if (APPLY_STFT_CORRECTION)
+	    x_buf *= W;
 	  ibm_out(n)->add_at(x_buf, tb*FFT_slide);
 	}
     }
@@ -1692,6 +1699,8 @@ int main(int argc, char **argv)
       std::string wav_filepath("ibmx"+itosNdigits(source,N_EXPORT_DIGITS)+"_rebuilt.wav");
       printf("%s...", wav_filepath.c_str());
       fflush(stdout);
+      if (APPLY_STFT_CORRECTION)
+	*ibm_out(source) *= invWenvelope;
       print_status( wav::write_mono(wav_filepath, ibm_out.raw(source), samples_input, sample_rate_Hz) );
     }
   /// End of IBM masks section
@@ -1714,6 +1723,10 @@ int main(int argc, char **argv)
     }
   else
     {
+      
+      if (APPLY_STFT_CORRECTION)
+	for (unsigned int stream_id = 1; stream_id<=Streams.latest_id(); ++stream_id)
+	  *Streams.stream(stream_id) *= invWenvelope;
       // Look for the global stream normalization factor
       real streams_max_abs = 0;
       for (unsigned int stream_id=1; stream_id<=Streams.latest_id();++stream_id)

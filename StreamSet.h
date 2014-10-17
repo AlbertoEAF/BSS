@@ -38,7 +38,7 @@ class StreamSet // Non-thread-safe.
 
   Buffer<Point2D<real> > *  trajectory(unsigned int id);
 
-  void add_buffer_at(unsigned int id, int cluster, Buffer<real> &buf, Buffer<real> &magnitude, unsigned int block, unsigned int block_size, Point2D<real> &cluster_pos);
+  void add_buffer_at(unsigned int id, int cluster, Buffer<real> &buf, Buffer<real> &magnitude, unsigned int block, unsigned int hop_size, Point2D<real> &cluster_pos);
 
   real * last_buf_raw(unsigned int id, size_t pos = 0);
 

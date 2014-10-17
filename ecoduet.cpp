@@ -980,7 +980,7 @@ int main(int argc, char **argv)
 
   // Choose mic input files
   std::string x1_filepath = (opt.Option("x1") ? opt.getOption("x1") : o("x1_wav"));
-  std::string x2_filepath = (opt.Option("x1") ? opt.getOption("x1") : o("x2_wav"));
+  std::string x2_filepath = (opt.Option("x2") ? opt.getOption("x2") : o("x2_wav"));
 
   // simulation (true) centroids 
   real true_alpha[N_max];
@@ -1550,15 +1550,19 @@ int main(int argc, char **argv)
 
   // Perform the STFT normalization
   
+  /*
   Buffer<real> Wenvelope(samples_all);
   Buffer<real> W2(W);
   W2 *= W;
   for (idx tb=0; tb < 5; ++tb)
     Wenvelope.add_at(W2,tb*FFT_slide);
-
+  
   Gnuplot pWenv, pline;
+  pWenv.set_labels("samples", "Windows envelope");
+  pline.set_labels("samples", "Windows envelope");
   pline.cmd("set termoption dashed");
   pWenv.plot(Wenvelope(),6*FFT_slide,"Wenvelope");
+    
   Buffer<real> line(samples_all,0), buf(FFT_N,0);
   Buffer<real> fftin(FFT_N,0,fftw_malloc,fftw_free), fftout(fftin);
 
@@ -1583,13 +1587,32 @@ int main(int argc, char **argv)
   
   pline.plot(line(),10000,"Line with W correction before W² correction");
 
-  for (size_t t=1; t < 6*FFT_slide-1; ++t)
-    line[t] /= Wenvelope[t];
+  for (size_t t=1; t < 7*FFT_slide-1; ++t)
+    {
+
+      line[t] /= Wenvelope[t];
+      if (std::isnan(line[t]))
+	line[t] = 0;
+    }
 
   pline.plot(line(),10000,"Line with W² correction");
   
   wait();
   exit(1);
+  */  
+
+  Buffer<real> invWenvelope(samples_all);
+  Buffer<real> W2(W);
+  W2 *= W;
+  for (idx tb=0; tb < time_blocks; ++tb)
+    invWenvelope.add_at(W2,tb*FFT_slide);
+  for (size_t t=0; t < samples_all; ++t)
+    invWenvelope[t] = 1/invWenvelope[t];
+  invWenvelope[0] = invWenvelope[samples_all-1] = 0;
+
+  
+  const bool APPLY_STFT_CORRECTION = ! opt.getFlag('c');
+
 
   if (STATIC_REBUILD)
     {
@@ -1604,21 +1627,34 @@ int main(int argc, char **argv)
 
 	  // Explicitly use the initial region FFT_N and exclude the padding FFT_pN.
 	  
-	  // Apply the window again to the inverse STFT segment
+	  // STFT correction part 1/2: Multiply iFFT by W.
 	  if (APPLY_STFT_CORRECTION)
 	    for (unsigned int n=0; n<new_buffers->buffers(); ++n)
-	      (*(*new_buffers)(n)) *= W;
+	      *(*new_buffers)(n) *= W;
 	  
 	  write_data(wav_out, new_buffers, FFT_N, FFT_slide);	  
 	  //      swap(bufs_ptr, bufs_ptr2);
 	}		      
 
+      // STFT correction part 2/2: Normalize by the energy of the envelope.
       if (APPLY_STFT_CORRECTION)
 	for (unsigned int n=0; n<wav_out.buffers(); ++n)
-	  *(wav_out(n)) *= Wenvelope;
+	  *(wav_out(n)) *= invWenvelope;
 	
     }
-
+  /*
+  for (size_t t=0; t < samples_all; ++t)
+    if (std::isnan(wav_out.raw(0)[t]))
+      {
+	cout << t << " " << wav_out.raw(0)[t] << endl;
+	wav_out.raw(0)[t] = 0;
+      }
+  */
+  /*
+  Gnuplot pp;
+  pp.plot(wav_out.raw(0),samples_all,"wavout");
+  wait();
+  */
   rt_duet_timer.stop(); 
 
   // Write data to disk //////////////////////////////////////////////////////////////////////////
@@ -1665,6 +1701,7 @@ int main(int argc, char **argv)
 	  std::string wav_filepath("x"+itosNdigits(source,N_EXPORT_DIGITS)+"_rebuilt.wav");
 	  printf("%s...", wav_filepath.c_str());
 	  fflush(stdout);
+	  //wav_out(source)->add_at(x1,skip_samples); // Add initial noise to the output for posterior noise processing instead of blanking it out.
 	  print_status( wav::write_mono(wav_filepath, wav_out.raw(source), samples_input, sample_rate_Hz) );
 	}
     }

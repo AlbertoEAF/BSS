@@ -922,7 +922,7 @@ int main(int argc, char **argv)
   OptionParser opt;
 
   opt.setFlag("help",'h');
-  opt.setFlag('c'); // STFT correction enable
+  opt.setFlag('c'); // STFT correction disable (-c)
   opt.setOption("x1");
   opt.setOption("x2");
   opt.setOption("FFT_N",'N');
@@ -1606,9 +1606,8 @@ int main(int argc, char **argv)
   W2 *= W;
   for (idx tb=0; tb < time_blocks; ++tb)
     invWenvelope.add_at(W2,tb*FFT_slide);
-  for (size_t t=0; t < samples_all; ++t)
+  for (size_t t=1; t < samples_all-1; ++t) // Beginning and ending samples will be 0.
     invWenvelope[t] = 1/invWenvelope[t];
-  invWenvelope[0] = invWenvelope[samples_all-1] = 0;
 
   
   const bool APPLY_STFT_CORRECTION = ! opt.getFlag('c');
@@ -1642,19 +1641,7 @@ int main(int argc, char **argv)
 	  *(wav_out(n)) *= invWenvelope;
 	
     }
-  /*
-  for (size_t t=0; t < samples_all; ++t)
-    if (std::isnan(wav_out.raw(0)[t]))
-      {
-	cout << t << " " << wav_out.raw(0)[t] << endl;
-	wav_out.raw(0)[t] = 0;
-      }
-  */
-  /*
-  Gnuplot pp;
-  pp.plot(wav_out.raw(0),samples_all,"wavout");
-  wait();
-  */
+  
   rt_duet_timer.stop(); 
 
   // Write data to disk //////////////////////////////////////////////////////////////////////////

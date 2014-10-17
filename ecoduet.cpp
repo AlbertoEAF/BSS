@@ -344,6 +344,7 @@ void apply_single_masks(Buffers<real> &buffers, real *X1, real *X2, const Buffer
 	  Xo[0] *= Xo[0] / (1 + a_k*a_k);
 	}
       
+      //real maxXpower = 0;
       for (int f = DUET.Fmin; f < DUET.Fmax; ++f)
 	{
 	  if (masks[f] == source)
@@ -355,6 +356,12 @@ void apply_single_masks(Buffers<real> &buffers, real *X1, real *X2, const Buffer
 
 	      std::complex<real> X(std::complex<real>(X1[f],X1[f_im])+std::polar<real>(a_k,delta_k*omega) * std::complex<real>(X2[f],X2[f_im]));
 
+	      /*
+	      real Xpower(std::norm(X));
+	      if (Xpower > maxXpower)
+		maxXpower = Xpower;
+	      */
+
 #ifdef OLD_PEAK_ASSIGN
 	      Xo[f   ] = X1[f   ];
 	      Xo[f_im] = X1[f_im];
@@ -364,6 +371,19 @@ void apply_single_masks(Buffers<real> &buffers, real *X1, real *X2, const Buffer
 #endif // OLD_PEAK_ASSIGN
 	    }
 	}
+
+      /*
+	// STFT non-linear speech cleaning
+      for (int f = DUET.Fmin; f < DUET.Fmax; ++f)
+	{
+	  if (masks[f] == source)
+	    {
+	      if (abs2(Xo[f],Xo[FFT_N-f]) < 0.005 * maxXpower)
+		Xo[f] = Xo[FFT_N-f] = 0;
+	    }
+	}
+      */
+
       fftw_execute_r2r(FFTi_plan, Xo(), buffers.raw(source));
     }
 
@@ -1120,7 +1140,7 @@ int main(int argc, char **argv)
     _DUET.Fmax = FFT_pN/2;
   _DUET.Fmin = std::min<int>(o.f("DUET.low_cutoff_Hz")/FFT_df, 
 			     _DUET.Fmax-1);
-  if (_DUET.Fmin <= 1)
+  if (_DUET.Fmin < 1)
     _DUET.Fmin = 1;
 
 

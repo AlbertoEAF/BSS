@@ -171,14 +171,15 @@ def parse_test(testpath):
     log = open(testpath[:-len(".test")]+".results",'w')
     log.write("SNR eSNR\tSDR eSDR\tSIR eSIR\tSAR eSAR\n")
     for i in range(4):
-        log.write("{:.3} {:.3}\t".format(targetavgratios[i],targetstddevratios[i]))
+        # For less decimal places use {:.?} instead
+        log.write("{} {}\t".format(targetavgratios[i],targetstddevratios[i]))
     log.write("\n")
     log.close()
         
     log = open(testpath[:-len(".test")]+".iresults",'w')
     log.write("iSNR eiSNR\tiSDR eiSDR\tiSIR eiSIR)\tiSAR eiSAR\n")
     for i in range(4):
-        log.write("{:.3} {:.3}\t".format(targetavgratiosi[i],targetstddevratiosi[i]))
+        log.write("{} {}\t".format(targetavgratiosi[i],targetstddevratiosi[i]))
     log.write("\n")
     log.close()
 

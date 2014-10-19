@@ -23,10 +23,9 @@ struct stereo_frame_t {
 
 int main(int argc, char **argv)
 {
-  size_t skip_frames = atoi(argv[1]);
-
   Guarantee(argc>=3, "Usage:\n\t icg <skip_frames> <stereo.wav>");
-    
+
+  size_t skip_frames = atoi(argv[1]);    
 
   for (int wave_arg=2; wave_arg<argc; ++wave_arg)
     {

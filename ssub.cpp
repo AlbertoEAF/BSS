@@ -137,6 +137,7 @@ int main(int argc, char **argv)
   OptionParser opt;
   opt.setFlag("noSTFTcorrection");
   opt.setFlag('p'); // Plot the clean signal
+  opt.setFlag('n'); // Renormalize the output signal
 
   int arg0 = opt.parse(argc, argv);
 
@@ -153,9 +154,8 @@ int main(int argc, char **argv)
   cfg.alpha = o.f("alpha");
 
   // Choose mic input files
-  Guarantee(argc-arg0 == 2, "Usage: ssub <in> <out>");
+  Guarantee(argc-arg0 == 2, "Usage: ssub [-p] [-n] <in> <out>");
   std::string I_filepath = argv[arg0]; 
-
 
   SndfileHandle I(I_filepath);
   Guarantee(wav::ok(I)  , "Input file doesn't exist.");
@@ -268,7 +268,8 @@ int main(int argc, char **argv)
 
   std::string wav_filepath(argv[arg0+1]);
   printf("%s...", wav_filepath.c_str());
-  print_status( wav::write_mono(wav_filepath, wav_out(), samples_input, sample_rate_Hz) );
+  // If re-normalization option 'n' was set the explicit normalization is set to 0 thus finding the new normalization constant. If not, then the normalization constant is set to 1.
+  print_status( wav::write_mono(wav_filepath, wav_out(), samples_input, sample_rate_Hz, (real)(!opt.getFlag('n'))) ); 
   
 	
 

@@ -134,6 +134,13 @@ int main(int argc, char **argv)
   Options _o("presets.cfg", Quit, 1); // Choose the preset file.
   Options o (_o("ssub_preset").c_str(), Quit, 1); // True configuration file (preset)
 
+  OptionParser opt;
+  opt.setFlag("noSTFTcorrection");
+  opt.setFlag('p'); // Plot the clean signal
+
+  int arg0 = opt.parse(argc, argv);
+
+  const bool APPLY_STFT_CORRECTION = ! opt.getFlag("noSTFTcorrection");
 
   unsigned int FFT_N = o.i("FFT_N");
   unsigned int FFT_slide = FFT_N * (o.i("FFT_slide_percentage")/100.0);
@@ -146,8 +153,8 @@ int main(int argc, char **argv)
   cfg.alpha = o.f("alpha");
 
   // Choose mic input files
-  Guarantee(argc == 3, "Usage: ssub <in> <out>");
-  std::string I_filepath = argv[1]; 
+  Guarantee(argc-arg0 == 2, "Usage: ssub <in> <out>");
+  std::string I_filepath = argv[arg0]; 
 
 
   SndfileHandle I(I_filepath);
@@ -155,25 +162,27 @@ int main(int argc, char **argv)
   Guarantee(wav::mono(I), "Input files must be mono.");
 
   const uint sample_rate_Hz = I.samplerate();
-  const idx  samples        = I.frames(); 
+  const idx  samples_input  = I.frames(); 
   const real Ts             = 1.0/(real)sample_rate_Hz;
-
-
-  Buffer<real> wav(samples);
-  I.read(wav(), samples);
-
   	
-  printf(YELLOW "\nProcessing input file with %lu frames @ %u Hz.\n\n" NOCOLOR, samples, sample_rate_Hz);	
+  printf(YELLOW "\nProcessing input file with %lu frames @ %u Hz.\n\n" NOCOLOR, samples_input, sample_rate_Hz);	
   Guarantee0(FFT_N % 2, "System implemented for FFTs with even size.");
   Guarantee(FFT_slide <= FFT_N, "FFT_slide(%u) > FFT_N(%u)", FFT_slide, FFT_N);
 
-  const idx time_blocks = div_up<size_t>(samples-FFT_N,FFT_slide) + 1;
+  const idx time_blocks = div_up<size_t>(samples_input-FFT_N,FFT_slide) + 1;
+  const size_t samples_all = time_blocks*FFT_slide+(FFT_N-FFT_slide);
+
+  const size_t skip_samples = o.f("skip_time_s")*sample_rate_Hz;
 
   // Silence blocks
-  static const int Sb = o.i("initial_silence_blocks");
-  
+  const unsigned int Sb = div_up<size_t>(skip_samples,FFT_slide);
+
 
   //// Storage allocation ///////
+
+  Buffer<real> wav(samples_all);
+  I.read(wav(), samples_input);
+
 
   // Initialize the buffers all with the same characteristics and aligned for FFTW use.
   Buffer<real> x(FFT_N, 0, fftw_malloc, fftw_free), X(x), M(FFT_N/2), NPSD(M);
@@ -199,17 +208,21 @@ int main(int argc, char **argv)
 
   Buffer<real> W(FFT_N);
   select_window(o("window"), W);
+  Buffer<real> W2(W); W2 *= W; // W2 = W*W
+  Buffer<real> invWenvelope(samples_all);
+  for (idx tb=0; tb < time_blocks; ++tb)
+    invWenvelope.add_at(W2,tb*FFT_slide);
+  for (size_t t=1; t < samples_all-1; ++t) // Beginning and ending samples will be 0.
+    invWenvelope[t] = 1/invWenvelope[t];
   
+
   for (idx time_block = 0; time_block < time_blocks; ++time_block)
     {
       idx block_offset = time_block*FFT_slide;
 
       for (idx i = 0; i < FFT_N; ++i)
-	{
-	  idx t = i+block_offset;
+	x[i] = wav[i+block_offset] * W[i];
 
-	  x[i] = ( t < samples ? wav[t] * W[i] : 0 );
-	}
 
       fftw_execute(xXplan);
 
@@ -236,26 +249,26 @@ int main(int argc, char **argv)
   for (idx tb = 0; tb < time_blocks; ++tb)
     {
       fftw_execute_r2r(Xxplan, X_history(tb), x());
+      if (APPLY_STFT_CORRECTION)
+	x *= W;
       wav_out.add_at(x, tb*FFT_slide);
     }
 
   wav_out /= FFT_N;
-  Gnuplot p;
 
-  /*
-    // Show amplitude envelope
-  wav_out.clear();
-  for (unsigned int tb=0; tb < time_blocks; ++tb)
-    wav_out.add_at(W,tb*FFT_slide);
-  */
+  if (APPLY_STFT_CORRECTION)
+    wav_out *= invWenvelope;
 
-  p.plot(wav_out(),wav_out.size(),"wav_out");
-  wait();
+  if (opt.getFlag('p'))
+    {
+      Gnuplot p;
+      p.plot(wav_out(),wav_out.size(),"wav_out");
+      wait();
+    }
 
-
-  std::string wav_filepath(argv[2]);
+  std::string wav_filepath(argv[arg0+1]);
   printf("%s...", wav_filepath.c_str());
-  print_status( wav::write_mono(wav_filepath, wav_out(), samples, sample_rate_Hz) );
+  print_status( wav::write_mono(wav_filepath, wav_out(), samples_input, sample_rate_Hz) );
   
 	
 

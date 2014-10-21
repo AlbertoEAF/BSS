@@ -101,12 +101,14 @@ int get_project_sample_rate(Strings &sources)
     for (auto &path: sources)
     {
         SndfileHandle wav(path);
-        AssertRuntime(wav::ok(wav), "Wav file %s is corrupted or doesn't exist.", path.c_str());
+	Guarantee(wav::ok(wav), "Wav file %s is corrupted or doesn't exist.", path.c_str());
+	Guarantee(wav::mono(wav), "Wav file %s must be mono.", path.c_str());
+        
+
 
         if (sample_rate_Hz)            
         {
-
-            AssertRuntime(sample_rate_Hz == wav.samplerate(), "Wav file %s doesn't have the same samplerate.", path.c_str());
+            Guarantee(sample_rate_Hz == wav.samplerate(), "Wav file %s doesn't have the same samplerate.", path.c_str());
         }
         
         else
@@ -172,6 +174,7 @@ int main(int argc, char **argv)
   const real c = o.f("c"); // speed of sound (m/s)
 
   Strings source_files = sources_filepaths(o);
+  Guarantee(source_files.size(), "No source files.");
 
   Vecs source_pos;
   for (auto &wav_path : source_files)

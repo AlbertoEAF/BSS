@@ -3,7 +3,7 @@
 
 #include <iostream>
 
-#include "Buffer.h"
+#include "libBuffers/Buffer.h"
 
 #include "types.h"
 
@@ -29,12 +29,12 @@ int main(int argc, char **argv)
 
   if(argc < 3)
     {
-      puts("\nMissing program options:\n \txcorr <input> <output> [max_t(ms)] [max_corr_t(ms)]\n");
+      puts("\nMissing program options:\n \txcorr <input1> <input2> <output> [max_t(ms)] [max_corr_t(ms)]\n");
       return 1;
     }
 
   SndfileHandle input_wav1(argv[1]);
-  SndfileHandle input_wav2(argv[1]);
+  SndfileHandle input_wav2(argv[2]);
 
   uint sample_rate_Hz = input_wav1.samplerate();
   real Tsampling = 1/(real)sample_rate_Hz;
@@ -51,13 +51,13 @@ int main(int argc, char **argv)
 
   long int tmax, tcorrmax, N1 = I1.size(), N2 = I2.size(), N = std::min(N1,N2);
 
-  if (argc >=4)
-    tmax = strtof(argv[3],NULL) / (1000.0 * Tsampling);
+  if (argc >=5)
+    tmax = strtof(argv[4],NULL) / (1000.0 * Tsampling);
   else
     tmax = N;
 
-  if (argc >=5)
-    tcorrmax = strtof(argv[4],NULL) / (1000.0 * Tsampling);
+  if (argc >=6)
+    tcorrmax = strtof(argv[5],NULL) / (1000.0 * Tsampling);
   else
     tcorrmax = N;
 
@@ -76,7 +76,7 @@ int main(int argc, char **argv)
     }
 
 
-  wav::write_mono (argv[2], O(), O.size(), sample_rate_Hz);
+  wav::write_mono (argv[3], O(), O.size(), sample_rate_Hz);
 
   return 0;
 }

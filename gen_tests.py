@@ -189,12 +189,20 @@ def test(test_file):
 
     sub.check_call(["cleantests.sh",folder])
 
-    if test['mixer'] == 'mix':
+    if test['mixer'] == 'mix' or test['mixer'] == 'cleanmix':
+        if test['mixer'] == 'cleanmix':
+            test.d['duet_flags'] += ' -x1 sounds/x0c.wav -x2 sounds/x1c.wav'
+
         for i_c in range(len(combinations)):
             c = combinations[i_c]
             print( GREEN, "Testing({}/{}): {}".format(i_c+1,len(combinations),c) , NOCOLOR, sep="")
 
             sub.check_call(['mix']+[ dirs[n]+'/'+c[n] for n in range(N) ])
+
+            if test['mixer'] == 'cleanmix':
+                sub.check_call(['ssub','sounds/x0.wav','sounds/x0c.wav'],stdout=DEVNULL)
+                sub.check_call(['ssub','sounds/x1.wav','sounds/x1c.wav'],stdout=DEVNULL)
+
 
             execute_ecoduet_and_bss_eval_combi(folder,test,c,dirs,N,duetcfg)
 

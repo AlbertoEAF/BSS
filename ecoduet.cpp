@@ -1,5 +1,7 @@
 #include "duet.h"
 
+#include "Interpolation.h"
+
 // Stream stats. 
 int ACQUIRED_STREAMS = 0;  // How many streams were acquired during the whole program execution.
 int HIGHEST_STREAM_ID = 0; // The highest stream id ever achieved.
@@ -103,26 +105,32 @@ void calc_alpha_delta(idx time_block, idx pN, idx sample_rate_Hz,
 		      Matrix<real,MatrixAlloc::Rows> &delta, 
 		      Histogram2D<real> &hist, 
 		      Histogram<real> &hist_alpha, Histogram<real> &hist_delta, 
-		      const DUETcfg &DUET)
+		      const DUETcfg &DUET, 
+		      const Buffer<real> &icg_correction)
 {
-  static real df = sample_rate_Hz/(real)pN;
+  static real df = sample_rate_Hz/(real)(pN);
+  
 
   /*
+    DC is not relevant
+
     f = 0 Hz:
     d_Re = X1(0) / X2(0);
     d_Im = 0;
   */
+  /*
   real a = X2[0] / X1[0];
   alpha(time_block, 0) = a - 1/a;
   delta(time_block, 0) = 0.0;
-
+  */
+  real a;
   idx fI; // imaginary part index
   real _alpha, _delta; // aliases to avoid unneeded array re-access.
   real omega;
 
   if (DUET.FFT_p > 1) // Use the phase-aliasing correction extension.
     {
-      for (idx f = DUET.Fmin; f < pN/2 - 1; ++f)
+      for (idx f = DUET.Fmin; f < DUET.Fmax; ++f)
 	{
 	  fI = pN-f; // imaginary part index
 
@@ -131,8 +139,10 @@ void calc_alpha_delta(idx time_block, idx pN, idx sample_rate_Hz,
 
 	  omega = _2Pi * f*df; //  f_Hz = f*df
 
-	  a = std::abs(F);
+	  a = std::abs(F) * std::sqrt(icg_correction[f]) ;
       
+	  
+
 	  _alpha = alpha(time_block, f) = a - 1/a;
 	  _delta = delta(time_block, f) = std::fmod(pN/_2Pi * (std::arg(F)-std::arg(Feps)), pN); 
 
@@ -148,7 +158,7 @@ void calc_alpha_delta(idx time_block, idx pN, idx sample_rate_Hz,
 	  std::complex<real> F(std::complex<real>(X2[f],X2[fI])/std::complex<real>(X1[f],X1[fI]));
 
 	  omega = _2Pi * f*df; //  f_Hz = f*df
-	  a = std::abs(F);
+	  a = std::abs(F) * icg_correction[f];
 	  
 	  _alpha = alpha(time_block, f) = a - 1/a;
 	  _delta = delta(time_block, f) = - std::arg(F)/omega;
@@ -948,7 +958,7 @@ int main(int argc, char **argv)
   opt.setOption("FFT_N",'N');
   opt.setOption("FFT_slide",'s');
   opt.setOption("window",'w');
-  
+  opt.setOption("icg");
 
   opt.setOption("log", 'l');
   opt.setOption("ibm_log", 'i');
@@ -1128,7 +1138,7 @@ int main(int argc, char **argv)
 
 
 
-  const real FFT_df = sample_rate_Hz / (real) FFT_pN;
+  const real FFT_df = sample_rate_Hz / (double) (FFT_pN);
 
   /*
   Buffer<real> Omega(FFT_N/2);
@@ -1144,7 +1154,6 @@ int main(int argc, char **argv)
 			     _DUET.Fmax-1);
   if (_DUET.Fmin < 1)
     _DUET.Fmin = 1;
-
 
   FFT_flags = FFTW_ESTIMATE; // Use wisdom + FFTW_EXHAUSTIVE later!
 
@@ -1217,6 +1226,27 @@ int main(int argc, char **argv)
 
   const DUETcfg DUET = _DUET; // Make every parameter constant to avoid mistakes
 
+  static Buffer<real> f_range(FFT_pN/2);
+  for (int f=0; f < FFT_pN/2;++f)
+    f_range[f] = f*FFT_df;
+
+  printf("df=%g [0:%g] \n", FFT_df, f_range[FFT_pN/2-1]);
+  wait();
+
+  Gnuplot picg;
+  // Apply the inverse so it can be multiplied to a, which is faster.
+  Buffer<real> icg_correction(FFT_N/2,1); 
+  
+  if (opt.Option("icg"))
+    {
+      Interpolation<real> icg_table(opt.getOption("icg"));
+      for (int i=DUET.Fmin; i < DUET.Fmax; ++i)
+	icg_correction[i] = 1/icg_table.interpolation(FFT_df * i);
+      /*
+      if (o.i("show_icg", Warn))
+	picg.plot(&f_range[DUET.Fmin], &icg_correction[DUET.Fmin],DUET.Fmax-DUET.Fmin,"inverse icg-interpolated correction table");
+      */
+    }
 
   // For the histogram smoothing.
   puts("Gen kernels");
@@ -1309,7 +1339,7 @@ int main(int argc, char **argv)
       hist.clear();
       hist_alpha.clear();
       hist_delta.clear();
-      calc_alpha_delta(time_block, FFT_pN, sample_rate_Hz, X1, X2, alpha, delta, hist, hist_alpha, hist_delta, DUET);
+      calc_alpha_delta(time_block, FFT_pN, sample_rate_Hz, X1, X2, alpha, delta, hist, hist_alpha, hist_delta, DUET, icg_correction);
 
       /*
 	static Histogram2D<real> prod_hist(hist), diff_hist(hist);
@@ -1495,9 +1525,6 @@ int main(int argc, char **argv)
 	  
 
 		  static Gnuplot pa, pd;
-		  static Buffer<real> f_range(FFT_pN);
-		  for (int f=0; f < FFT_pN;++f)
-		    f_range[f] = f*FFT_df;
 
 		  if (o.i("show_alpha_delta_f"))
 		    {

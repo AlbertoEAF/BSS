@@ -15,8 +15,8 @@ def error(msg):
     print(msg)
     exit(1)
 
-if len(sys.argv) != 2: 
-    error("Usage: alpha_delta.py <file_in_structured_path>") 
+if len(sys.argv) < 2: 
+    error("Usage: alpha_delta.py <file_in_structured_path> [-polar-preprint]") 
 
 def degrees2rad(degrees): 
     return pi/180.0 * degrees
@@ -81,6 +81,9 @@ s_y = y - y_offset # In real systems due to the small microphone support the mic
 
 true_r     = abs( (s_x,s_y) , (0,0) )
 true_angle = atan( s_x / s_y )
+
+if len(sys.argv ) > 2:
+    print(rad2degrees(true_angle),true_r)
 
 # Mic positions
 x2 = 0.5 * d_mics

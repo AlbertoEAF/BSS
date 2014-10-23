@@ -1230,8 +1230,7 @@ int main(int argc, char **argv)
   for (int f=0; f < FFT_pN/2;++f)
     f_range[f] = f*FFT_df;
 
-  printf("df=%g [0:%g] \n", FFT_df, f_range[FFT_pN/2-1]);
-  wait();
+  printf("df=%g\n", FFT_df);
 
   Gnuplot picg;
   // Apply the inverse so it can be multiplied to a, which is faster.

@@ -60,7 +60,7 @@ void RENDER_HIST(const std::string &filepath, const std::string &title, bool pau
   cmd += filepath;
   cmd += "\\\" u 1:(\\$2*1000000.):3 w pm3d title \\\"";
   cmd += title;
-  cmd += "\\\", \\\"s.dat\\\" u 1:(\\$2*1000000.):3 pt 7 ps .9 title \\\"Simulation clusters\\\", \\\"s_duet.dat\\\" u 1:(\\$2*1000000.):3 pt 8 ps .8 title \\\"DUET clusters\\\"; set xlabel \\\"{/Symbol a}\\\"; set ylabel \\\"{/Symbol d} ({/Symbol m}s)\\\"; set xtics mirror; set ytics mirror; refresh;";
+  cmd += "\\\", \\\"s.dat\\\" u 1:(\\$2*1000000.):3 pt 7 ps .9 title \\\"Theoretical clusters\\\", \\\"s_duet.dat\\\" u 1:(\\$2*1000000.):3 pt 8 ps .8 title \\\"DUET clusters\\\"; set xlabel \\\"{/Symbol a}\\\"; set ylabel \\\"{/Symbol d} ({/Symbol m}s)\\\"; set xtics mirror; set ytics mirror; refresh;";
   if (pause)
     cmd += "pause -1";
   cmd += "\"";

@@ -1088,10 +1088,11 @@ int main(int argc, char **argv)
   _DUET.FFT_p = o.i("FFT_oversampling_factor");
   _DUET.FFT_pN = _DUET.FFT_p * _DUET.FFT_N;
   const idx FFT_pN = _DUET.FFT_pN;
+  const idx FFT_p = _DUET.FFT_p;
 
-  const idx time_blocks = div_up(samples_input-FFT_N,FFT_slide) + 1;
+  const idx time_blocks = div_up(samples_input-FFT_pN,FFT_slide) + 1;
   // If it's samples_input % block != 0, samples_all>samples_input
-  const size_t samples_all = time_blocks*FFT_slide+(FFT_N-FFT_slide);
+  const size_t samples_all = time_blocks*FFT_slide+(FFT_pN-FFT_slide);
 
   Buffer<real> x1_wav(samples_all,0,fftw_malloc,fftw_free), x2_wav(x1_wav);
   x1_file.read(x1_wav(), samples_input);
@@ -1234,7 +1235,7 @@ int main(int argc, char **argv)
 
   Gnuplot picg;
   // Apply the inverse so it can be multiplied to a, which is faster.
-  Buffer<real> icg_correction(FFT_N/2,1); 
+  Buffer<real> icg_correction(FFT_pN/2,1); 
   
   if (opt.Option("icg"))
     {
@@ -1325,9 +1326,10 @@ int main(int argc, char **argv)
 	    }
 	}
 
+    
       fftw_execute(xX1_plan);
       fftw_execute(xX2_plan);
-      
+
       // Keep the record of X1 for all time for later audio reconstruction
       for (idx f = 0; f < FFT_pN; ++f)
 	{
@@ -1513,7 +1515,7 @@ int main(int argc, char **argv)
 		{
 		  static Gnuplot px1;
 		  if (o.i("show_x1W"))
-		    px1.replot(x1(),FFT_N,"x1*W");
+		    px1.replot(x1(),FFT_pN,"x1*W");
 		  if (o.i("reset_plots"))
 		    {
 		      palpha.reset();
@@ -1667,8 +1669,9 @@ int main(int argc, char **argv)
 
   if (STATIC_REBUILD)
     {
+      
       // Build the masks and rebuild the signals
-      for (idx t_block = 0; t_block < time_blocks; ++t_block)
+      for (idx t_block = first_tb; t_block < time_blocks; ++t_block)
 	{
 	  old_buffers = bufs.read();
 	  new_buffers = bufs.next();
@@ -1676,12 +1679,23 @@ int main(int argc, char **argv)
       
 	  apply_single_masks(*new_buffers, X1_history(t_block), X2_history(t_block), masks, cumulative_clusters.values, N_clusters, FFT_pN, FFT_df, Xxo_plan, Xo, DUET);
 
+	  if (DUET.FFT_p > 1)
+	    {
+	      static Gnuplot pgp;
+	      pgp.replot(new_buffers->raw(0),FFT_pN,"buffer");
+	      wait();
+	    }
+
 	  // Explicitly use the initial region FFT_N and exclude the padding FFT_pN.
 	  
 	  // STFT correction part 1/2: Multiply iFFT by W.
 	  if (APPLY_STFT_CORRECTION)
 	    for (unsigned int n=0; n<new_buffers->buffers(); ++n)
-	      *(*new_buffers)(n) *= W;
+	      {
+		for (size_t i=0; i < FFT_N; ++i)
+		  //*(*new_buffers)(n) *= W;
+		  new_buffers->raw(n)[i] *= W[i];
+	      }
 	  
 	  write_data(wav_out, new_buffers, FFT_N, FFT_slide);	  
 	  //      swap(bufs_ptr, bufs_ptr2);
@@ -1701,10 +1715,10 @@ int main(int argc, char **argv)
   system("rm -f x*_rebuilt.wav ibmx*_rebuilt.wav");
 
   // IBM masks from mix using true sources knowledge (static and dynamic are rebuilt here)
-  Buffers<real> ibm_X_bufs(original_waves_x1.buffers(),FFT_N,fftw_malloc,fftw_free); 
+  Buffers<real> ibm_X_bufs(original_waves_x1.buffers(),FFT_pN,fftw_malloc,fftw_free); 
  
  
-  Buffers<bool> ibm_masks(original_waves_x1.buffers(),FFT_N/2,false,fftw_malloc,fftw_free); // By default are not assigned (false)
+  Buffers<bool> ibm_masks(original_waves_x1.buffers(),FFT_pN/2,false,fftw_malloc,fftw_free); // By default are not assigned (false)
 
   for (size_t tb=0; tb < (size_t)time_blocks; ++tb)
     {
@@ -1712,10 +1726,13 @@ int main(int argc, char **argv)
 
       for (int n=0; n < N; ++n)
 	{
-	  static Buffer<real> x_buf(FFT_N,0,fftw_malloc,fftw_free);
+	  static Buffer<real> x_buf(FFT_pN,0,fftw_malloc,fftw_free);
 	  fftw_execute_r2r(Xxo_plan, ibm_X_bufs.raw(n), x_buf());
 	  if (APPLY_STFT_CORRECTION)
-	    x_buf *= W;
+	    //x_buf *= W;
+	    for (size_t t=0; t < FFT_N; ++t)
+	      x_buf[t] *= W[t];
+
 	  ibm_out(n)->add_at(x_buf, tb*FFT_slide);
 	}
     }

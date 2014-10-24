@@ -1433,12 +1433,12 @@ int main(int argc, char **argv)
 
 		}
 
-
+	      
 	      static Histogram<real> alpha_level_pdf(100, HistogramBounds::Bounded);
 	      static Histogram<real> delta_level_pdf(100, HistogramBounds::Bounded);
 
-	      alpha_level_pdf.stretch(0, chist_alpha.max_value());
-	      delta_level_pdf.stretch(0, chist_delta.max_value());
+	      alpha_level_pdf.stretch(0, std::max(chist_alpha.max_value(),0.01));
+	      delta_level_pdf.stretch(0, std::max(chist_delta.max_value(),0.01));
 
 	      for (unsigned int bin_alpha=0; bin_alpha < chist_alpha.bins(); ++bin_alpha)
 		alpha_level_pdf( chist_alpha.bin(bin_alpha) ) += 1/(real)chist_alpha.bins();

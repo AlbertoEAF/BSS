@@ -1669,9 +1669,8 @@ int main(int argc, char **argv)
 
   if (STATIC_REBUILD)
     {
-      
-      // Build the masks and rebuild the signals
-      for (idx t_block = first_tb; t_block < time_blocks; ++t_block)
+      // Build the masks and rebuild the signals (the first blocks before "first_tb" need not be rebuilt but starting at the block 0 mantains the absolute time instead of shifting the signal to the beginning, given that write_data, which has an internal sample counter is used).
+      for (idx t_block = 0; t_block < time_blocks; ++t_block)
 	{
 	  old_buffers = bufs.read();
 	  new_buffers = bufs.next();
@@ -1692,13 +1691,15 @@ int main(int argc, char **argv)
 	  if (APPLY_STFT_CORRECTION)
 	    for (unsigned int n=0; n<new_buffers->buffers(); ++n)
 	      {
-		for (size_t i=0; i < FFT_N; ++i)
-		  //*(*new_buffers)(n) *= W;
-		  new_buffers->raw(n)[i] *= W[i];
+		//*(*new_buffers)(n) *= W;
+		for (size_t i=0; i < FFT_N; ++i) // oversampling-compatible
+		  new_buffers->raw(n)[i] *= W[i]; 
 	      }
 	  
+	  
+
 	  write_data(wav_out, new_buffers, FFT_N, FFT_slide);	  
-	  //      swap(bufs_ptr, bufs_ptr2);
+	  
 	}		      
 
       // STFT correction part 2/2: Normalize by the energy of the envelope.
@@ -1720,7 +1721,7 @@ int main(int argc, char **argv)
  
   Buffers<bool> ibm_masks(original_waves_x1.buffers(),FFT_pN/2,false,fftw_malloc,fftw_free); // By default are not assigned (false)
 
-  for (size_t tb=0; tb < (size_t)time_blocks; ++tb)
+  for (size_t tb=first_tb; tb < (size_t)time_blocks; ++tb)
     {
       build_and_apply_multi_mono_ibm_masks(ibm_masks, ibm_X_bufs, original_waves_x1, tb*FFT_slide, X1_history(tb), FFT_N, xX1_plan, W, o.f("Phi_x"),DUET);
 
@@ -1728,10 +1729,13 @@ int main(int argc, char **argv)
 	{
 	  static Buffer<real> x_buf(FFT_pN,0,fftw_malloc,fftw_free);
 	  fftw_execute_r2r(Xxo_plan, ibm_X_bufs.raw(n), x_buf());
+
 	  if (APPLY_STFT_CORRECTION)
-	    //x_buf *= W;
-	    for (size_t t=0; t < FFT_N; ++t)
-	      x_buf[t] *= W[t];
+	    {
+	      //x_buf *= W; but  compatible with oversampling
+	      for (size_t t=0; t < FFT_N; ++t) 
+	        x_buf[t] *= W[t];
+	    } 
 
 	  ibm_out(n)->add_at(x_buf, tb*FFT_slide);
 	}

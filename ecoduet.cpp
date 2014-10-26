@@ -163,7 +163,8 @@ void calc_alpha_delta(idx time_block, idx pN, idx sample_rate_Hz,
 	  _alpha = alpha(time_block, f) = a - 1/a;
 	  _delta = delta(time_block, f) = - std::arg(F)/omega;
 
-	  DUET_hist_add_score(hist, hist_alpha, hist_delta, _alpha, _delta, X1[f],X1[fI], X2[f],X2[fI], omega, DUET);
+	  if (DUET.histFmin < f && f < DUET.histFmax)
+	    DUET_hist_add_score(hist, hist_alpha, hist_delta, _alpha, _delta, X1[f],X1[fI], X2[f],X2[fI], omega, DUET);
 	}
     }
 }
@@ -446,7 +447,7 @@ void apply_multi_masks(Buffers<real> &buffers, real *X1, real *X2, Buffers<bool>
 }
 
 
-void LDMB2C(StreamSet &Streams, IdList &active_streams, Buffers<real> *new_buffers, Buffer<Point2D<real> > &clusters_pos, int N_clusters, idx time_block, Buffer<real> &W, Buffer<int> &C, const DUETcfg &DUET)
+void LDMB2C(StreamSet &Streams, IdList &active_streams, Buffers<real> *new_buffers, Buffer<Point2D<real> > &clusters_pos, int N_clusters, idx time_block, Buffer<real> &W, Buffer<int> &C, const DUETcfg &DUET, real confidence_factor_alpha, real confidence_factor_delta)
 {
   static const int MAX_CLUSTERS = DUET.max_clusters;
   static const int MAX_ACTIVE_STREAMS = DUET.max_active_streams;
@@ -487,7 +488,7 @@ void LDMB2C(StreamSet &Streams, IdList &active_streams, Buffers<real> *new_buffe
       for (int j=0; j < N_clusters; ++j)
 	{
 	  // D
-	  D (s,j) = Lambda_distance(Streams.pos(id),clusters_pos[j]);
+	  D (s,j) = Lambda_distance(Streams.pos(id),clusters_pos[j],DUET.sigma_alpha, DUET.sigma_delta);
 
 	  // A0 (with complementary windows applied)
 	  // Since streams haven't been assigned yet, streams assigned right at the last block have a difference of 1.
@@ -560,7 +561,7 @@ void LDMB2C(StreamSet &Streams, IdList &active_streams, Buffers<real> *new_buffe
 	  D.min_index(s,j, active_streams.N(), N_clusters);
 
 	  real d(D(s,j));
-
+	  printf(CYAN "%g\n" GREEN, d);
 	  if ( d < DUET.max_Lambda_distance ) // Life
 	    {
 	      int id(active_streams[s]);
@@ -580,7 +581,7 @@ void LDMB2C(StreamSet &Streams, IdList &active_streams, Buffers<real> *new_buffe
 	      A0.fill_col_with(j, -FLT_MAX);
 	      D .fill_col_with(j,  FLT_MAX);
 
-	      printf("%d@%lu ", id, j);
+	      printf("%d@%lu (%g %g) -> (%g %g) ", id, j, Streams.pos(id).x, Streams.pos(id).y, clusters_pos[j].x, clusters_pos[j].y);
 	    }
 	  else
 	    break; // no more a0 > A0MIN	      
@@ -971,7 +972,7 @@ int main(int argc, char **argv)
       printf("Usage:\n\tPrgm [-x1 x] [-x2 x] [-FFT_N N] [-w/--window type] file.duet\n\n");
       exit(1);
     }
- 
+
   const bool APPLY_STFT_CORRECTION = ! opt.getFlag("noSTFTcorrection");
 
   std::string logpath = opt.getOption("log");
@@ -980,6 +981,7 @@ int main(int argc, char **argv)
   
 
   Options o(argv[arg0], Quit, 0);
+
 
   DUETcfg _DUET; // Just to initialize, then a const DUET is initialized from this one.
 
@@ -1000,6 +1002,21 @@ int main(int argc, char **argv)
   _DUET.multiple_assign = o.i("multicluster_assign");
 
   int N_accum = o.i("N_accum_frames"); // how many frames should be accumulated.
+
+
+  enum class LambdaDistanceType: std::int8_t { Standard, Alpha, Delta, Modified };
+  LambdaDistanceType LambdaDistance;
+  if      (o("Lambda_distance") == "Standard")
+    LambdaDistance = LambdaDistanceType::Standard;
+  else if (o("Lambda_distance") == "Alpha")
+    LambdaDistance = LambdaDistanceType::Alpha;
+  else if (o("Lambda_distance") == "Delta")
+    LambdaDistance = LambdaDistanceType::Delta;
+  else if (o("Lambda_distance") == "Modified")
+    LambdaDistance = LambdaDistanceType::Modified;
+  else
+    Guarantee(0, "LambdaDistance '%s' doesn't exist.", o("Lambda_distance").c_str());
+
 
   //  int WAIT = o.i("wait");
 
@@ -1147,14 +1164,18 @@ int main(int argc, char **argv)
     Omega[k] = _2Pi*k*FFT_df;
   */
 
-  _DUET.Fmax = std::min<int>(o.f("DUET.high_cutoff_Hz")/FFT_df, 
-			     int(FFT_pN/2));
+  _DUET.Fmax = std::min<int>(o.f("DUET.high_cutoff_Hz")/FFT_df, int(FFT_pN/2));
   if (_DUET.Fmax <= 2)
     _DUET.Fmax = FFT_pN/2;
-  _DUET.Fmin = std::min<int>(o.f("DUET.low_cutoff_Hz")/FFT_df, 
-			     _DUET.Fmax-1);
+  _DUET.Fmin = std::min<int>(o.f("DUET.low_cutoff_Hz")/FFT_df, _DUET.Fmax-1);
   if (_DUET.Fmin < 1)
     _DUET.Fmin = 1;
+
+
+  _DUET.histFmax = std::min<int>(o.f("DUET.hist.high_cutoff_Hz")/FFT_df, _DUET.Fmax);
+  _DUET.histFmin = std::min<int>(o.f("DUET.hist.low_cutoff_Hz")/FFT_df, _DUET.histFmax-1);
+
+ 
 
   FFT_flags = FFTW_ESTIMATE; // Use wisdom + FFTW_EXHAUSTIVE later!
 
@@ -1466,10 +1487,33 @@ int main(int argc, char **argv)
 		  peaks_alpha[n] = clusters.values[n].x;
 		  peaks_delta[n] = clusters.values[n].y;
 		}
+	      
+	      real confidence_alpha = confidence(chist_alpha,peaks_alpha,N_clusters,DUET.sigma_alpha);
+	      real confidence_delta = confidence(chist_delta,peaks_delta,N_clusters,DUET.sigma_delta);
 	      printf(GREEN "Confidences: %g  %g\n" NOCOLOR, 
-		     confidence(chist_alpha,peaks_alpha,N_clusters,DUET.sigma_alpha),
-		     confidence(chist_delta,peaks_delta,N_clusters,DUET.sigma_delta));
+		     confidence_alpha, confidence_delta);
 
+	      static real confidence_factor_alpha, confidence_factor_delta;
+	      switch (LambdaDistance)
+		{
+		case LambdaDistanceType::Standard:
+		  confidence_factor_alpha = 0.5;
+		  confidence_factor_delta = 0.5;
+		  break;
+		case LambdaDistanceType::Alpha:
+		  confidence_factor_alpha = 1;
+		  confidence_factor_delta = 0;
+		  break;
+		case LambdaDistanceType::Delta:
+		  confidence_factor_alpha = 0;
+		  confidence_factor_delta = 1;
+		  break;
+		case LambdaDistanceType::Modified:
+		  real total_confidence = confidence_alpha + confidence_delta;
+		  confidence_factor_alpha = confidence_alpha/total_confidence;
+		  confidence_factor_delta = confidence_delta/total_confidence;
+		  break;
+		}
 
 	      // In the file ending we might not be able to accumulate as much as N_accum blocks.
 	      if (time_block == time_blocks-1)
@@ -1491,7 +1535,8 @@ int main(int argc, char **argv)
 
 		  if (tb == tb0) // This generates the class assignments C.
 		    LDMB2C (Streams, active_streams, new_buffers, 
-			    clusters.values, N_clusters, tb0, W, C, DUET);
+			    clusters.values, N_clusters, tb0, W, C, DUET,
+			    confidence_factor_alpha, confidence_factor_delta);
 
 		  // Add the separated buffers to the streams.
 		  for (int j = 0; j < N_clusters; ++j)
@@ -1861,7 +1906,7 @@ int main(int argc, char **argv)
     {
       if (! STATIC_REBUILD)
 	{
-	  static Gnuplot pTalpha, pTdelta, pT;
+	  static Gnuplot pTalpha("points"), pTdelta("points"), pT;
 	  draw_trajectories (Streams, time_blocks, Ts*FFT_slide, pTalpha, pTdelta, pT);
 	}
 

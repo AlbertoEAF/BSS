@@ -19,6 +19,8 @@ struct DUETcfg
   int FFT_p; // The FFT oversampling factor.
 
   int Fmax, Fmin; // For speech usage this is more than enough (short int goes up to 32767)
+  //  int histFmax, histFmin; // For the histogram filter
+  int histFmax, histFmin;
 
   bool use_window; // we'll always use a window from now on
   //  int window_type;
@@ -45,6 +47,8 @@ struct DUETcfg
   int max_clusters;
   int max_active_streams;
   bool multiple_assign;
+
+
 };
 
 #endif // DUETstruct

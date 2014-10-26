@@ -99,6 +99,11 @@ real Lambda_distance(Point2D<real> &a, Point2D<real> &b)
   return std::abs(a.y-b.y);
 }
 
+real Lambda_distance(Point2D<real> &a, Point2D<real> &b, real sigmax, real sigmay, real stretch_factor_x=1, real stretch_factor_y=1)
+{
+  return std::sqrt( std::pow((a.x-b.x)/(sigmax), 2)*stretch_factor_x + std::pow((a.y-b.y)/(sigmay),2)*stretch_factor_y );
+}
+
 template <class T> T blocks (T n, T block_size)
 {
   return n/block_size + ( n % block_size ? 1:0 );
